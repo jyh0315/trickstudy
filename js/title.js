@@ -16,7 +16,7 @@ function show(done) {
   root.innerHTML = `
     <div class="ttl-bg" style="background-image:url('assets/bg/${s.bg || "trickcal"}.jpg')"></div>
     <div class="ttl-logo"><span class="l1">교주님,</span><span class="l2">공부하세요!</span><span class="l3">RE:STUDY</span></div>
-    <div class="ttl-ver">Ver 1.1 · 교주 전용</div>
+    <div class="ttl-ver">Ver 1.2 · 교주 전용</div>
     <div class="ttl-copy">♥ Trickcal fan-made study</div>
     <div class="ttl-face" id="ttl-face">
       <img id="ttl-img" src="${src}" alt="" draggable="false">
@@ -24,13 +24,16 @@ function show(done) {
       <span class="ttl-hand">👌</span>
       <span class="ttl-pop" id="ttl-pop">뾰옹~!</span>
     </div>
-    <div class="ttl-hint" id="ttl-hint">볼을 잡아당겨서 시작하기!</div>`;
+    <div class="ttl-hint" id="ttl-hint">볼을 잡아당겨서 시작하기!</div>
+    <div class="ttl-dday hidden" id="ttl-dday"></div>`;
   document.body.appendChild(root);
   document.body.classList.add("title-open");
 
   const face = root.querySelector("#ttl-face"), img = root.querySelector("#ttl-img");
   const cv = root.querySelector("#ttl-cv"), g = cv.getContext("2d", { willReadFrequently: true });
   const hint = root.querySelector("#ttl-hint");
+  renderDday(root.querySelector("#ttl-dday"));
+  const ddTimer = setInterval(() => renderDday(root.querySelector("#ttl-dday")), 1000);
   const W = cv.width, H = cv.height, R = W * 0.42;
   let srcData = null, out = null, canWarp = true;
   let drag = null; // { gx, gy, sx, sy, dx, dy }
@@ -129,7 +132,7 @@ function show(done) {
       root.classList.add("bye");
       document.body.classList.remove("title-open");
       if (window.BGM) window.BGM.onStart(); // 사용자 조작 직후라 자동재생 가능
-      setTimeout(() => { root.remove(); done(); }, 550);
+      setTimeout(() => { clearInterval(ddTimer); root.remove(); done(); }, 550);
     };
     if (d) springBack(d, go); else go();
   }
@@ -138,6 +141,25 @@ function show(done) {
     if (e.key === "Enter" || e.key === " ") { e.preventDefault(); document.removeEventListener("keydown", onKey); finish(null); }
   };
   document.addEventListener("keydown", onKey);
+}
+/* 시작 화면 D-day 보드: 가장 가까운 D-day는 크게 + 실시간 카운트다운 */
+function renderDday(el) {
+  if (!el || !window.Schedule) return;
+  const list = window.Schedule.ddSorted().filter((d) => d.dayDiff >= 0 && (d.leftMin > 0 || !d.x.time));
+  el.classList.toggle("hidden", !list.length);
+  if (!list.length) return;
+  const esc = TS.esc, [top, ...rest] = list;
+  const left = (d) => {
+    if (d.leftMin <= 0) return "오늘이에요!";
+    const s = Math.floor(d.leftMin * 60), day = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60);
+    return day ? `${day}일 ${h}시간 ${m}분 남음` : `${h}시간 ${m}분 ${s % 60}초 남음`;
+  };
+  el.className = "ttl-dday" + (top.dayDiff <= 3 ? " soon" : "");
+  el.innerHTML = `
+    <div class="ttl-dd-head">📌 D-day</div>
+    <div class="ttl-dd-top"><b>${top.label}</b><span>${esc(top.x.title)}</span></div>
+    <div class="ttl-dd-left">${left(top)}</div>
+    ${rest.length ? `<ul>${rest.slice(0, 3).map((d) => `<li class="${d.dayDiff <= 3 ? "soon" : ""}"><b>${d.label}</b>${esc(d.x.title)}</li>`).join("")}</ul>` : ""}`;
 }
 window.TitleScreen = { show };
 })();
