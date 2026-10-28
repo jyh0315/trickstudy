@@ -13,6 +13,15 @@ const rand = (arr) => arr[Math.floor(Math.random() * arr.length)];
 const esc = (s) => String(s).replace(/[&<>"']/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]));
 const pad = (n) => String(n).padStart(2, "0");
 
+/* ───── 모듈용 훅 (boss.js, affection.js 등이 사용) ───── */
+const hooks = {};
+const on = (ev, fn) => (hooks[ev] = hooks[ev] || []).push(fn);
+const emit = (ev, data) => (hooks[ev] || []).forEach((fn) => { try { fn(data); } catch (e) { console.error(ev, e); } });
+const views = {};          // 모듈이 추가하는 화면: views[name] = renderFn
+const lineHooks = [];      // (c, kind) => 추가 대사 배열
+const chatterHooks = [];   // () => 말할 거리 문자열 | null
+const detailHooks = [];    // (c) => 사도 상세 모달에 넣을 HTML
+
 /* ───── 날짜 ───── */
 const dateKey = (d = new Date()) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const today = () => dateKey();
@@ -69,7 +78,8 @@ function fmt(text, c) {
   return text.replace(/\{name\}(는|은|가|이|를|을|와|과)?/g, (_, j) => n + (j ? J[j] : ""))
     .replace(/\{me\}/g, state.name);
 }
-const linesOf = (c, kind) => (SPECIAL_LINES[c.id] && SPECIAL_LINES[c.id][kind]) || PERS[c.pers][kind];
+const baseLines = (c, kind) => (SPECIAL_LINES[c.id] && SPECIAL_LINES[c.id][kind]) || PERS[c.pers][kind];
+const linesOf = (c, kind) => [...baseLines(c, kind), ...lineHooks.flatMap((fn) => fn(c, kind) || [])];
 const titleOf = (c) => (SPECIAL_LINES[c.id] && SPECIAL_LINES[c.id].title) || `${PERS[c.pers].label} 성격의 사도`;
 const stars = (r) => "★".repeat(r);
 
@@ -176,6 +186,7 @@ function addExp(n) {
     const next = BACKGROUNDS.find((b) => !state.unlockedBg.includes(b.id));
     if (next) state.unlockedBg.push(next.id);
     levelUpModal(state.level, next);
+    emit("levelup", state.level);
   }
 }
 function levelUpModal(lv, bg) {
@@ -262,6 +273,8 @@ function chatter() {
   const t = state.timer;
   if (t.running && t.mode === "focus") return sayKind("cheer");
   if (t.running && t.mode === "break") return say(rand(["푹 쉬어요~ 스트레칭도 하고!", "물 한 잔 마셔요!", "휴식도 공부의 일부예요."]));
+  const extra = chatterHooks.map((fn) => fn()).filter(Boolean);
+  if (extra.length && Math.random() < 0.4) return say(rand(extra));
   if (Math.random() < 0.45) return say(recommend().say);
   sayKind("idle");
 }
@@ -275,6 +288,7 @@ function poke() {
   sfx("poke");
   sayKind("poke");
   state.stats.pokes++; state.daily.poke++;
+  emit("poke", state.partner);
   save(); refresh();
 }
 
@@ -317,6 +331,7 @@ function go(v) {
     v = "timer";
   }
   view = v;
+  emit("view", v);
   document.querySelectorAll("#tabs button").forEach((b) => b.classList.toggle("on", b.dataset.view === v));
   document.querySelectorAll(".view").forEach((s) => s.classList.toggle("on", s.id === "view-" + v));
   sfx("click");
@@ -329,9 +344,10 @@ function refresh() {
   rollover();
   renderTop();
   renderMini();
-  const r = { lobby: renderLobby, timer: renderTimer, todo: renderTodos, quest: renderQuests, gacha: renderGacha, sado: renderSado, stats: renderStats }[view];
+  const r = { lobby: renderLobby, timer: renderTimer, todo: renderTodos, quest: renderQuests, gacha: renderGacha, sado: renderSado, stats: renderStats, ...views }[view];
   if (r) r();
   $("dot-quest").classList.toggle("hidden", !readyQuests().length);
+  emit("refresh", view);
 }
 function renderTop() {
   $("lv").textContent = state.level;
@@ -439,6 +455,7 @@ function completeTodo(id) {
   addElif(d.elif); addExp(d.exp);
   sfx("coin");
   toast(`📜 의뢰 해결! 엘리프 +${d.elif} · EXP +${d.exp}`);
+  emit("todo", x);
   sayKind("done");
   save(); refresh();
 }
@@ -548,6 +565,8 @@ function grantFocus(min, full) {
   const c = SADO_MAP[state.partner];
   const linked = full && t.todoId ? state.todos.find((x) => x.id === t.todoId && !x.done) : null;
   const line = c ? fmt(rand(linesOf(c, full ? "done" : "fail")), c) : "";
+  const extras = [];   // 모듈이 넣는 추가 보상 칩 (보스 데미지, 호감도 등)
+  emit("focus", { min, full, subject: t.subject, partner: state.partner, extras });
   sfx(full ? "done" : "coin");
   if (full) confetti(50);
   modal(`<h2>${full ? "집중 완료!" : "중간 정산"}</h2>
@@ -557,6 +576,7 @@ function grantFocus(min, full) {
       <span class="reward-chip">📚 ${min}분</span>
       <span class="reward-chip"><i class="ic-elif"></i>+${elif}</span>
       <span class="reward-chip">⭐ EXP +${exp}</span>
+      ${extras.map((x) => `<span class="reward-chip">${x}</span>`).join("")}
     </div>
     ${linked ? `<p>연결된 의뢰 “<b>${esc(linked.text)}</b>”도 끝냈나요?</p>` : ""}
     <div class="modal-actions">
@@ -625,6 +645,7 @@ function pull(n) {
     return { c, ...acquire(c) };
   });
   state.stats.pulls += n;
+  emit("pull", results);
   state.history = [...results.map((x) => x.c.id).reverse(), ...state.history].slice(0, 40);
   save();
   gachaShow(results);
@@ -735,6 +756,7 @@ function sadoDetail(id) {
     <p style="margin:4px 0;color:var(--ink-soft)">${esc(c.en)} · ${o ? esc(titleOf(c)) : "아직 만나지 못한 사도예요."}</p>
     ${o ? `<p>“${esc(fmt(rand(linesOf(c, "idle")), c))}”</p>` : ""}
     ${emotes}
+    ${o ? detailHooks.map((fn) => fn(c)).join("") : ""}
     <div class="modal-actions">
       ${o && state.partner !== id ? '<button class="btn yellow" id="m-partner">💛 대표 사도로 설정</button>' : ""}
       ${o && state.partner === id ? '<span class="tag" style="background:var(--yellow);font-size:15px;padding:6px 14px">💛 지금 대표 사도</span>' : ""}
@@ -743,7 +765,7 @@ function sadoDetail(id) {
     ${!o ? `<p class="hint">별사탕 ${state.candy} / ${cost}</p>` : ""}`,
     (el, close) => {
       const p = el.querySelector("#m-partner");
-      if (p) p.onclick = () => { state.partner = id; save(); renderPartner(); sayKind("idle"); close(); refresh(); };
+      if (p) p.onclick = () => { state.partner = id; save(); renderPartner(); emit("partner", id); sayKind("idle"); close(); refresh(); };
       const x = el.querySelector("#m-ex");
       if (x) x.onclick = () => {
         if (state.candy < cost) return;
@@ -763,6 +785,7 @@ function renderBg() {
 
 /* ───── 기록 ───── */
 function renderStats() {
+  emit("stats");
   const s = state.stats, h = Math.floor(s.totalMin / 60), m = s.totalMin % 60;
   $("stat-cards").innerHTML = [
     ["⏱️", `${h}시간 ${m}분`, "누적 집중"],
@@ -954,28 +977,47 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") { const x = document.querySelector(".modal .x"); if (x) x.click(); }
 });
 
+/* ───── 모듈 공개 API ───── */
+window.TS = {
+  get state() { return state; }, get view() { return view; }, get modalOpen() { return modalOpen; },
+  save, refresh, go, on, emit, views, lineHooks, chatterHooks, detailHooks,
+  modal, confirmModal, toast, confetti, sfx, say, sayKind, renderPartner,
+  addElif, addExp, addCandy, esc, rand, pad, dateKey, today, weekKey, daysAgo,
+  SADO_MAP, linesOf, fmt, portrait, chibiSrc, stars, shortName,
+  timer: { left: timerLeft, dur: timerDur, start: startTimer, pause: pauseTimer, mmss, get t() { return state.timer; } },
+};
+
 /* ───── 시작 ───── */
 applyBg();
 $("banner").style.backgroundImage = 'url("assets/bg/2year-anniversary.jpg")';
 $("banner-feat").innerHTML = SADO.filter((c) => c.rarity === 3).sort(() => Math.random() - 0.5).slice(0, 3)
   .map((c, i) => `<img src="${chibiSrc(c)}" style="--r:${[-6, 3, 8][i]}deg" alt="">`).join("");
 rollover();
-if (!state.started) {
-  $("bubble-text").textContent = "누가 왔나 봐요…?";
-  $("partner-img").src = "assets/chibi/erpin.webp";
-  onboarding();
-} else {
-  renderPartner(true);
-  chatter();
+function afterTitle() {
+  if (!state.started) onboarding();
+  else chatter();
+  emit("start");
 }
-refresh();
+function boot() {
+  if (!state.started) {
+    $("bubble-text").textContent = "누가 왔나 봐요…?";
+    $("partner-img").src = "assets/chibi/erpin.webp";
+  } else renderPartner(true);
+  emit("boot");
+  refresh();
+  if (window.TitleScreen) window.TitleScreen.show(afterTitle);
+  else afterTitle();
+}
+document.addEventListener("DOMContentLoaded", boot);
 
 // 타이머 틱 (탭을 닫았다 열어도 endAt 기준으로 계산)
-setInterval(() => {
+function tick() {
   const t = T();
   if (t.running && Date.now() >= t.endAt) timerComplete();
   else if (t.running || view === "timer") updateClock();
-}, 250);
+}
+window.TS.tick = tick; // 백그라운드에서도 정확하도록 pip.js의 워커가 1초마다 호출
+setInterval(tick, 250);
 // 사도 잡담 & 날짜 넘어가면 갱신
 setInterval(() => { if (!modalOpen && !document.hidden) chatter(); }, 18000);
 setInterval(() => { if (rollover()) refresh(); }, 60000);

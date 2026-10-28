@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Jua&family=Gowun+Dodum&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/style.css?v=1.1">
 </head>
 <body>
   <div id="bg" aria-hidden="true"></div>
@@ -33,6 +33,7 @@
     <div class="bgm-panel hidden" id="bgm-panel">
       <h3>🎵 배경음악</h3>
       <div class="bgm-now" id="bgm-now">아직 음악이 없어요</div>
+      <div class="bgm-ctx" id="bgm-ctx"></div>
       <div class="bgm-ctrl">
         <button class="btn white small" id="bgm-prev" title="이전 곡">⏮</button>
         <button class="btn yellow" id="bgm-play" title="재생/정지">▶</button>
@@ -41,9 +42,11 @@
         <input type="range" id="bgm-vol" min="0" max="100" title="볼륨">
       </div>
       <ul class="bgm-list" id="bgm-list"></ul>
+      <label class="check"><input type="checkbox" id="bgm-auto"> 상황에 맞게 자동 전환 (집중·휴식·보스·로비)</label>
       <label class="check"><input type="checkbox" id="bgm-with-timer"> 타이머 시작하면 같이 재생, 멈추면 정지</label>
+      <label class="check"><input type="checkbox" id="bgm-onstart"> 시작 화면에서 볼 당기면 바로 재생</label>
       <label class="btn pink file wide">📂 내 PC 음악 추가<input type="file" id="bgm-file" accept="audio/*" multiple></label>
-      <p class="hint">추가한 음악은 이 브라우저에 저장돼요. 단축키: <b>M</b> = 재생/정지</p>
+      <p class="hint">곡 옆 메뉴에서 어떤 상황에 틀지 바꿀 수 있어요. 추가한 음악은 이 브라우저에 저장돼요. 단축키: <b>M</b> = 재생/정지</p>
     </div>
 
     <div class="wallet">
@@ -64,6 +67,11 @@
         <span class="np-pers" id="np-pers">순수</span>
         <span class="np-name" id="np-name">사도</span>
         <span class="np-stars" id="np-stars">★</span>
+        <span class="np-aff" id="np-aff" title="호감도">💗1</span>
+      </div>
+      <div class="stage-btns">
+        <button class="btn pink small" id="gift-btn">🎁 선물하기</button>
+        <button class="btn white small" id="pip-btn" title="다른 창 위에 떠 있는 작은 타이머">📺 미니 타이머</button>
       </div>
       <div class="stage-mini">
         <div class="mini-timer hidden" id="mini-timer">
@@ -84,8 +92,10 @@
         <button data-view="timer"><i>⏰</i><span>집중</span></button>
         <button data-view="todo"><i>📜</i><span>의뢰</span><em class="dot hidden" id="dot-todo"></em></button>
         <button data-view="quest"><i>🎯</i><span>임무</span><em class="dot hidden" id="dot-quest"></em></button>
+        <button data-view="boss"><i>👹</i><span>보스</span><em class="dot hidden" id="dot-boss"></em></button>
         <button data-view="gacha"><i>✉️</i><span>모집</span></button>
         <button data-view="sado"><i>📖</i><span>사도</span></button>
+        <button data-view="rank"><i>🏆</i><span>랭킹</span></button>
         <button data-view="stats"><i>📊</i><span>기록</span></button>
       </nav>
 
@@ -100,8 +110,10 @@
             <li><span>📜 남은 의뢰</span><b id="brief-todo">0개</b></li>
             <li><span>🎁 받을 보상</span><b id="brief-reward">0개</b></li>
             <li><span>✉️ 모집 가능</span><b id="brief-pulls">0회</b></li>
+            <li class="brief-boss" data-go="boss"><span>👹 <span id="brief-boss-name">주간 보스</span></span><span class="bar boss"><i id="brief-boss-bar"></i></span><b id="brief-boss">-</b></li>
           </ul>
         </div>
+        <div class="card" id="lobby-sched"></div>
         <div class="lobby-grid">
           <button class="big-btn yellow" data-go="timer"><i>⏰</i>집중 시작!<small>공부하면 엘리프가 쌓여요</small></button>
           <button class="big-btn pink" data-go="gacha"><i>✉️</i>사도 모집<small>새로운 사도를 만나요</small></button>
@@ -136,6 +148,7 @@
             <button class="btn yellow big" id="t-start">시작!</button>
             <button class="btn white big hidden" id="t-pause">일시정지</button>
             <button class="btn red hidden" id="t-stop">그만하기</button>
+            <button class="btn white" id="t-pip" title="다른 창 위에 떠 있는 작은 타이머">📺 미니 타이머</button>
           </div>
 
           <div class="timer-opts" id="timer-opts">
@@ -161,6 +174,14 @@
 
       <!-- 의뢰 (할 일) -->
       <section class="view" id="view-todo">
+        <div class="seg todo-seg" id="todo-seg">
+          <button data-t="todo" class="on">📜 의뢰</button>
+          <button data-t="tt">🗓️ 시간표</button>
+          <button data-t="dd">📌 D-day</button>
+        </div>
+        <div id="tt-pane" class="hidden"></div>
+        <div id="dd-pane" class="hidden"></div>
+        <div id="todo-pane">
         <div class="card">
           <h2 class="ribbon">의뢰 게시판</h2>
           <form class="todo-form" id="todo-form" autocomplete="off">
@@ -184,6 +205,7 @@
           <h3 class="card-title">오늘 해결함 <button class="link" id="todo-clear">완료한 일회성 의뢰 정리</button></h3>
           <ul class="todo-list done" id="todo-done"></ul>
         </div>
+        </div>
       </section>
 
       <!-- 임무 -->
@@ -199,6 +221,12 @@
           <button class="btn yellow wide hidden" id="claim-all">보상 모두 받기</button>
         </div>
       </section>
+
+      <!-- 주간 보스 -->
+      <section class="view" id="view-boss"></section>
+
+      <!-- 랭킹 -->
+      <section class="view" id="view-rank"></section>
 
       <!-- 모집 -->
       <section class="view" id="view-gacha">
@@ -255,6 +283,7 @@
       <!-- 기록 / 설정 -->
       <section class="view" id="view-stats">
         <div class="stat-cards" id="stat-cards"></div>
+        <div class="card" id="grass-card"></div>
         <div class="card">
           <h3 class="card-title">최근 7일 집중 시간</h3>
           <div class="week-chart" id="week-chart"></div>
@@ -284,9 +313,16 @@
   <div id="modal-root"></div>
   <div id="toasts"></div>
 
-  <script src="js/sado.js"></script>
-  <script src="js/data.js"></script>
-  <script src="js/app.js"></script>
-  <script src="js/bgm.js"></script>
+  <script src="js/sado.js?v=1.1"></script>
+  <script src="js/data.js?v=1.1"></script>
+  <script src="js/app.js?v=1.1"></script>
+  <script src="js/affection.js?v=1.1"></script>
+  <script src="js/boss.js?v=1.1"></script>
+  <script src="js/schedule.js?v=1.1"></script>
+  <script src="js/grass.js?v=1.1"></script>
+  <script src="js/pip.js?v=1.1"></script>
+  <script src="js/ranking.js?v=1.1"></script>
+  <script src="js/bgm.js?v=1.1"></script>
+  <script src="js/title.js?v=1.1"></script>
 </body>
 </html>
