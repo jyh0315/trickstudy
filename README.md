@@ -1,53 +1,39 @@
-# 🏰 트릭컬 스터디 — 교주님의 시험 대비
+# 교주님, 공부하세요! 📚✨
 
-트릭컬 리바이브 감성의 게이미피케이션 공부 웹앱 (개인용 팬 프로젝트).
+트릭컬 사도들과 함께하는 개인용 공부 사이트.
+공부하면 엘리프가 쌓이고, 엘리프로 사도를 모집하는 게임 같은 공부 도우미예요.
 
-| 화면 | 기능 |
-|---|---|
-| 🏰 엘리아스 | 레벨/경험치, 시험 D-Day, 오늘의 과목별 수련 현황, 대표 사도 (눌러서 볼따구 잡아당기기) |
-| ⏰ 수련장 | 과목별 집중 타이머(뽀모도로). 1분 = 💎2. 다른 탭으로 가면 딴짓 감지 → 볼따구 + 보상 감소 |
-| ⚔️ 침략전 | 문제집 푼 결과(푼 문제/맞힌 문제)를 입력 → 맞힌 문제 1개 = 10 데미지. 오답만큼 볼따구 쭈욱. 보스 HP는 저장돼서 여러 번 나눠 잡기 |
-| 🎁 모집 | 엘리프로 사도 모집(1회 💎100 / 10회 💎900, 50회 천장), 사도 도감, 중복은 크레용 → 칭호 구매 |
+## 기능
 
-## 실제 게임 이미지 넣기
+| 메뉴 | 내용 |
+| --- | --- |
+| 🏠 로비 | 대표 사도가 오늘 할 일을 알려줘요 (남은 의뢰, 목표 시간, 받을 보상). 사도 볼을 찌를 수 있음 |
+| ⏰ 집중 | 뽀모도로 타이머 (25/5, 50/10, 90/15, 직접 설정). 과목·의뢰 연결, 탭을 닫아도 계속 흐름 |
+| 📜 의뢰 | 할 일 목록. 난이도별 보상, 매일 반복 의뢰 |
+| 🎯 임무 | 일일 / 주간 임무, 업적 |
+| ✉️ 모집 | 사도 136명 뽑기. 50회 천장, 10회 모집 시 ★★ 이상 확정 |
+| 📖 사도 | 도감, 대표 사도 설정, 별사탕 교환소, 배경 일러스트 (레벨업마다 해금) |
+| 📊 기록 | 누적 시간, 연속 공부, 최근 7일 그래프, 과목별 통계, 설정, 데이터 내보내기 |
 
-- 캐릭터: `public/characters/<id>.png` (id 목록은 `public/characters/README.md`)
-  또는 `src/lib/characters.ts` 에서 `image: "https://..."`
-- 화면 배경: `public/backgrounds/home.jpg`, `training.jpg`, `battle.jpg`, `recruit.jpg`
-  또는 `src/lib/backgrounds.ts` 에서 `url`
+- 집중 1분 = 엘리프 4개 + EXP 2 → 25분 집중하면 1회 모집 가능
+- 움직이는 표정(GIF)이 있는 사도(버터, 클로에, 에르핀, 코미, 우이, 비비, 시온, 요미)는 중복으로 뽑을 때마다 표정이 해금돼요
+- 나머지 중복은 별사탕으로 바뀌고, 도감에서 원하는 사도와 교환할 수 있어요
 
-이미지가 없으면 직접 그린 SD 캐릭터와 파스텔 배경이 나옵니다.
+## 🎵 배경음악
 
-## 실행
+- 상단 🎵 버튼 → **내 PC 음악 추가**: PC에 있는 mp3를 고르면 이 브라우저에 저장돼서 다음에도 남아 있어요
+- 또는 저장소의 `assets/bgm/` 폴더에 mp3를 올리면 목록에 자동으로 나와요
+- "타이머 시작하면 같이 재생" 옵션, 셔플, 볼륨, 단축키 **M** (재생/정지)
 
-```bash
-npm install
-npm run dev
-```
+## 배포
 
-## GitHub Pages 배포
+`main` 브랜치에 push하면 `.github/workflows/deploy.yml` 이 GitHub Pages로 그대로 배포해요 (빌드 없음).
+`index.html` 을 그냥 브라우저로 열어도 동작해요.
 
-1. 저장소 Settings → Pages → Source 를 **GitHub Actions** 로 설정
-2. `main` 브랜치에 push 하면 `.github/workflows/deploy.yml` 이 자동 배포
-3. 주소: https://jyh0315.github.io/trickstudy/
+## 고치고 싶을 때
 
-## (선택) Supabase 클라우드 저장
+- `js/sado.js` — 사도 목록 (이름, 등급, 성격). 한글 이름은 영문 이름을 보고 붙인 거라 실제 게임과 다를 수 있어요
+- `js/data.js` — 대사, 확률, 보상 수치, 임무, 배경 이름
+- `css/style.css` — 디자인
 
-기본은 브라우저(localStorage) 자동 저장입니다. 다른 기기와 동기화하려면:
-
-1. Supabase 프로젝트 생성 → SQL Editor 에서 `supabase/schema.sql` 실행
-2. Authentication → Providers → **Anonymous sign-ins** 켜기
-3. GitHub 저장소 Settings → Secrets and variables → Actions → **Variables** 에
-   `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` 등록
-4. 메인 화면 맨 아래 💾 저장 카드에 클라우드 저장/불러오기 버튼이 생깁니다
-
-## 구조
-
-```
-src/app/            페이지 (page.tsx=엘리아스, training, battle, recruit)
-src/components/     AppShell(상단바·하단탭·타이머 감시), Chibi(볼따구 캐릭터), BossMonster, ui
-src/store/game.ts   Zustand 게임 상태 (재화·레벨·타이머·보스·가챠) + localStorage 저장
-src/lib/            캐릭터·보스·배경 데이터, Supabase
-```
-
-> 트릭컬 리바이브의 캐릭터·이미지 저작권은 에피드게임즈에 있습니다. 비공식 개인용 팬 프로젝트입니다.
+저장 데이터는 브라우저 localStorage에 있어요. 다른 기기로 옮길 땐 기록 → 데이터 내보내기/불러오기.

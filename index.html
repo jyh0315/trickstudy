@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>교주님, 공부하세요!</title>
+  <meta name="description" content="트릭컬 사도들과 함께하는 공부 타이머 · 퀘스트 · 사도 모집">
+  <link rel="icon" href="assets/chibi/erpin.webp">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Jua&family=Gowun+Dodum&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="bg" aria-hidden="true"></div>
+  <div id="bg-dots" aria-hidden="true"></div>
+
+  <!-- ───── 상단 바 ───── -->
+  <header class="topbar">
+    <div class="logo" title="교주님, 공부하세요!">
+      <span class="logo-main">교주님,</span><span class="logo-sub">공부하세요!</span>
+    </div>
+
+    <button class="profile" id="profile-btn" title="기록 · 설정 보기">
+      <span class="lv-badge"><small>Lv.</small><b id="lv">1</b></span>
+      <span class="profile-body">
+        <span class="profile-name" id="pname">교주</span>
+        <span class="expbar"><span id="expfill"></span><em id="exptext">0 / 100</em></span>
+      </span>
+    </button>
+
+    <button class="bgm-btn" id="bgm-btn" title="배경음악 (M 키로 재생/정지)"><span class="eq"><i></i><i></i><i></i></span>🎵</button>
+    <div class="bgm-panel hidden" id="bgm-panel">
+      <h3>🎵 배경음악</h3>
+      <div class="bgm-now" id="bgm-now">아직 음악이 없어요</div>
+      <div class="bgm-ctrl">
+        <button class="btn white small" id="bgm-prev" title="이전 곡">⏮</button>
+        <button class="btn yellow" id="bgm-play" title="재생/정지">▶</button>
+        <button class="btn white small" id="bgm-next" title="다음 곡">⏭</button>
+        <button class="btn white small" id="bgm-shuffle" title="셔플">🔀</button>
+        <input type="range" id="bgm-vol" min="0" max="100" title="볼륨">
+      </div>
+      <ul class="bgm-list" id="bgm-list"></ul>
+      <label class="check"><input type="checkbox" id="bgm-with-timer"> 타이머 시작하면 같이 재생, 멈추면 정지</label>
+      <label class="btn pink file wide">📂 내 PC 음악 추가<input type="file" id="bgm-file" accept="audio/*" multiple></label>
+      <p class="hint">추가한 음악은 이 브라우저에 저장돼요. 단축키: <b>M</b> = 재생/정지</p>
+    </div>
+
+    <div class="wallet">
+      <span class="coin" title="엘리프 — 사도 모집에 사용"><i class="ic-elif"></i><b id="elif">0</b></span>
+      <span class="coin" title="별사탕 — 중복 사도로 모아서 교환소에서 사용"><i class="ic-candy"></i><b id="candy">0</b></span>
+    </div>
+  </header>
+
+  <div class="layout">
+    <!-- ───── 대표 사도 무대 ───── -->
+    <aside class="stage" id="stage">
+      <div class="bubble" id="bubble"><span id="bubble-text">…</span></div>
+      <button class="partner" id="partner" title="볼 찌르기!">
+        <img id="partner-img" src="" alt="">
+        <span class="poke-fx" id="poke-fx">콕!</span>
+      </button>
+      <div class="nameplate">
+        <span class="np-pers" id="np-pers">순수</span>
+        <span class="np-name" id="np-name">사도</span>
+        <span class="np-stars" id="np-stars">★</span>
+      </div>
+      <div class="stage-mini">
+        <div class="mini-timer hidden" id="mini-timer">
+          <span id="mini-mode">집중 중</span><b id="mini-time">25:00</b>
+        </div>
+        <div class="today-ring" title="오늘 집중 시간 / 목표">
+          <svg viewBox="0 0 44 44"><circle cx="22" cy="22" r="18" class="ring-bg"/><circle cx="22" cy="22" r="18" class="ring-fg" id="today-ring"/></svg>
+          <span><b id="today-min">0</b><small>/<span id="today-goal">120</span>분</small></span>
+        </div>
+        <div class="streak" title="연속 공부 일수">🔥 <b id="streak">0</b>일 연속</div>
+      </div>
+    </aside>
+
+    <!-- ───── 메인 패널 ───── -->
+    <main class="panel">
+      <nav class="tabs" id="tabs">
+        <button data-view="lobby" class="on"><i>🏠</i><span>로비</span></button>
+        <button data-view="timer"><i>⏰</i><span>집중</span></button>
+        <button data-view="todo"><i>📜</i><span>의뢰</span><em class="dot hidden" id="dot-todo"></em></button>
+        <button data-view="quest"><i>🎯</i><span>임무</span><em class="dot hidden" id="dot-quest"></em></button>
+        <button data-view="gacha"><i>✉️</i><span>모집</span></button>
+        <button data-view="sado"><i>📖</i><span>사도</span></button>
+        <button data-view="stats"><i>📊</i><span>기록</span></button>
+      </nav>
+
+      <!-- 로비 -->
+      <section class="view on" id="view-lobby">
+        <div class="card brief">
+          <h2 class="ribbon">오늘의 브리핑</h2>
+          <p class="brief-say" id="brief-say">…</p>
+          <div class="brief-actions" id="brief-actions"></div>
+          <ul class="brief-list">
+            <li><span>📚 오늘 집중</span><span class="bar"><i id="brief-focus-bar"></i></span><b id="brief-focus">0 / 120분</b></li>
+            <li><span>📜 남은 의뢰</span><b id="brief-todo">0개</b></li>
+            <li><span>🎁 받을 보상</span><b id="brief-reward">0개</b></li>
+            <li><span>✉️ 모집 가능</span><b id="brief-pulls">0회</b></li>
+          </ul>
+        </div>
+        <div class="lobby-grid">
+          <button class="big-btn yellow" data-go="timer"><i>⏰</i>집중 시작!<small>공부하면 엘리프가 쌓여요</small></button>
+          <button class="big-btn pink" data-go="gacha"><i>✉️</i>사도 모집<small>새로운 사도를 만나요</small></button>
+        </div>
+        <div class="card">
+          <h3 class="card-title">🎯 오늘의 임무 <button class="link" data-go="quest">전체 보기 ›</button></h3>
+          <div id="lobby-quests" class="quest-list compact"></div>
+        </div>
+      </section>
+
+      <!-- 집중 타이머 -->
+      <section class="view" id="view-timer">
+        <div class="card timer-card">
+          <div class="seg" id="mode-seg">
+            <button data-mode="focus" class="on">📚 집중</button>
+            <button data-mode="break">☕ 휴식</button>
+          </div>
+
+          <div class="clock" id="clock">
+            <svg viewBox="0 0 200 200">
+              <circle cx="100" cy="100" r="88" class="clk-bg"/>
+              <circle cx="100" cy="100" r="88" class="clk-fg" id="clk-fg"/>
+            </svg>
+            <div class="clock-face">
+              <span class="clock-label" id="clock-label">집중</span>
+              <span class="clock-time" id="clock-time">25:00</span>
+              <span class="clock-sub" id="clock-sub">예상 보상 +100 엘리프</span>
+            </div>
+          </div>
+
+          <div class="timer-btns">
+            <button class="btn yellow big" id="t-start">시작!</button>
+            <button class="btn white big hidden" id="t-pause">일시정지</button>
+            <button class="btn red hidden" id="t-stop">그만하기</button>
+          </div>
+
+          <div class="timer-opts" id="timer-opts">
+            <label>과목
+              <select id="t-subject"></select>
+            </label>
+            <label>의뢰 연결
+              <select id="t-todo"><option value="">(없음)</option></select>
+            </label>
+            <div class="presets">
+              <span>시간</span>
+              <button data-p="25,5">25 / 5</button>
+              <button data-p="50,10">50 / 10</button>
+              <button data-p="90,15">90 / 15</button>
+              <label class="num">집중 <input type="number" id="t-focus" min="1" max="240" value="25">분</label>
+              <label class="num">휴식 <input type="number" id="t-break" min="1" max="60" value="5">분</label>
+            </div>
+            <label class="check"><input type="checkbox" id="t-auto"> 끝나면 다음 단계 자동 시작</label>
+          </div>
+          <p class="hint">💡 탭을 닫아도 타이머는 계속 흘러요. 5분 이상 집중하면 중간에 그만둬도 집중한 만큼은 보상을 받아요.</p>
+        </div>
+      </section>
+
+      <!-- 의뢰 (할 일) -->
+      <section class="view" id="view-todo">
+        <div class="card">
+          <h2 class="ribbon">의뢰 게시판</h2>
+          <form class="todo-form" id="todo-form" autocomplete="off">
+            <input id="todo-text" placeholder="예) 수학 문제집 30쪽까지 풀기" maxlength="80" required>
+            <div class="todo-form-row">
+              <div class="seg small" id="todo-diff">
+                <button type="button" data-d="easy">쉬움</button>
+                <button type="button" data-d="normal" class="on">보통</button>
+                <button type="button" data-d="hard">어려움</button>
+              </div>
+              <label class="check"><input type="checkbox" id="todo-daily"> 매일 반복</label>
+              <button class="btn yellow" type="submit">의뢰 등록</button>
+            </div>
+          </form>
+        </div>
+        <div class="card">
+          <h3 class="card-title">진행 중 <span class="count" id="todo-count">0</span></h3>
+          <ul class="todo-list" id="todo-list"></ul>
+        </div>
+        <div class="card">
+          <h3 class="card-title">오늘 해결함 <button class="link" id="todo-clear">완료한 일회성 의뢰 정리</button></h3>
+          <ul class="todo-list done" id="todo-done"></ul>
+        </div>
+      </section>
+
+      <!-- 임무 -->
+      <section class="view" id="view-quest">
+        <div class="card">
+          <div class="seg" id="quest-seg">
+            <button data-q="daily" class="on">일일</button>
+            <button data-q="weekly">주간</button>
+            <button data-q="ach">업적</button>
+          </div>
+          <p class="reset-info" id="quest-reset"></p>
+          <div class="quest-list" id="quest-list"></div>
+          <button class="btn yellow wide hidden" id="claim-all">보상 모두 받기</button>
+        </div>
+      </section>
+
+      <!-- 모집 -->
+      <section class="view" id="view-gacha">
+        <div class="banner" id="banner">
+          <div class="banner-text">
+            <span class="banner-tag">상시 모집</span>
+            <h2>엘리아스 사도 모집</h2>
+            <p>사도 <b id="g-total">136</b>명 중 <b id="g-owned">0</b>명 영입</p>
+          </div>
+          <div class="banner-feat" id="banner-feat"></div>
+        </div>
+        <div class="card">
+          <div class="pity">
+            <span>★★★ 확정까지</span>
+            <span class="bar"><i id="pity-bar"></i></span>
+            <b id="pity-left">50회</b>
+          </div>
+          <div class="gacha-btns">
+            <button class="btn pink big" id="pull1"><span>1회 모집</span><small><i class="ic-elif"></i> <b id="cost1">100</b></small></button>
+            <button class="btn yellow big" id="pull10"><span>10회 모집</span><small><i class="ic-elif"></i> <b id="cost10">900</b></small></button>
+          </div>
+          <p class="hint" id="rates"></p>
+        </div>
+        <div class="card">
+          <h3 class="card-title">최근 모집 기록</h3>
+          <div class="history" id="history"></div>
+        </div>
+      </section>
+
+      <!-- 사도 도감 -->
+      <section class="view" id="view-sado">
+        <div class="card">
+          <div class="seg" id="sado-seg">
+            <button data-s="list" class="on">사도 도감</button>
+            <button data-s="bg">배경 일러스트</button>
+          </div>
+          <div id="sado-list-wrap">
+            <div class="filters">
+              <select id="f-own"><option value="all">전체</option><option value="own">보유</option><option value="not">미보유</option></select>
+              <select id="f-pers"><option value="">모든 성격</option></select>
+              <select id="f-rare"><option value="">모든 등급</option><option value="3">★★★</option><option value="2">★★</option><option value="1">★</option></select>
+              <input id="f-q" placeholder="이름 검색">
+              <span class="count" id="sado-count"></span>
+            </div>
+            <div class="sado-grid" id="sado-grid"></div>
+          </div>
+          <div id="bg-wrap" class="hidden">
+            <p class="hint">레벨이 오를 때마다 새로운 일러스트가 해금돼요. 눌러서 배경으로 설정!</p>
+            <div class="bg-grid" id="bg-grid"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 기록 / 설정 -->
+      <section class="view" id="view-stats">
+        <div class="stat-cards" id="stat-cards"></div>
+        <div class="card">
+          <h3 class="card-title">최근 7일 집중 시간</h3>
+          <div class="week-chart" id="week-chart"></div>
+        </div>
+        <div class="card">
+          <h3 class="card-title">과목별 누적</h3>
+          <div class="subj-list" id="subj-list"></div>
+        </div>
+        <div class="card settings">
+          <h3 class="card-title">⚙️ 설정</h3>
+          <label>교주 이름 <input id="s-name" maxlength="12"></label>
+          <label>하루 목표 집중 시간 <span><input type="number" id="s-goal" min="10" max="900" step="10"> 분</span></label>
+          <label>과목 목록 (쉼표로 구분) <input id="s-subjects"></label>
+          <label class="check"><input type="checkbox" id="s-sound"> 효과음</label>
+          <label class="check"><input type="checkbox" id="s-notify"> 타이머 끝나면 알림 받기</label>
+          <div class="row">
+            <button class="btn white" id="s-export">💾 데이터 내보내기</button>
+            <label class="btn white file">📂 불러오기<input type="file" id="s-import" accept=".json,application/json"></label>
+            <button class="btn red" id="s-reset">처음부터 다시</button>
+          </div>
+          <p class="hint">진행 상황은 이 브라우저에 저장돼요. 다른 기기로 옮길 땐 내보내기/불러오기를 쓰세요.</p>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div id="modal-root"></div>
+  <div id="toasts"></div>
+
+  <script src="js/sado.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/app.js"></script>
+  <script src="js/bgm.js"></script>
+</body>
+</html>
