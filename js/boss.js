@@ -29,13 +29,16 @@ const fmtN = (n) => Math.round(n).toLocaleString();
 const weekIndex = () => Math.floor((new Date(TS.weekKey() + "T00:00") - new Date("2024-01-01T00:00")) / (7 * 864e5));
 function ensure() {
   const s = S(), wk = TS.weekKey();
-  if (s.boss && s.boss.week === wk) return s.boss;
+  if (s.boss && s.boss.week === wk) {
+    if (s.boss.weak === undefined && window.Balance) { s.boss.weak = window.Balance.pickWeak(); TS.save(); }
+    return s.boss;
+  }
   if (s.boss) {
     s.bossHist = [{ week: s.boss.week, id: s.boss.id, dmg: s.boss.dmg, max: s.boss.max }, ...(s.bossHist || [])].slice(0, 12);
   }
   const b = BOSSES[((weekIndex() % BOSSES.length) + BOSSES.length) % BOSSES.length];
   const max = Math.max(3000, Math.round((s.settings.goal * 5 * 10) / 100) * 100);
-  s.boss = { week: wk, id: b.id, max, dmg: 0, hits: [], chest: [], seen: false };
+  s.boss = { week: wk, id: b.id, max, dmg: 0, hits: [], chest: [], seen: false, weak: window.Balance ? window.Balance.pickWeak() : null };
   TS.save();
   return s.boss;
 }
@@ -83,10 +86,12 @@ function deal(n, src) {
   return n;
 }
 
-TS.on("focus", ({ min, partner, extras }) => {
+TS.on("focus", ({ min, eff, subject, partner, extras }) => {
   const bonus = window.Affection ? window.Affection.bonusPct(partner) : 0;
-  const n = deal(min * 10 * (1 + bonus / 100), "집중 " + min + "분");
-  if (n) extras.push(`👹 -${fmtN(n)}`);
+  const weak = ensure().weak && subject === ensure().weak;
+  const mult = weak ? (window.Balance ? window.Balance.BALANCE.weakMult : 2) : 1;
+  const n = deal((eff == null ? min : eff) * 10 * (1 + bonus / 100) * mult, `${subject} ${min}분${weak ? " ⚡약점" : ""}`);
+  if (n) extras.push(`👹 -${fmtN(n)}${weak ? " ⚡약점!" : ""}`);
 });
 TS.on("todo", (x) => {
   const n = deal(TODO_DMG[x.diff] || 50, "의뢰");
@@ -132,6 +137,7 @@ function render() {
         <div class="${b.chest.includes(50) ? "open" : ""}">📦 HP 50%<small>${b.chest.includes(50) ? "받음 ✔" : "엘리프 300"}</small></div>
         <div class="${b.chest.includes(100) ? "open" : ""}">🏆 격파<small>${b.chest.includes(100) ? "받음 ✔" : "엘리프 1000 · 별사탕 60"}</small></div>
       </div>
+      ${b.weak ? `<div class="boss-weak">⚡ 약점 과목: <b>${TS.esc(b.weak)}</b> — 이 과목으로 집중하면 데미지 ${window.Balance ? window.Balance.BALANCE.weakMult : 2}배! <small>(지난주에 제일 적게 공부한 과목)</small></div>` : ""}
       <p class="hint">⚔️ 집중 1분 = 10 데미지${bonus ? ` (대표 사도 호감도 보너스 <b>+${bonus}%</b>)` : ""} · 의뢰 해결 쉬움 50 / 보통 100 / 어려움 200<br>
       누적 데미지 <b>${fmtN(b.dmg)}</b>${b.dmg > b.max ? ` (초과 ${fmtN(b.dmg - b.max)})` : ""}</p>
       <div class="modal-actions"><button class="btn red big" data-go="timer">⚔️ 집중해서 공격!</button></div>
@@ -140,12 +146,35 @@ function render() {
       <h3 class="card-title">전투 기록</h3>
       <ul class="boss-log">${b.hits.map((h) => `<li><span>${new Date(h.t).toLocaleString("ko-KR", { weekday: "short", hour: "2-digit", minute: "2-digit" })}</span><span>${TS.esc(h.src)}</span><b>-${fmtN(h.n)}</b></li>`).join("") || '<li class="empty">아직 공격하지 않았어요. 집중을 시작해서 첫 타격을!</li>'}</ul>
     </div>
+    ${dexHTML()}
     ${(S().bossHist || []).length ? `<div class="card"><h3 class="card-title">지난 보스</h3><ul class="boss-log">${S().bossHist.map((h) => {
       const hc = TS.SADO_MAP[h.id];
       return `<li><span>${h.week} 주</span><span>${TS.esc(hc ? hc.name : h.id)}</span><b>${h.dmg >= h.max ? "🏆 격파" : `${Math.floor((h.dmg / h.max) * 100)}%`}</b></li>`;
     }).join("")}</ul></div>` : ""}`;
 }
 TS.views.boss = render;
+
+/* 보스 도감: 등장 순서(이번 주부터)와 격파 횟수 */
+function kills(id) {
+  const s = S();
+  return (s.bossHist || []).filter((h) => h.id === id && h.dmg >= h.max).length + (s.boss && s.boss.id === id && s.boss.dmg >= s.boss.max ? 1 : 0);
+}
+function dexHTML() {
+  const n = BOSSES.length, cur = ((weekIndex() % n) + n) % n;
+  const order = BOSSES.map((b, i) => ({ b, inW: (i - cur + n) % n })).sort((a, z) => a.inW - z.inW);
+  return `<div class="card"><h3 class="card-title">📖 보스 도감 <span class="count">${n}명</span></h3>
+    <div class="boss-dex">${order.map(({ b, inW }) => {
+      const c = TS.SADO_MAP[b.id], k = kills(b.id);
+      const when = inW === 0 ? "이번 주" : inW === 1 ? "다음 주" : `${inW}주 뒤`;
+      return `<div class="dex ${inW === 0 ? "now" : ""}">
+        <img src="${TS.chibiSrc(c)}" alt="" loading="lazy">
+        <div><span class="tag ${inW === 0 ? "now" : ""}">${when}</span>
+        <b>${TS.esc(c.name)}</b><small>${TS.esc(b.title)}</small>
+        <em>“${TS.esc(b.taunt[0])}”</em>
+        <span class="dex-kill">${k ? `🏆 격파 ${k}회` : "아직 못 잡음"}</span></div></div>`;
+    }).join("")}</div>
+    <p class="hint">보스는 ${n}주마다 한 바퀴 돌아요. HP는 하루 목표 시간 × 5일 × 10 (최소 3,000).</p></div>`;
+}
 
 TS.on("refresh", () => {
   const b = ensure(), c = TS.SADO_MAP[b.id], left = hpLeft(b);
@@ -161,5 +190,5 @@ TS.chatterHooks.push(() => {
   return `이번 주 보스 ${TS.SADO_MAP[b.id].name}, HP가 ${Math.ceil((hpLeft(b) / b.max) * 100)}% 남았어요! 같이 때려요!`;
 });
 
-window.Boss = { phase: () => phase(), ensure, deal };
+window.Boss = { phase: () => phase(), ensure, deal, kills, BOSSES };
 })();

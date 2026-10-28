@@ -71,6 +71,7 @@ function myEntry() {
     week: wk, weekMin: wkMin, day: td, dayMin: st.days[td] || 0,
     total: st.totalMin, sado: Object.keys(s.owned).length,
     boss: Math.round(b), streak: st.streak, t: Date.now(),
+    p: window.Profile ? window.Profile.publicProfile() : null, // 꾸민 프로필
   };
 }
 let upTimer = 0, lastErr = "";
@@ -82,7 +83,7 @@ async function upload() {
   } catch (e) { lastErr = e.message; console.warn("ranking upload", e); }
 }
 function scheduleUpload(ms = 3000) { clearTimeout(upTimer); upTimer = setTimeout(upload, ms); }
-["focus", "levelup", "pull", "todo", "start", "partner"].forEach((ev) => TS.on(ev, () => scheduleUpload()));
+["focus", "levelup", "pull", "todo", "start", "partner", "profile"].forEach((ev) => TS.on(ev, () => scheduleUpload()));
 
 /* ───── 랭킹 화면 ───── */
 const TABS = [
@@ -98,7 +99,7 @@ const num = (v, max = 1e7) => (Number.isFinite(+v) ? Math.max(0, Math.min(max, M
 function clean(uid, e) {
   if (!e || typeof e !== "object") return null;
   return {
-    uid, name: String(e.name || "???").slice(0, 12), lv: num(e.lv, 999), partner: TS.SADO_MAP[e.partner] ? e.partner : "",
+    uid, name: String(e.name || "???").slice(0, 12), lv: num(e.lv, 999), partner: TS.SADO_MAP[e.partner] ? e.partner : "", p: e.p,
     week: String(e.week || ""), weekMin: num(e.weekMin), day: String(e.day || ""), dayMin: num(e.dayMin, 1440),
     total: num(e.total), sado: num(e.sado, 999), boss: num(e.boss), streak: num(e.streak, 9999), t: num(e.t, 1e15),
   };
@@ -131,6 +132,14 @@ function render() {
   const list = (cache || []).map((e) => ({ e, v: t.val(e, wk, td) })).sort((a, b) => b.v - a.v || b.e.lv - a.e.lv);
   const shown = list.filter((x) => x.v > 0 || tab === "lv" || tab === "sado");
   const myIdx = shown.findIndex((x) => x.e.uid === meUid);
+  // 꾸민 프로필 (없으면 기본)
+  const pp = (e) => {
+    const x = window.Profile ? window.Profile.cleanProfile(e.p) : { ti: "rookie", fr: "basic", th: "cream", av: "", m: "", b: [] };
+    if (!x.av) x.av = e.partner;
+    return x;
+  };
+  const av = (e) => (window.Profile ? window.Profile.avatarHTML(pp(e)) : `<img src="${face(e)}" alt="">`);
+  const titleOf = (e) => (window.Profile ? (PROFILE_TITLES.find((x) => x.id === pp(e).ti) || PROFILE_TITLES[0]).label : "");
   const face = (e) => {
     const c = TS.SADO_MAP[e.partner];
     return c ? TS.chibiSrc(c) : "assets/chibi/erpin.webp";
@@ -152,21 +161,28 @@ function render() {
     ${lastErr && !loadErr ? `<p class="hint">⚠️ 내 기록 업로드 실패: ${esc(lastErr)}</p>` : ""}
     ${podium.length ? `<div class="podium">${[1, 0, 2].filter((i) => podium[i]).map((i) => {
       const { e, v } = podium[i];
-      return `<div class="pod p${i + 1} ${e.uid === meUid ? "me" : ""}">
+      return `<div class="pod p${i + 1} th-${pp(e).th} ${e.uid === meUid ? "me" : ""}" data-who="${esc(e.uid)}">
         <span class="medal">${["🥇", "🥈", "🥉"][i]}</span>
-        <img src="${face(e)}" alt="">
+        <div class="pod-card">
+        ${av(e)}
+        <span class="pc-title">${esc(titleOf(e))}</span>
         <b>${esc(e.name)}</b><small>Lv.${e.lv}</small>
         <em>${fmtVal(v, t.fmt)}</em>
+        </div>
         <div class="pod-base">${i + 1}</div></div>`;
     }).join("")}</div>` : ""}
     <div class="card ${loadErr && !cache ? "hidden" : ""}">
-      <ol class="rank-list">${shown.slice(3).map((x, i) => `<li class="${x.e.uid === meUid ? "me" : ""}">
-        <span class="rk">${i + 4}</span><img src="${face(x.e)}" alt=""><span class="nm">${esc(x.e.name)} <small>Lv.${x.e.lv}${x.e.streak > 1 ? ` · 🔥${x.e.streak}일` : ""}</small></span>
+      <ol class="rank-list">${shown.slice(3).map((x, i) => `<li class="th-${pp(x.e).th} ${x.e.uid === meUid ? "me" : ""}" data-who="${esc(x.e.uid)}">
+        <span class="rk">${i + 4}</span>${av(x.e)}<span class="nm"><span class="pc-title">${esc(titleOf(x.e))}</span> ${esc(x.e.name)} <small>Lv.${x.e.lv}${x.e.streak > 1 ? ` · 🔥${x.e.streak}일` : ""}${pp(x.e).b.length ? " · " + pp(x.e).b.map((id) => (PROFILE_BADGES.find((z) => z.id === id) || {}).icon).join("") : ""}</small>${pp(x.e).m ? `<em class="rk-msg">“${esc(pp(x.e).m)}”</em>` : ""}</span>
         <b>${fmtVal(x.v, t.fmt)}</b><small class="ago">${ago(x.e.t)}</small></li>`).join("") ||
         `<li class="empty">${cache ? (shown.length ? "4위부터는 아직 아무도 없어요!" : "아직 기록이 없어요. 첫 번째 교주가 되어보세요!") : loading ? "불러오는 중…" : ""}</li>`}</ol>
       ${cacheAt ? `<p class="hint">업데이트: ${ago(cacheAt)} · 기록은 집중·의뢰·레벨업 때 자동으로 올라가요</p>` : ""}
     </div>`;
   el.querySelectorAll("[data-rt]").forEach((b) => (b.onclick = () => { tab = b.dataset.rt; TS.sfx("click"); render(); }));
+  el.querySelectorAll("[data-who]").forEach((r) => (r.onclick = () => {
+    const e = (cache || []).find((x) => x.uid === r.dataset.who);
+    if (e && window.Profile) window.Profile.view(e);
+  }));
   $("rk-refresh").onclick = () => load(true);
   $("rk-on").onchange = async (e) => {
     rk().on = e.target.checked; TS.save();

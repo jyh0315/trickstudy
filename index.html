@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Jua&family=Gowun+Dodum&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css?v=1.2">
+  <link rel="stylesheet" href="css/style.css?v=1.3">
 </head>
 <body>
   <div id="bg" aria-hidden="true"></div>
@@ -110,6 +110,7 @@
             <li><span>📜 남은 의뢰</span><b id="brief-todo">0개</b></li>
             <li><span>🎁 받을 보상</span><b id="brief-reward">0개</b></li>
             <li><span>✉️ 모집 가능</span><b id="brief-pulls">0회</b></li>
+            <li><span>⚖️ 과목 밸런스</span><b id="brief-bal">-</b></li>
             <li class="brief-boss" data-go="boss"><span>👹 <span id="brief-boss-name">주간 보스</span></span><span class="bar boss"><i id="brief-boss-bar"></i></span><b id="brief-boss">-</b></li>
           </ul>
         </div>
@@ -151,6 +152,7 @@
             <button class="btn white" id="t-pip" title="다른 창 위에 떠 있는 작은 타이머">📺 미니 타이머</button>
           </div>
 
+          <div class="balance-strip" id="balance-strip"></div>
           <div class="timer-opts" id="timer-opts">
             <label>과목
               <select id="t-subject"></select>
@@ -288,12 +290,13 @@
           <h3 class="card-title">최근 7일 집중 시간</h3>
           <div class="week-chart" id="week-chart"></div>
         </div>
+        <div class="card" id="balance-card"></div>
         <div class="card">
           <h3 class="card-title">과목별 누적</h3>
           <div class="subj-list" id="subj-list"></div>
         </div>
         <div class="card settings">
-          <h3 class="card-title">⚙️ 설정</h3>
+          <h3 class="card-title">⚙️ 설정 <button class="btn pink small" id="open-profile" style="margin-left:auto">🪪 프로필 꾸미기</button></h3>
           <label>교주 이름 <input id="s-name" maxlength="12"></label>
           <label>하루 목표 집중 시간 <span><input type="number" id="s-goal" min="10" max="900" step="10"> 분</span></label>
           <label>과목 목록 (쉼표로 구분) <input id="s-subjects"></label>
@@ -313,16 +316,18 @@
   <div id="modal-root"></div>
   <div id="toasts"></div>
 
-  <script src="js/sado.js?v=1.2"></script>
-  <script src="js/data.js?v=1.2"></script>
-  <script src="js/app.js?v=1.2"></script>
-  <script src="js/affection.js?v=1.2"></script>
-  <script src="js/boss.js?v=1.2"></script>
-  <script src="js/schedule.js?v=1.2"></script>
-  <script src="js/grass.js?v=1.2"></script>
-  <script src="js/pip.js?v=1.2"></script>
-  <script src="js/ranking.js?v=1.2"></script>
-  <script src="js/bgm.js?v=1.2"></script>
-  <script src="js/title.js?v=1.2"></script>
+  <script src="js/sado.js?v=1.3"></script>
+  <script src="js/data.js?v=1.3"></script>
+  <script src="js/app.js?v=1.3"></script>
+  <script src="js/affection.js?v=1.3"></script>
+  <script src="js/balance.js?v=1.3"></script>
+  <script src="js/profile.js?v=1.3"></script>
+  <script src="js/boss.js?v=1.3"></script>
+  <script src="js/schedule.js?v=1.3"></script>
+  <script src="js/grass.js?v=1.3"></script>
+  <script src="js/pip.js?v=1.3"></script>
+  <script src="js/ranking.js?v=1.3"></script>
+  <script src="js/bgm.js?v=1.3"></script>
+  <script src="js/title.js?v=1.3"></script>
 </body>
 </html>

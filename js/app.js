@@ -21,6 +21,7 @@ const views = {};          // 모듈이 추가하는 화면: views[name] = rende
 const lineHooks = [];      // (c, kind) => 추가 대사 배열
 const chatterHooks = [];   // () => 말할 거리 문자열 | null
 const detailHooks = [];    // (c) => 사도 상세 모달에 넣을 HTML
+const rewardHooks = [];    // (rw) => 집중 보상 계산 전에 rw.eff(보상 기준 분)를 조정, rw.notes 에 칩 추가
 
 /* ───── 날짜 ───── */
 const dateKey = (d = new Date()) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -554,7 +555,10 @@ function stopTimer() {
 }
 function grantFocus(min, full) {
   const t = T(), s = state.stats, d = today();
-  const elif = min * CONFIG.elifPerMin, exp = min * CONFIG.expPerMin;
+  // 모듈(과목 밸런스 등)이 보상 기준 시간을 조정할 수 있음. 공부 기록 자체는 실제 시간 그대로
+  const rw = { min, subject: t.subject, eff: min, notes: [] };
+  rewardHooks.forEach((fn) => { try { fn(rw); } catch (e) { console.error(e); } });
+  const elif = Math.round(rw.eff * CONFIG.elifPerMin), exp = Math.round(rw.eff * CONFIG.expPerMin);
   s.totalMin += min;
   s.days[d] = (s.days[d] || 0) + min;
   s.subjects[t.subject] = (s.subjects[t.subject] || 0) + min;
@@ -565,8 +569,8 @@ function grantFocus(min, full) {
   const c = SADO_MAP[state.partner];
   const linked = full && t.todoId ? state.todos.find((x) => x.id === t.todoId && !x.done) : null;
   const line = c ? fmt(rand(linesOf(c, full ? "done" : "fail")), c) : "";
-  const extras = [];   // 모듈이 넣는 추가 보상 칩 (보스 데미지, 호감도 등)
-  emit("focus", { min, full, subject: t.subject, partner: state.partner, extras });
+  const extras = [...rw.notes];   // 모듈이 넣는 추가 보상 칩 (보스 데미지, 호감도 등)
+  emit("focus", { min, eff: rw.eff, full, subject: t.subject, partner: state.partner, extras });
   sfx(full ? "done" : "coin");
   if (full) confetti(50);
   modal(`<h2>${full ? "집중 완료!" : "중간 정산"}</h2>
@@ -980,7 +984,7 @@ document.addEventListener("keydown", (e) => {
 /* ───── 모듈 공개 API ───── */
 window.TS = {
   get state() { return state; }, get view() { return view; }, get modalOpen() { return modalOpen; },
-  save, refresh, go, on, emit, views, lineHooks, chatterHooks, detailHooks,
+  save, refresh, go, on, emit, views, lineHooks, chatterHooks, detailHooks, rewardHooks,
   modal, confirmModal, toast, confetti, sfx, say, sayKind, renderPartner,
   addElif, addExp, addCandy, esc, rand, pad, dateKey, today, weekKey, daysAgo,
   SADO_MAP, linesOf, fmt, portrait, chibiSrc, stars, shortName,
