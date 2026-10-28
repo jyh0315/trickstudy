@@ -1,0 +1,47 @@
+@import "tailwindcss";
+
+@theme {
+  --color-cream: #fff8ec;
+  --color-ink: #5b4636;
+  --color-pink: #ffc4d6;
+  --color-pink-deep: #ff6f91;
+  --color-mint: #bff0d9;
+  --color-sky: #c6e6ff;
+  --color-lemon: #fff1a8;
+  --color-lavender: #e0d2ff;
+  --font-display: "Jua", "Gowun Dodum", sans-serif;
+  --font-sans: "Gowun Dodum", "Jua", sans-serif;
+  --shadow-chunky: 0 6px 0 rgba(91, 70, 54, 0.8);
+  --shadow-chunky-sm: 0 4px 0 rgba(91, 70, 54, 0.8);
+}
+
+@utility font-display {
+  font-family: var(--font-display);
+}
+
+body {
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  background-color: var(--color-cream);
+  background-image:
+    radial-gradient(circle at 20% 10%, #ffe1ec 0, transparent 35%),
+    radial-gradient(circle at 85% 30%, #dff4ff 0, transparent 35%),
+    radial-gradient(circle at 30% 85%, #e6ffef 0, transparent 35%),
+    radial-gradient(#f3e3cf 1.5px, transparent 1.5px);
+  background-size: 100% 100%, 100% 100%, 100% 100%, 22px 22px;
+  background-attachment: fixed;
+  -webkit-tap-highlight-color: transparent;
+}
+
+input,
+select {
+  border: 3px solid rgb(91 70 54 / 0.8);
+  border-radius: 14px;
+  padding: 6px 10px;
+  background: white;
+  outline: none;
+}
+input:focus,
+select:focus {
+  box-shadow: 0 0 0 3px var(--color-pink);
+}
