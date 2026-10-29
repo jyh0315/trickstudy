@@ -81,7 +81,7 @@ function showScene(done, mainId) {
   root.innerHTML = `
     <div class="ttl-bg" style="background-image:url('assets/title-bg.webp')"></div>
     <div class="ttl-logo"><span class="l2">트릭스터디</span><span class="l1">~교주님 공부하세요!~</span></div>
-    <div class="ttl-ver">Ver 4.9 · 교주 전용</div>
+    <div class="ttl-ver">Ver 5.0 · 교주 전용</div>
     <div class="ttl-copy">♥ Trickcal fan-made study</div>
     <div class="ttl-cast">${cast.map((id, i) => `<div class="ttl-actor a${i}" data-id="${id}"></div>`).join("")}</div>
     <div class="ttl-sweep"></div>
@@ -99,7 +99,6 @@ function showScene(done, mainId) {
     TS.sfx("flip");
     setTimeout(() => root.classList.remove("intro"), 1800);
   }, 80);
-  if (window.BGM) window.BGM.title();
   const hint = root.querySelector("#ttl-hint");
   renderDday(root.querySelector("#ttl-dday"));
   const ddTimer = setInterval(() => renderDday(root.querySelector("#ttl-dday")), 1000);
@@ -171,7 +170,7 @@ function show(done) {
   root.innerHTML = `
     <div class="ttl-bg" style="background-image:url('assets/bg/${s.bg || "trickcal"}.jpg')"></div>
     <div class="ttl-logo"><span class="l2">트릭스터디</span><span class="l1">~교주님 공부하세요!~</span></div>
-    <div class="ttl-ver">Ver 4.9 · 교주 전용</div>
+    <div class="ttl-ver">Ver 5.0 · 교주 전용</div>
     <div class="ttl-copy">♥ Trickcal fan-made study</div>
     <div class="ttl-face" id="ttl-face">
       <img id="ttl-img" src="${src}" alt="" draggable="false">

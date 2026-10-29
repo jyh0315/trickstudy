@@ -127,7 +127,8 @@ const curIdx = () => tracks.findIndex((t) => t.id === st.cur);
 const curTrack = () => tracks[curIdx()];
 function playTrack(t) {
   if (!t) return;
-  if (st.cur !== t.id || !audio.src) { audio.src = t.src; st.cur = t.id; save(); }
+  if (!audio.src || !audio.src.endsWith(t.src)) audio.src = t.src; // 미리 받아둔 곡이면 그대로
+  if (st.cur !== t.id) { st.cur = t.id; save(); }
   return audio.play().then(() => true, () => false); // 사용자 조작 전엔 자동재생이 막힐 수 있음
 }
 function playCtx(exclude) {
@@ -284,6 +285,8 @@ document.addEventListener("keydown", (e) => {
 
 const ready = reload();
 let titleOn = false;
+// 페이지를 열자마자 메인 테마를 미리 받아 둠 → 시작 화면에서 바로(막히면 첫 터치 순간) 재생
+if (st.onStart) { audio.preload = "auto"; audio.src = "assets/bgm/" + encodeURIComponent("01. Trickal Main Title.mp3"); audio.load(); }
 window.BGM = {
   // 시작 화면에서 볼을 당긴 직후 (사용자 조작이라 자동재생 허용됨)
   onStart() {
@@ -305,11 +308,12 @@ window.BGM = {
       playTrack(t).then((ok) => {
         if (ok) return;
         const kick = () => { if (audio.paused && titleOn) playTrack(t); off(); };
-        const off = () => ["pointerdown", "keydown", "touchstart"].forEach((ev) => document.removeEventListener(ev, kick, true));
-        ["pointerdown", "keydown", "touchstart"].forEach((ev) => document.addEventListener(ev, kick, true));
+        const off = () => ["pointerdown", "keydown", "touchstart", "mousedown", "click"].forEach((ev) => document.removeEventListener(ev, kick, true));
+        ["pointerdown", "keydown", "touchstart", "mousedown", "click"].forEach((ev) => document.addEventListener(ev, kick, true));
       });
     }
   },
   get ctx() { return ctx; },
 };
+window.BGM.title(); // 페이지 열리자마자
 })();

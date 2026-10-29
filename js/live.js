@@ -81,9 +81,10 @@ function frameView(p, mode, host) {
   if (mode === "face") {
     const S = 430;
     v = { x: h.x - S / 2, y: h.y - 140, width: S, height: S };
-  } else if (mode === "bust") { // 시작 화면: 얼굴~허리 (아래는 화면 밖으로)
-    const S = 780;
-    v = { x: h.x - S / 2, y: h.y - 430, width: S, height: S };
+  } else if (mode === "bust") { // 시작 화면: 머리 위 넉넉히 ~ 허리 (가로:세로 = 4:5, 아래는 화면 밖으로)
+    // 사도 칸(780×975)보다 그리는 캔버스를 양옆 40%·위 30% 크게 → 큰 이펙트·무기도 안 잘림 (배율은 그대로)
+    const S = 780, Hh = S * 1.25;
+    v = { x: h.x - S / 2 - S * 0.4, y: h.y - 430, width: S * 1.8, height: Hh * 1.3 };
   } else {
     // 모든 사도 같은 배율. 기본 틀(가로 -360~360, 세로 -30~800)보다 큰 사도(꼬리·드릴·캡슐 등)는
     // 축소하지 않고 그리는 칸(host)을 그만큼 넓혀서 삐져나오게 → 크기가 다른 사도와 똑같음
