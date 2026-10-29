@@ -277,6 +277,7 @@ function render() {
 }
 TS.views.rank = () => { render(); load(false); };
 TS.on("boot", async () => { meUid = await myUid(); });
+window.FB = { api, isAdmin: () => isAdmin(), myUid };   // 단체 레이드 등 다른 모듈이 같은 로그인으로 사용
 TS.on("stats", async () => {
   const el = $("s-rankid");
   if (el) el.textContent = meUid || (meUid = await myUid());

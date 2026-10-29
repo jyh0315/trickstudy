@@ -59,11 +59,12 @@
 
 기말고사(12/1 ~ 12/4) **전 2주 동안** 시험 준비를 하는 이벤트예요.
 
-- **11/10부터 미리보기**: 이벤트 탭이 생기고, 시험 준비 도구(시험 시간표·범위·암기카드·오답노트·모의고사)를 미리 쓸 수 있어요
+- **11/10부터 미리보기**: 이벤트 탭이 생기고, 시험 준비 도구(시험 시간표·범위 체크리스트)를 미리 쓸 수 있어요
 - **11/17 ~ 11/30 본 이벤트**: 🧧 합격 부적 모으기, 일일·기간 미션, 출석 도장 7회, 집중 보상 ×1.5, 이벤트 랭킹
 - **12/1 ~ 12/4 시험 기간**: 사도들이 시험 응원 대사, 이벤트 화면에 시험 D-day
 - **12/7까지 상점 교환 기간**, 12/11에 이벤트 탭이 사라져요 (한정 꾸미기와 공부 기록은 계속 남아요)
 - 시험 준비: 시험 범위를 체크할 때마다 「기말고사 마왕」 HP가 깎이고, 범위를 다 끝내면 격파
+- **🔥 단체 레이드**: 이벤트 기간의 모든 집중·범위 체크가 공동 보스 「기말고사 대마왕」(HP 150,000)에 데미지. 격파하면 공동 보상(부적 1500·엘리프 30000·별사탕 900)을 **데미지 비율대로** 나눠 받고 1~3위는 MVP 뱃지. 못 잡으면 30%만. 데이터는 Firebase `/raid` (보안 규칙 아래 참고)
 - 미리 보고 싶으면 주소 뒤에 `?event=on` (시작 전 화면 `?event=pre`, 종료 후 `?event=after`, 원래대로 `?event=off`)
 - 날짜·미션·상점 구성은 `js/event.js` 맨 위 `EVENTS` 에서 바꾸고, 다음 이벤트도 여기에 추가하면 돼요
 
@@ -85,6 +86,15 @@
     ".read": false,
     ".write": false,
     "admins": { ".read": false, ".write": false },
+    "raid": {
+      "$event": {
+        ".read": true,
+        "$uid": {
+          ".write": "auth != null && (auth.uid === $uid || root.child('admins').child(auth.uid).val() === true)",
+          ".validate": "newData.hasChildren(['n','d','t']) && newData.child('n').isString() && newData.child('n').val().length <= 12 && newData.child('d').isNumber() && newData.child('d').val() >= 0 && newData.child('t').isNumber() && newData.child('t').val() <= now + 600000 && (!data.exists() || (newData.child('t').val() >= data.child('t').val() + 5000 && newData.child('d').val() >= data.child('d').val() && newData.child('d').val() <= data.child('d').val() + (now - data.child('t').val()) / 60000 * 20 + 400)) && (data.exists() || newData.child('d').val() <= 3000)"
+        }
+      }
+    },
     "ranking": {
       ".read": true,
       "$uid": {

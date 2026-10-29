@@ -19,21 +19,27 @@ const EVENTS = [
     charmPerMin: 5,      // 집중 n분마다 부적 1
     cast: ["yomi", "erpin", "butter"],
     raid: { id: "ifrit", name: "기말고사 마왕", title: "시험지를 태우는 불꽃" },
+    // 🔥 단체 레이드: 모두의 공부가 데미지가 되어 하나의 보스를 함께 쓰러뜨림 (Firebase /raid/<이벤트>/<uid>)
+    group: {
+      boss: "ner-rage", name: "기말고사 대마왕", title: "모두의 시험지를 노리는 자",
+      hp: 150000,            // 전체 HP (참여 인원에 맞게 조절)
+      perMin: 10,            // 집중 1분 = 10 데미지 (이벤트 보너스 ×1.5 적용 → 15)
+      perRange: 30,          // 시험 범위 1칸 체크 = 30 데미지
+      pool: { charm: 1500, elif: 30000, candy: 900 }, // 격파 시 기여도(데미지 비율)대로 나눠 가짐
+      base: { charm: 30, elif: 500 },                 // 참여만 해도 받는 기본 보상
+      failRate: 0.3,         // 이벤트 끝까지 못 잡으면 보상의 30%만
+    },
     daily: [
       { id: "focus", title: "오늘 집중 120분",                stat: "focus", goal: 120, charm: 15 },
       { id: "subj",  title: "시험 과목 3개 이상 각 20분 공부", stat: "subj",  goal: 3,   charm: 10 },
-      { id: "cards", title: "암기카드 20장 복습",             stat: "cards", goal: 20,  charm: 10 },
-      { id: "wrong", title: "오답노트 2개 작성·다시 풀기",     stat: "wrong", goal: 2,   charm: 10 },
       { id: "range", title: "시험 범위 3칸 체크",             stat: "range", goal: 3,   charm: 10 },
-      { id: "mock",  title: "모의고사 1회 완주",              stat: "mock",  goal: 1,   charm: 15 },
+      { id: "raid",  title: "단체 레이드에 데미지 1,000",       stat: "raid",  goal: 1000, charm: 15 },
     ],
     once: [
       { id: "plan",     title: "기말 시험 시간표 등록하기",        goal: 1,   charm: 20, prog: (st) => st.exams.length },
       { id: "rangeset", title: "시험 범위 10칸 이상 적어두기",     goal: 10,  charm: 15, prog: (st) => st.ranges.length },
-      { id: "cardset",  title: "암기카드 30장 만들기",            goal: 30,  charm: 15, prog: (st) => st.cards.length },
       { id: "focus1200", title: "이벤트 기간 집중 1200분",          goal: 1200, charm: 80, prog: (st, ev) => ev.focusTotal },
-      { id: "cards200",  title: "이벤트 기간 암기카드 200장 복습",   goal: 200,  charm: 50, prog: (st, ev) => ev.cardsTotal },
-      { id: "mock5",     title: "모의고사 5회 완주",                goal: 5,    charm: 40, prog: (st) => st.mocks.length },
+      { id: "raid10k",   title: "단체 레이드 누적 데미지 10,000",   goal: 10000, charm: 60, prog: (st, ev) => Math.floor(ev.raidDmg || 0) },
       { id: "rangeall",  title: "시험 전에 기말고사 마왕 쓰러뜨리기 (범위 100%)", goal: 1, charm: 80, prog: (st, ev) => (ev.raidBeat ? 1 : 0) },
     ],
     stamps: [   // 이벤트 기간에 접속한 날마다 1개 (연속 아니어도 됨)
@@ -56,26 +62,16 @@ const EVENTS = [
       { id: "candy", icon: "🍬", name: "별사탕 50",                cost: 30,  limit: 3 },
     ],
     lines: {
-      idle:  ["기말고사 대작전 진행 중! 오늘 미션 확인했어요?", "오답노트 한 장만 같이 써볼까요?", "암기카드 넘기러 가요! 딱 20장만!", "시험 범위, 오늘은 어디까지 지울 거예요?"],
+      idle:  ["기말고사 대작전 진행 중! 오늘 미션 확인했어요?", "다 같이 기말고사 대마왕 잡으러 가요!", "시험 범위, 오늘은 어디까지 지울 거예요?"],
       cheer: ["이번 기말은 우리가 정복한다!", "합격 부적 모으는 중~ 집중 집중!", "시험장에서 웃는 건 교주님이에요!"],
       done:  ["기말고사 마왕이 떨고 있어요!", "이 기세면 전교 1등도 꿈이 아니에요!"],
     },
     examLines: { // 시험 기간(12/1~12/4) 응원 대사
       idle:  ["오늘 시험 잘 봐요, 교주님! 준비한 만큼 다 나올 거예요!", "시험 끝난 과목은 잊고, 다음 과목에 집중!", "긴장되면 심호흡! 후~ 하~"],
-      cheer: ["내일 시험 과목 마지막 정리 화이팅!", "오답노트 한 번만 더 훑어봐요!"],
+      cheer: ["내일 시험 과목 마지막 정리 화이팅!", "틀렸던 문제 한 번만 더 훑어봐요!"],
     },
   },
 ];
-const WRONG_REASONS = ["개념 부족", "계산 실수", "문제 잘못 읽음", "시간 부족", "찍었음", "기타"];
-const WRONG_TIPS = {
-  "개념 부족": "교과서 해당 단원 개념 정리를 다시 한 번! 암기카드로 만들어두면 좋아요.",
-  "계산 실수": "검산 습관을 들여요. 풀이를 한 줄씩 또박또박 쓰기!",
-  "문제 잘못 읽음": "문제의 조건에 밑줄 긋기! ‘아닌 것’, ‘모두’ 같은 말에 동그라미.",
-  "시간 부족": "모의고사 모드로 시간 재고 풀어보는 연습을 해봐요.",
-  "찍었음": "찍은 문제는 무조건 다시 풀기! 진짜 아는지 확인해요.",
-  "기타": "왜 틀렸는지 한 줄이라도 적어두면 다음엔 안 틀려요.",
-};
-const CARD_INTERVAL = [0, 1, 2, 4, 7]; // 암기카드 상자 1~5 복습 간격(일)
 
 /* 이벤트 한정 꾸미기 (프로필) */
 const evState = (s, id = "final2026") => (s.ev && s.ev[id]) || { bought: {}, stamps: [] };
@@ -88,6 +84,8 @@ PROFILE_THEMES.push({ id: "snow", label: "눈꽃 시험장", cond: "기말고사
 PROFILE_BADGES.push(
   { id: "ev_final", icon: "📝", label: "기말 대작전", ok: (s) => !!evState(s).bought.badge },
   { id: "ev_raid",  icon: "🏯", label: "범위 정복",   ok: (s) => !!evState(s).raidBeat },
+  { id: "ev_gmvp",  icon: "🏅", label: "레이드 MVP",  ok: (s) => !!evState(s).raidMvp },
+  { id: "ev_gjoin", icon: "🔥", label: "레이드 참여", ok: (s) => !!evState(s).raidClaimed },
 );
 
 (() => {
@@ -141,9 +139,9 @@ function countdown() {
 function ev() {
   const s = S();
   if (!s.ev) s.ev = {};
-  if (!s.ev[EV.id]) s.ev[EV.id] = { charm: 0, earned: 0, stamps: [], daily: { d: "" }, claimed: {}, once: [], bought: {}, focusTotal: 0, cardsTotal: 0, raidBeat: false };
+  if (!s.ev[EV.id]) s.ev[EV.id] = { charm: 0, earned: 0, stamps: [], daily: { d: "" }, claimed: {}, once: [], bought: {}, focusTotal: 0, raidBeat: false, raidDmg: 0 };
   const e = s.ev[EV.id];
-  if (e.daily.d !== TS.today()) e.daily = { d: TS.today(), focus: 0, cards: 0, wrong: 0, range: 0, mock: 0 };
+  if (e.daily.d !== TS.today()) e.daily = { d: TS.today(), focus: 0, range: 0, raid: 0 };
   return e;
 }
 function study() {
@@ -174,8 +172,7 @@ TS.rewardHooks.push((rw) => {
   rw.eff *= EV.focusBonus;
   rw.notes.push(`🎉 이벤트 ×${EV.focusBonus}`);
 });
-TS.on("focus", ({ min, full, tag, subject, extras }) => {
-  if (tag === "mock" && full) mockDone(subject, min);
+TS.on("focus", ({ min, eff, full, tag, subject, extras }) => {
   if (!isOn()) return;
   const e = ev();
   e.daily.focus += min; e.focusTotal += min;
@@ -183,6 +180,8 @@ TS.on("focus", ({ min, full, tag, subject, extras }) => {
   const c = Math.floor(e.fracMin / EV.charmPerMin);
   e.fracMin -= c * EV.charmPerMin;
   if (giveCharm(c)) extras.push(`${EV.coin.icon} +${c}`);
+  const rd = raidHit((eff == null ? min : eff) * EV.group.perMin);
+  if (rd) extras.push(`🔥 레이드 -${Math.round(rd).toLocaleString()}`);
   TS.save();
 });
 TS.lineHooks.push((c, kind) => (inExam() && status() !== "none" ? EV.examLines[kind] || [] : status() === "on" || status() === "pre" ? EV.lines[kind] || [] : []));
@@ -233,8 +232,7 @@ function hero() {
   </div>`;
 }
 const PANES = [
-  ["mission", "🎯 미션"], ["stamp", "💌 출석"], ["exam", "📝 시험 준비"], ["cards", "🃏 암기카드"],
-  ["wrong", "❌ 오답노트"], ["mock", "⏱️ 모의고사"], ["shop", "🛍️ 상점"],
+  ["mission", "🎯 미션"], ["raid", "🔥 단체 레이드"], ["stamp", "💌 출석"], ["exam", "📝 시험 준비"], ["shop", "🛍️ 상점"],
 ];
 function render() {
   const el = $("view-event");
@@ -243,11 +241,11 @@ function render() {
   el.innerHTML = `${hero()}
     <div class="seg ev-seg">${PANES.map(([k, l]) => `<button data-evp="${k}" class="${k === pane ? "on" : ""}">${l}${k === "mission" && rc ? `<em class="dot"></em>` : ""}</button>`).join("")}</div>
     <div id="ev-pane"></div>`;
-  el.querySelectorAll("[data-evp]").forEach((b) => (b.onclick = () => { pane = b.dataset.evp; cardSession = null; TS.sfx("click"); render(); }));
-  ({ mission: paneMission, stamp: paneStamp, exam: paneExam, cards: paneCards, wrong: paneWrong, mock: paneMock, shop: paneShop })[pane]();
+  el.querySelectorAll("[data-evp]").forEach((b) => (b.onclick = () => { pane = b.dataset.evp; TS.sfx("click"); render(); }));
+  ({ mission: paneMission, raid: paneRaid, stamp: paneStamp, exam: paneExam, shop: paneShop }[pane] || paneMission)();
 }
 const P = () => $("ev-pane");
-const lockNote = () => (status() === "pre" ? `<p class="ev-lock">🔒 ${fmtDate(EV.start)}부터 열려요. 시험 준비·암기카드·오답노트는 지금 바로 쓸 수 있어요!</p>` : "");
+const lockNote = () => (status() === "pre" ? `<p class="ev-lock">🔒 ${fmtDate(EV.start)}부터 열려요. 시험 준비(시간표·범위)는 지금 바로 쓸 수 있어요!</p>` : "");
 
 /* ───── 미션 ───── */
 function missionHTML(m, prog, ready, done, key) {
@@ -382,7 +380,7 @@ function paneExam() {
   P().querySelectorAll("[data-rgck]").forEach((b) => (b.onclick = () => {
     const r = study().ranges.find((x) => x.id === b.dataset.rgck);
     r.done = !r.done;
-    if (r.done && !r.counted && isOn()) { r.counted = true; ev().daily.range++; }
+    if (r.done && !r.counted && isOn()) { r.counted = true; ev().daily.range++; raidHit(EV.group.perRange, "범위 체크"); }
     if (r.done) TS.sfx("coin");
     const ri2 = raidInfo();
     if (r.done && ri2.total >= 5 && ri2.done === ri2.total && !ev().raidBeat) {
@@ -400,186 +398,128 @@ function paneExam() {
   }));
 }
 
-/* ───── 암기카드 (라이트너 상자 방식) ───── */
-let cardSession = null, cardSubj = "";
-const due = (c) => !c.due || c.due <= TS.today();
-function paneCards() {
-  const st = study();
-  if (cardSession) return cardStudy();
-  const list = cardSubj ? st.cards.filter((c) => c.subject === cardSubj) : st.cards;
-  const dueN = list.filter(due).length;
-  P().innerHTML = `
-    <div class="card">
-      <h3 class="card-title">🃏 암기카드 만들기</h3>
-      <form class="ev-form card-form" id="cd-form" autocomplete="off">
-        <select id="cd-subj">${subjects().map((x) => `<option ${x === cardSubj ? "selected" : ""}>${esc(x)}</option>`).join("")}</select>
-        <input id="cd-front" placeholder="앞면 (질문) 예) 광합성이 일어나는 곳" maxlength="120" required>
-        <input id="cd-back" placeholder="뒷면 (답) 예) 엽록체" maxlength="200" required>
-        <button class="btn yellow" type="submit">추가</button>
-      </form>
+/* ───── 🔥 단체 레이드 ─────
+   각자 /raid/<이벤트>/<uid> = { n: 이름, d: 누적 데미지, t: 시각 } 를 올리고,
+   모두의 합이 HP 를 넘으면 격파. 보상은 데미지 비율대로 나눔 */
+const G = EV.group;
+let raidCache = null, raidAt = 0, raidLoading = false, raidErr = "", raidUpT = 0, raidLastUp = 0;
+const raidPath = () => `raid/${EV.id}`;
+function raidSus(e) { // 말이 안 되는 데미지 (이벤트 시작 후 흐른 시간보다 많음)
+  const since = forced() ? Infinity : Math.max(0, (Date.now() - new Date(EV.start + "T00:00")) / 60000); // 테스트 모드면 검사 생략
+  return !(e.d >= 0) || e.d > since * 20 + 6000 || e.t > Date.now() + 600000;
+}
+function raidTotals() {
+  const list = (raidCache || []).filter((e) => !raidSus(e) || e.uid === raidCache.me).sort((a, b) => b.d - a.d);
+  const total = list.reduce((a, e) => a + e.d, 0);
+  return { list, total, cleared: total >= G.hp };
+}
+function raidHit(n, why) {
+  if (!isOn() || !(n > 0)) return 0;
+  if (raidCache && raidTotals().cleared) return 0; // 이미 격파됨
+  const e = ev();
+  e.raidDmg = (e.raidDmg || 0) + n;
+  e.daily.raid = (e.daily.raid || 0) + n;
+  if (why) TS.toast(`🔥 ${G.name}에게 ${Math.round(n)} 데미지! (${why})`);
+  clearTimeout(raidUpT); raidUpT = setTimeout(raidUpload, 4000);
+  return n;
+}
+async function raidUpload() {
+  if (!window.FB || !(ev().raidDmg > 0)) return;
+  if (Date.now() - raidLastUp < 7000) { clearTimeout(raidUpT); raidUpT = setTimeout(raidUpload, 7000); return; }
+  raidLastUp = Date.now();
+  try {
+    await window.FB.api(`${raidPath()}/{uid}`, { method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ n: String(S().name).slice(0, 12), d: Math.floor(ev().raidDmg), t: Date.now() }) });
+    raidErr = "";
+  } catch (err) { raidErr = /permission/i.test(err.message) ? "서버가 레이드 기록을 거절했어요 (보안 규칙을 확인해 주세요)" : err.message; }
+}
+async function raidLoad(force) {
+  if (!window.FB || raidLoading || (!force && raidCache && Date.now() - raidAt < 30000)) return;
+  raidLoading = true;
+  try {
+    if (ev().raidDmg > 0) await raidUpload();
+    const { uid, data } = await window.FB.api(raidPath());
+    const list = Object.entries(data || {}).map(([u, x]) => (x && typeof x === "object" ? {
+      uid: u, n: String(x.n || "???").slice(0, 12), d: Math.max(0, Math.floor(+x.d || 0)), t: +x.t || 0 } : null)).filter(Boolean);
+    list.me = uid;
+    raidCache = list; raidAt = Date.now(); raidErr = "";
+  } catch (err) { raidErr = err.message; }
+  raidLoading = false;
+  if (TS.view === "event" && pane === "raid") paneRaid();
+}
+function raidReward() {
+  const { list, total, cleared } = raidTotals();
+  const me = list.find((x) => x.uid === raidCache.me);
+  if (!me || !me.d) return null;
+  const share = total ? me.d / total : 0, k = cleared ? 1 : G.failRate;
+  return {
+    share, rank: list.indexOf(me) + 1, cleared,
+    charm: Math.round((G.base.charm + G.pool.charm * share) * k),
+    elif: Math.round((G.base.elif + G.pool.elif * share) * k),
+    candy: Math.round(G.pool.candy * share * k),
+    mvp: cleared && list.indexOf(me) < 3,
+  };
+}
+function paneRaid() {
+  const c = TS.SADO_MAP[G.boss], e = ev();
+  if (!raidCache) { P().innerHTML = `<div class="card"><p class="hint">레이드 정보를 불러오는 중…</p></div>`; raidLoad(); return; }
+  const { list, total, cleared } = raidTotals();
+  const left = Math.max(0, G.hp - total), me = list.find((x) => x.uid === raidCache.me);
+  const rw = raidReward(), ended = status() === "after";
+  const canClaim = rw && !e.raidClaimed && (cleared || ended);
+  const fmtN = (n) => Math.round(n).toLocaleString();
+  P().innerHTML = `${lockNote()}
+    <div class="card raid-g ${cleared ? "beat" : ""}">
+      <div class="raid-top">
+        <img class="raid-img ${cleared ? "dead" : ""}" src="${TS.chibiSrc(c)}" alt="">
+        <div class="raid-info">
+          <span class="tag" style="background:#d8253e;color:#fff">🔥 단체 레이드</span>
+          <h3>${esc(G.name)} <small>${esc(G.title)}</small></h3>
+          <p>${cleared ? "🏆 모두의 힘으로 격파했어요! 보상을 받아가세요." : ended ? "이벤트가 끝났어요. 못 잡았지만 참여 보상은 받을 수 있어요." : `“크하하… ${list.length}명이 덤벼도 나는 안 쓰러진다!”`}</p>
+          <div class="boss-hp"><span class="bar hp"><i style="width:${(left / G.hp) * 100}%"></i></span><b>HP ${fmtN(left)} / ${fmtN(G.hp)}</b></div>
+          <p class="hint" style="margin-top:6px">이벤트 기간에 집중 1분 = ${G.perMin} 데미지 (이벤트 보너스로 ×${EV.focusBonus}) · 시험 범위 1칸 = ${G.perRange} · 참여 ${list.length}명</p>
+        </div>
+      </div>
     </div>
     <div class="card">
-      <div class="cards-head">
-        <div class="seg small">${["", ...subjects()].map((x) => `<button data-cs="${esc(x)}" class="${x === cardSubj ? "on" : ""}">${x ? esc(x) : "전체"}</button>`).join("")}</div>
+      <h3 class="card-title">⚔️ 내 기여 <button class="btn white small" id="rd-refresh" style="margin-left:auto">${raidLoading ? "불러오는 중…" : "🔄 새로고침"}</button></h3>
+      ${raidErr ? `<p class="rank-err" style="padding:8px 12px;border-radius:12px">⚠️ ${esc(raidErr)}</p>` : ""}
+      <div class="raid-me">
+        <div><small>내 데미지</small><b>${fmtN(e.raidDmg || 0)}</b></div>
+        <div><small>순위</small><b>${me ? `${list.indexOf(me) + 1}위` : "-"}</b></div>
+        <div><small>기여도</small><b>${rw ? (rw.share * 100).toFixed(1) + "%" : "0%"}</b></div>
       </div>
-      <div class="box-row">${[1, 2, 3, 4, 5].map((b) => `<div class="lbox"><b>${list.filter((c) => (c.box || 1) === b).length}</b><small>상자 ${b}${b === 1 ? " (매일)" : ` (${CARD_INTERVAL[b - 1]}일)`}</small></div>`).join("")}</div>
-      <div class="modal-actions">
-        <button class="btn pink big" id="cd-go" ${dueN ? "" : "disabled"}>📖 오늘 복습 ${dueN}장</button>
-        <button class="btn white" id="cd-all" ${list.length ? "" : "disabled"}>🔀 아무거나 20장</button>
+      <div class="raid-reward">
+        <b>${cleared ? "🎁 받을 보상" : ended ? "🎁 참여 보상 (30%)" : "🎁 지금 격파하면 받을 보상 (예상)"}</b>
+        ${rw ? `<span>🧧 ${rw.charm}</span><span><i class="ic-elif"></i> ${fmtN(rw.elif)}</span><span><i class="ic-candy"></i> ${rw.candy}</span>${rw.mvp ? "<span>🏅 MVP 뱃지</span>" : ""}` : "<span>공부해서 공격하면 보상이 생겨요!</span>"}
       </div>
-      <p class="hint">“알아요” 하면 다음 상자로 넘어가서 점점 가끔 나오고, “몰라요” 하면 상자 1로 돌아가 매일 나와요. 이벤트 기간엔 5장마다 부적 1!</p>
-      <ul class="card-list">${list.slice().reverse().slice(0, 60).map((c) => `<li><span class="tag">${esc(c.subject)}</span><b>${esc(c.front)}</b><span>${esc(c.back)}</span><small>상자 ${c.box || 1}</small><button class="icon-btn" data-cddel="${c.id}">✕</button></li>`).join("") || '<li class="empty">카드를 만들어서 외워봐요!</li>'}</ul>
-    </div>`;
-  $("cd-form").onsubmit = (e) => {
-    e.preventDefault();
-    st.cards.push({ id: uid(), subject: $("cd-subj").value, front: $("cd-front").value.trim(), back: $("cd-back").value.trim(), box: 1, due: TS.today() });
-    cardSubj = $("cd-subj").value;
-    TS.sfx("click"); TS.save(); render(); $("cd-front").focus();
-  };
-  P().querySelectorAll("[data-cs]").forEach((b) => (b.onclick = () => { cardSubj = b.dataset.cs; render(); }));
-  P().querySelectorAll("[data-cddel]").forEach((b) => (b.onclick = () => { st.cards = st.cards.filter((c) => c.id !== b.dataset.cddel); TS.save(); render(); }));
-  const start = (cards) => { cardSession = { queue: cards.map((c) => c.id), i: 0, flip: false, ok: 0, ng: 0 }; render(); };
-  $("cd-go").onclick = () => start(list.filter(due).sort(() => Math.random() - 0.5).slice(0, 20));
-  $("cd-all").onclick = () => start(list.slice().sort(() => Math.random() - 0.5).slice(0, 20));
-}
-function cardStudy() {
-  const s = cardSession, st = study();
-  const c = st.cards.find((x) => x.id === s.queue[s.i]);
-  if (!c) {
-    P().innerHTML = `<div class="card flash-done"><h3>🎉 복습 끝!</h3><p>알아요 <b>${s.ok}</b> · 몰라요 <b>${s.ng}</b></p>
-      <div class="modal-actions"><button class="btn yellow" id="cd-back2">카드 목록으로</button></div></div>`;
-    $("cd-back2").onclick = () => { cardSession = null; render(); };
-    return;
-  }
-  P().innerHTML = `<div class="card flash-wrap">
-    <div class="flash-top"><span class="tag">${esc(c.subject)}</span><span>${s.i + 1} / ${s.queue.length}</span><button class="link" id="cd-quit">그만하기</button></div>
-    <button class="flash ${s.flip ? "flip" : ""}" id="cd-card">
-      <span class="flash-in"><span class="flash-front">${esc(c.front)}<small>눌러서 뒤집기</small></span><span class="flash-back">${esc(c.back)}</span></span>
-    </button>
-    <div class="modal-actions ${s.flip ? "" : "invisible"}">
-      <button class="btn red big" id="cd-ng">😵 몰라요</button><button class="btn mint big" id="cd-ok">😎 알아요</button>
-    </div></div>`;
-  $("cd-card").onclick = () => { s.flip = !s.flip; TS.sfx("flip"); cardStudy(); };
-  $("cd-quit").onclick = () => { cardSession = null; render(); };
-  const answer = (ok) => {
-    c.box = ok ? Math.min(5, (c.box || 1) + 1) : 1;
-    c.due = addDays(TS.today(), CARD_INTERVAL[c.box - 1]);
-    c.reviews = (c.reviews || 0) + 1;
-    ok ? s.ok++ : s.ng++;
-    if (isOn()) {
-      const e = ev(); e.daily.cards++; e.cardsTotal++;
-      if (e.cardsTotal % 5 === 0) giveCharm(1);
-    }
-    TS.sfx(ok ? "coin" : "click");
-    s.i++; s.flip = false; TS.save(); cardStudy();
-  };
-  if (s.flip) { $("cd-ok").onclick = () => answer(true); $("cd-ng").onclick = () => answer(false); }
-}
-
-/* ───── 오답노트 ───── */
-let wrongSubj = "";
-function paneWrong() {
-  const st = study();
-  const list = wrongSubj ? st.wrongs.filter((w) => w.subject === wrongSubj) : st.wrongs;
-  const reasons = {};
-  for (const w of st.wrongs) reasons[w.why] = (reasons[w.why] || 0) + 1;
-  const top = Object.entries(reasons).sort((a, b) => b[1] - a[1])[0];
-  P().innerHTML = `
-    <div class="card">
-      <h3 class="card-title">❌ 오답노트 쓰기</h3>
-      <form class="ev-form wrong-form" id="wr-form" autocomplete="off">
-        <div class="tt-row"><select id="wr-subj">${subjects().map((x) => `<option ${x === wrongSubj ? "selected" : ""}>${esc(x)}</option>`).join("")}</select>
-        <select id="wr-why">${WRONG_REASONS.map((x) => `<option>${x}</option>`).join("")}</select></div>
-        <input id="wr-q" placeholder="틀린 문제 (짧게) 예) 수학 프린트 3번 - 이차함수 최댓값" maxlength="100" required>
-        <textarea id="wr-fix" placeholder="정답 · 올바른 풀이 · 기억할 점" maxlength="300" rows="2"></textarea>
-        <button class="btn yellow" type="submit">오답 기록</button>
-      </form>
-    </div>
-    ${top ? `<div class="card wrong-stat"><h3 class="card-title">🔍 나의 실수 패턴</h3>
-      <div class="why-row">${Object.entries(reasons).sort((a, b) => b[1] - a[1]).map(([k, v]) => `<span class="why-chip ${k === top[0] ? "top" : ""}">${k} <b>${v}</b></span>`).join("")}</div>
-      <p class="why-tip">💡 <b>${top[0]}</b>가 제일 많아요. ${WRONG_TIPS[top[0]]}</p></div>` : ""}
-    <div class="card">
-      <div class="seg small">${["", ...subjects()].map((x) => `<button data-ws="${esc(x)}" class="${x === wrongSubj ? "on" : ""}">${x ? esc(x) : "전체"}</button>`).join("")}</div>
-      <ul class="wrong-list">${list.slice().sort((a, b) => (a.solved ? 1 : 0) - (b.solved ? 1 : 0) || b.created - a.created).map((w) => `<li class="${w.solved ? "solved" : ""}">
-        <div class="wr-head"><span class="tag">${esc(w.subject)}</span><span class="tag why">${esc(w.why)}</span>${w.solved ? '<span class="tag ok">✔ 정복</span>' : ""}<small>다시 푼 횟수 ${w.reviews || 0}</small><button class="icon-btn" data-wrdel="${w.id}">✕</button></div>
-        <b>${esc(w.q)}</b>
-        <details><summary>풀이 보기</summary><p>${esc(w.fix || "(메모 없음)")}</p></details>
-        ${w.solved ? "" : `<div class="wr-btns"><span>다시 풀어봤나요?</span><button class="btn small mint" data-wrok="${w.id}">⭕ 맞았어요</button><button class="btn small white" data-wrng="${w.id}">❌ 또 틀렸어요</button></div>`}
-      </li>`).join("") || '<li class="empty">틀린 문제를 적어두고, 시험 전에 다시 풀어봐요!</li>'}</ul>
-    </div>`;
-  const bump = () => { if (isOn()) ev().daily.wrong++; };
-  $("wr-form").onsubmit = (e) => {
-    e.preventDefault();
-    st.wrongs.push({ id: uid(), subject: $("wr-subj").value, why: $("wr-why").value, q: $("wr-q").value.trim(), fix: $("wr-fix").value.trim(), created: Date.now(), reviews: 0, solved: false });
-    wrongSubj = $("wr-subj").value;
-    bump(); TS.sfx("coin"); TS.toast("❌ 오답 기록! 시험 전에 꼭 다시 풀어봐요");
-    TS.save(); render();
-  };
-  P().querySelectorAll("[data-ws]").forEach((b) => (b.onclick = () => { wrongSubj = b.dataset.ws; render(); }));
-  P().querySelectorAll("[data-wrdel]").forEach((b) => (b.onclick = () => { st.wrongs = st.wrongs.filter((w) => w.id !== b.dataset.wrdel); TS.save(); render(); }));
-  const review = (id, ok) => {
-    const w = st.wrongs.find((x) => x.id === id);
-    w.reviews = (w.reviews || 0) + 1;
-    if (ok) { w.solved = true; TS.sfx("r2"); TS.toast("⭕ 오답 정복!"); } else TS.sfx("sad");
-    bump(); TS.save(); render();
-  };
-  P().querySelectorAll("[data-wrok]").forEach((b) => (b.onclick = () => review(b.dataset.wrok, true)));
-  P().querySelectorAll("[data-wrng]").forEach((b) => (b.onclick = () => review(b.dataset.wrng, false)));
-}
-
-/* ───── 모의고사 ───── */
-function paneMock() {
-  const st = study(), t = TS.timer.t;
-  const busy = t.running || t.remain > 0;
-  const bySubj = {};
-  for (const m of st.mocks) (bySubj[m.subject] = bySubj[m.subject] || []).push(m);
-  P().innerHTML = `
-    <div class="card">
-      <h3 class="card-title">⏱️ 실전 모의고사 모드</h3>
-      <p class="hint" style="margin:0 0 12px">진짜 시험처럼 <b>일시정지 없이</b> 시간을 재요. 끝나면 점수를 기록하고, 집중 시간·보상·보스 데미지도 그대로 받아요.</p>
-      <div class="tt-row">
-        <label>과목 <select id="mk-subj">${subjects().map((x) => `<option>${esc(x)}</option>`).join("")}</select></label>
-        <label>시간 <select id="mk-min">${[40, 45, 50, 60, 70, 80, 90, 100].map((n) => `<option value="${n}" ${n === 50 ? "selected" : ""}>${n}분</option>`).join("")}</select></label>
-        <button class="btn red big" id="mk-go" ${busy ? "disabled" : ""}>📝 시험 시작!</button>
-      </div>
-      ${busy ? '<p class="hint">지금 타이머가 돌아가는 중이라 끝나고 시작할 수 있어요.</p>' : ""}
+      <p class="hint">기본 보상 + 공동 보상(🧧${G.pool.charm} · 💎${fmtN(G.pool.elif)} · 🍬${G.pool.candy})을 <b>데미지 비율대로</b> 나눠요. 1~3위는 MVP 뱃지!</p>
+      ${canClaim ? `<button class="btn yellow big" id="rd-claim" style="width:100%">보상 받기!</button>` : e.raidClaimed ? `<p class="hint">✔ 보상을 받았어요</p>` : ""}
     </div>
     <div class="card">
-      <h3 class="card-title">📈 모의고사 기록</h3>
-      ${Object.keys(bySubj).length ? Object.entries(bySubj).map(([k, arr]) => `<div class="mock-subj"><b>${esc(k)}</b>
-        <div class="mock-dots">${arr.slice(-10).map((m) => `<span title="${m.date} · ${m.min}분${m.memo ? " · " + esc(m.memo) : ""}" style="--h:${m.score == null ? 8 : Math.max(8, m.score)}%" class="${m.score == null ? "na" : ""}"><i></i><small>${m.score == null ? "-" : m.score}</small></span>`).join("")}</div></div>`).join("")
-        : '<p class="hint">아직 모의고사 기록이 없어요.</p>'}
+      <h3 class="card-title">🏆 공격 순위 <span class="count">${list.length}명</span></h3>
+      <ol class="raid-list">${list.slice(0, 20).map((x, i) => `<li class="${x.uid === raidCache.me ? "me" : ""}">
+        <span class="rk">${i < 3 ? ["🥇", "🥈", "🥉"][i] : i + 1}</span><span class="nm">${esc(x.n)}</span>
+        <span class="bar"><i style="width:${total ? (x.d / list[0].d) * 100 : 0}%"></i></span>
+        <b>${fmtN(x.d)}</b><small>${total ? ((x.d / total) * 100).toFixed(1) : 0}%</small></li>`).join("") || '<li class="empty">아직 아무도 공격하지 않았어요. 첫 공격의 주인공이 되어보세요!</li>'}</ol>
+      ${raidAt ? `<p class="hint">업데이트: ${new Date(raidAt).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })}</p>` : ""}
     </div>`;
-  $("mk-go").onclick = () => {
-    const t2 = TS.timer.t;
-    if (t2.running || t2.remain) return;
-    const min = +$("mk-min").value;
-    t2.mode = "focus"; t2.subject = $("mk-subj").value; t2.tag = "mock"; t2.todoId = "";
-    t2.dur = min * 60000; t2.remain = t2.dur;
-    TS.save(); TS.timer.start(); TS.go("timer");
-    TS.toast(`📝 ${t2.subject} 모의고사 시작! ${min}분, 일시정지 없음`);
+  $("rd-refresh").onclick = () => raidLoad(true);
+  const cl = $("rd-claim");
+  if (cl) cl.onclick = () => {
+    const r = raidReward();
+    if (!r || e.raidClaimed) return;
+    e.raidClaimed = true; e.raidMvp = r.mvp;
+    e.charm += r.charm; e.earned += r.charm;
+    TS.addElif(r.elif); TS.addCandy(r.candy);
+    TS.save(); TS.sfx("r3"); TS.confetti(120);
+    TS.modal(`<h2>🔥 레이드 보상!</h2><p>${r.cleared ? `${esc(G.name)} 격파 성공!` : "참여 보상이에요."} 내 순위 <b>${r.rank}위</b> · 기여도 <b>${(r.share * 100).toFixed(1)}%</b></p>
+      <div class="reward-row"><span class="reward-chip">🧧 +${r.charm}</span><span class="reward-chip"><i class="ic-elif"></i>+${r.elif.toLocaleString()}</span><span class="reward-chip"><i class="ic-candy"></i>+${r.candy}</span>${r.mvp ? '<span class="reward-chip">🏅 MVP 뱃지</span>' : ""}</div>
+      <div class="modal-actions"><button class="btn yellow" data-close>좋아!</button></div>`);
+    TS.refresh();
   };
 }
-function mockDone(subject, min) {
-  const st = study(), m = { id: uid(), subject, min, date: TS.today(), score: null, memo: "" };
-  st.mocks.push(m);
-  if (isOn()) { ev().daily.mock++; giveCharm(5); }
-  TS.save();
-  setTimeout(() => TS.modal(`<h2>📝 모의고사 끝!</h2>
-    <p><b>${esc(subject)}</b> ${min}분 완주! 채점해서 점수를 남겨볼까요?</p>
-    <div class="tt-row" style="justify-content:center"><label>점수 <input type="number" id="mk-score" min="0" max="100" placeholder="0~100" style="width:100px"></label></div>
-    <input id="mk-memo" maxlength="60" placeholder="한 줄 메모 (예: 서술형 시간 부족)" style="width:100%;margin-top:8px">
-    <div class="modal-actions"><button class="btn white" data-close>나중에</button><button class="btn yellow" id="mk-save">기록</button></div>`,
-    (el, close) => {
-      el.querySelector("#mk-save").onclick = () => {
-        const v = el.querySelector("#mk-score").value;
-        m.score = v === "" ? null : Math.max(0, Math.min(100, Math.round(+v)));
-        m.memo = el.querySelector("#mk-memo").value.trim();
-        TS.save(); close(); TS.sfx("coin");
-        TS.toast(m.score != null ? `📈 ${subject} ${m.score}점 기록!` : "📈 기록 완료");
-      };
-    }), 0);
-}
+setInterval(() => { if (TS.view === "event" && pane === "raid" && !document.hidden) raidLoad(); }, 30000);
 
 /* ───── 상점 ───── */
 function paneShop() {
