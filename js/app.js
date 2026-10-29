@@ -95,11 +95,12 @@ const PLAIN_LINES = {
 };
 const PLAIN_COLORS = { pure: "#7cc68a", cool: "#6aa7e0", mad: "#e07a7a", jolly: "#e8b84a", gloomy: "#a185cf", special: "#e08ab8" };
 const plainCache = {};
+/* 심플 모드 그림: 포켓몬 1세대 그림 100장(assets/plain)을 사도 순서대로 하나씩 (100명 넘으면 처음부터 다시) */
+const PLAIN_N = 100;
 function plainAvatar(c) {
   if (plainCache[c.id]) return plainCache[c.id];
-  const col = PLAIN_COLORS[c.pers] || "#9aa7b8", ch = shortName(c).slice(0, 1);
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 140"><rect width="120" height="140" rx="22" fill="${col}"/><circle cx="60" cy="58" r="34" fill="#fff" opacity=".9"/><text x="60" y="71" font-family="sans-serif" font-size="36" font-weight="700" text-anchor="middle" fill="${col}">${ch}</text><rect x="22" y="106" width="76" height="10" rx="5" fill="#fff" opacity=".55"/></svg>`;
-  return (plainCache[c.id] = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg));
+  const i = Math.max(0, SADO.findIndex((x) => x.id === c.id)) % PLAIN_N;
+  return (plainCache[c.id] = `assets/plain/${String(i).padStart(3, "0")}.webp`);
 }
 
 const baseLines = (c, kind) => (SPECIAL_LINES[c.id] && SPECIAL_LINES[c.id][kind]) || PERS[c.pers][kind];

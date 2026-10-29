@@ -1700,3 +1700,6 @@ html.plain .pet-slot, html.plain .ss-pet { display: none; }
 @keyframes psGlow { 50% { box-shadow: 0 0 34px 10px #c47bff; } }
 .pf:not(.flip):hover .pf-in { transform: translateY(-4px); }
 @media (max-width: 600px) { .pf { min-height: 130px; } }
+/* 심플 모드 포켓몬 그림: 잘리지 않게 통째로 */
+html.plain img[src^="assets/plain/"] { object-fit: contain !important; }
+html.plain .partner img { padding: 10%; box-sizing: border-box; }
