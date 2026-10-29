@@ -7,7 +7,7 @@
    스킨: 기본 스킨은 무료, 나머지는 호감도 Lv(2·4·6·8…) 달성 또는 별사탕으로 해금
    ========================================================= */
 const SKIN_COST = 50;
-const LOAD_TIMEOUT = 25000;               // 이 시간 안에 못 불러오면 그림으로 표시                     // 스킨 1개 해금 별사탕
+const LOAD_TIMEOUT = 15000;               // 서버 하나당 기다리는 시간. 넘으면 다음 서버, 다 안 되면 그림으로 표시                     // 스킨 1개 해금 별사탕
 const skinAffLv = (idx) => idx * 2;       // idx번째 스킨 무료 해금 호감도 레벨
 const LIVE_REACT = {                      // 반응 → 애니메이션 후보 (있는 것 중에서 고름)
   touch:    [["Touch_Idle", "Touch_End"]],
@@ -69,18 +69,21 @@ function mount(container, id, opts = {}) {
   host.className = "live-host";
   container.appendChild(host);
   const ctrl = { id, host, ready: false, anims: [], idles: [], player: null, play, dispose, busyUntil: 0 };
-  let tries = 0, giveUp = 0, failed = false;
+  let tries = 0, giveUp = 0, failed = false, attempt = 0;
   function create(full) {
     tries++;
+    const my = ++attempt; // 이전 시도의 늦은 응답은 무시
     const base = bases[hostIdx];
     host.innerHTML = "";
     const cfg = {
       skelUrl: base + ".skel.asset", atlasUrl: base + ".atlas.asset",
-      showControls: false, showLoading: false, alpha: true, // 로딩 로고 안 보이게 (그동안 기존 그림이 보임) backgroundColor: "#00000000", premultipliedAlpha: false,
+      showControls: false, showLoading: false, // 로딩 로고 안 보이게 (그동안 기존 그림이 보임)
+      alpha: true, backgroundColor: "#00000000",
+      premultipliedAlpha: false, // 트릭컬 텍스처는 일반 알파 (true 면 관절·테두리가 하얗게 깨져 보임)
       viewport: { padLeft: "6%", padRight: "6%", padTop: "8%", padBottom: "3%", transitionTime: 0 },
       success: (p) => {
+        if (my !== attempt || failed) return;
         clearTimeout(giveUp);
-        if (failed) return;
         const data = p.skeleton.data;
         ctrl.anims = data.animations.map((a) => a.name);
         ctrl.idles = ctrl.anims.filter((n) => /^Idle_/.test(n));
@@ -94,8 +97,8 @@ function mount(container, id, opts = {}) {
         opts.onReady && opts.onReady(ctrl);
       },
       error: (p, msg) => {
+        if (my !== attempt || failed) return;
         clearTimeout(giveUp);
-        if (failed) return;
         try { p.dispose(); } catch (e) { /* 무시 */ }
         if (full) return create(false);                                   // 스킨·애니 이름이 달라서 실패했을 수도
         if (hostIdx < bases.length - 1) { hostIdx++; return create(true); } // 다음 서버
@@ -109,7 +112,12 @@ function mount(container, id, opts = {}) {
     // 너무 오래 걸리면 포기하고 그림으로 (느린 인터넷·그래픽 문제)
     clearTimeout(giveUp);
     giveUp = setTimeout(() => {
-      if (ctrl.ready) return;
+      if (ctrl.ready || my !== attempt) return;
+      if (hostIdx < bases.length - 1) { // 응답 없는 서버 → 다음 서버로
+        try { ctrl.player.dispose(); } catch (e) { /* 무시 */ }
+        hostIdx++;
+        return create(true);
+      }
       failed = true;
       console.warn("live load timeout", id);
       try { ctrl.player.dispose(); } catch (e) { /* 무시 */ }

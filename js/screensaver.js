@@ -143,7 +143,8 @@ async function open() {
   wakeCursor();
   $("ss-exit").onclick = close;
   $("ss-next").onclick = () => { swapBg(); swapChars(); };
-  $("ss-set").onclick = () => $("ss-panel").classList.toggle("hidden");
+  $("ss-set").onclick = () => { $("ss-panel").classList.toggle("hidden"); wakeCursor(); };
+  root.addEventListener("keydown", wakeCursor);
   const save = () => {
     Object.assign(c, { interval: +$("ss-int").value, count: +$("ss-cnt").value, source: $("ss-src").value, clock: $("ss-clk").checked, allBg: $("ss-allbg").checked, auto: $("ss-auto").checked });
     TS.save(); hud();
@@ -169,7 +170,8 @@ function wakeCursor() {
   if (!root) return;
   root.classList.remove("idle");
   clearTimeout(cursorT);
-  cursorT = setTimeout(() => root && root.classList.add("idle"), 3000);
+  // 설정 창이 열려 있으면 숨기지 않음 (고르는 동안 사라지면 안 되니까)
+  cursorT = setTimeout(() => { if (root && $("ss-panel").classList.contains("hidden")) root.classList.add("idle"); else wakeCursor(); }, 3000);
 }
 async function lockWake() {
   try { if ("wakeLock" in navigator) wake = await navigator.wakeLock.request("screen"); } catch (e) { /* 지원 안 함 */ }

@@ -1435,3 +1435,9 @@ body.ss-open { overflow: hidden; }
 .rk-admin-list em { grid-area: w; font-style: normal; font-size: 12px; color: var(--red-d); }
 .rk-admin-list code { grid-area: u; font-size: 11px; color: var(--ink-soft); }
 .rk-admin-list .btn, .rk-admin-list .tag { grid-area: b; }
+/* 화면보호기 버튼 글자 (#ss 가 흰 글자라 버튼 글자가 안 보이던 문제) */
+#ss .btn { color: var(--ink); }
+#ss .btn.red { color: #fff; }
+/* 화면보호기: 애니메이션 못 불러왔을 때 그림을 둥근 카드로 */
+.ss-body.static { display: flex; align-items: flex-end; justify-content: center; }
+.ss-body.static img { width: auto; height: auto; max-width: 80%; max-height: 80%; border: 5px solid var(--ink); border-radius: 28px; background: #fffdf6; box-shadow: 0 8px 0 var(--ink); filter: none; }
