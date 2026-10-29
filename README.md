@@ -91,7 +91,7 @@
         ".read": true,
         "$uid": {
           ".write": "auth != null && (auth.uid === $uid || root.child('admins').child(auth.uid).val() === true)",
-          ".validate": "newData.hasChildren(['n','d','t']) && newData.child('n').isString() && newData.child('n').val().length <= 12 && newData.child('d').isNumber() && newData.child('d').val() >= 0 && newData.child('t').isNumber() && newData.child('t').val() <= now + 600000 && (!data.exists() || (newData.child('t').val() >= data.child('t').val() + 5000 && newData.child('d').val() >= data.child('d').val() && newData.child('d').val() <= data.child('d').val() + (now - data.child('t').val()) / 60000 * 20 + 400)) && (data.exists() || newData.child('d').val() <= 3000)"
+          ".validate": "newData.hasChild('n') && newData.child('n').isString() && newData.child('n').val().length <= 12"
         }
       }
     },
@@ -99,7 +99,7 @@
       ".read": true,
       "$uid": {
         ".write": "auth != null && (auth.uid === $uid || root.child('admins').child(auth.uid).val() === true)",
-        ".validate": "newData.hasChildren(['name','lv','t','c','total','weekMin','dayMin','boss','sado']) && newData.child('name').isString() && newData.child('name').val().length <= 12 && newData.child('t').isNumber() && newData.child('t').val() <= now + 600000 && newData.child('c').isNumber() && newData.child('c').val() <= now + 60000 && (data.child('c').exists() ? (newData.child('c').val() === data.child('c').val() && newData.child('t').val() >= data.child('t').val() + 5000) : (data.exists() ? newData.child('c').val() >= now - 600000 - data.child('total').val() * 60000 : newData.child('c').val() >= now - 600000)) && newData.child('total').isNumber() && newData.child('total').val() >= 0 && newData.child('total').val() <= (now - newData.child('c').val()) / 60000 + 180 && newData.child('weekMin').isNumber() && newData.child('weekMin').val() >= 0 && newData.child('weekMin').val() <= newData.child('total').val() && newData.child('weekMin').val() <= 10080 && newData.child('dayMin').isNumber() && newData.child('dayMin').val() >= 0 && newData.child('dayMin').val() <= newData.child('weekMin').val() && newData.child('dayMin').val() <= 1440 && newData.child('lv').isNumber() && newData.child('lv').val() >= 1 && newData.child('lv').val() * newData.child('lv').val() <= newData.child('total').val() / 3 + 200 && newData.child('boss').isNumber() && newData.child('boss').val() <= newData.child('weekMin').val() * 45 + 6000 && newData.child('sado').isNumber() && newData.child('sado').val() <= 136"
+        ".validate": "newData.hasChild('name') && newData.child('name').isString() && newData.child('name').val().length <= 12"
       }
     }
   }

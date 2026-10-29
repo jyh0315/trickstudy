@@ -107,15 +107,14 @@ function myEntry() {
   const s = S(), st = s.stats, wk = TS.weekKey(), td = TS.today(), now = Date.now();
   const wkMin = Object.entries(st.days).filter(([d]) => d >= wk).reduce((a, [, m]) => a + m, 0);
   const b = s.boss && s.boss.week === wk ? s.boss.dmg : 0;
-  // 서버 규칙에 맞게: 처음 올린 뒤 흐른 시간만큼만 인정 (진짜 공부한 사람은 시간이 지나면 다 반영됨)
-  const cap = rankAllowed(rk().c, now) - 1;
-  const total = Math.min(st.totalMin, cap), week = Math.min(wkMin, total), day = Math.min(st.days[td] || 0, week, 1440);
-  const lv = Math.max(1, Math.min(s.level, Math.floor(Math.sqrt(total / 3 + 200))));
+  // 기록은 그대로 올림 (이상한 기록은 관리자가 지움)
+  const total = st.totalMin, week = wkMin, day = st.days[td] || 0;
+  const lv = Math.max(1, s.level);
   return {
     name: String(s.name).slice(0, 12), lv, partner: s.partner || "",
     week: wk, weekMin: week, day: td, dayMin: day,
     total, sado: Math.min(136, Object.keys(s.owned).length),
-    boss: Math.min(Math.round(b), week * 45 + 6000), streak: st.streak, t: now, c: rk().c,
+    boss: Math.round(b), streak: st.streak, t: now, c: rk().c,
     p: window.Profile ? window.Profile.publicProfile() : null, // 꾸민 프로필
     ...Object.assign({}, ...RANK_EXTRA.map((fn) => fn())),     // 이벤트 등 모듈 추가 필드
   };
@@ -141,7 +140,7 @@ async function upload() {
     await api("ranking/{uid}", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(myEntry()) });
     lastErr = "";
   } catch (e) {
-    lastErr = /permission/i.test(e.message) ? "서버가 기록을 거절했어요 (보안 규칙). 기록이 비정상적으로 빨리 늘었거나 로그인에 문제가 있어요." : e.message;
+    lastErr = /permission/i.test(e.message) ? "서버가 기록을 거절했어요. Firebase 규칙을 README의 최신 규칙으로 바꿔주세요." : e.message;
     console.warn("ranking upload", e);
   }
 }
@@ -233,7 +232,7 @@ function render() {
   const el = $("view-rank");
   const t = TABS.find((x) => x.id === tab), wk = TS.weekKey(), td = TS.today();
   const sus = (cache || []).filter((e) => e.sus.length);
-  const list = (cache || []).filter((e) => !e.sus.length || e.uid === meUid).map((e) => ({ e, v: t.val(e, wk, td) })).sort((a, b) => b.v - a.v || b.e.lv - a.e.lv);
+  const list = (cache || []).map((e) => ({ e, v: t.val(e, wk, td) })).sort((a, b) => b.v - a.v || b.e.lv - a.e.lv);
   const shown = list.filter((x) => x.v > 0 || tab === "lv" || tab === "sado");
   const myIdx = shown.findIndex((x) => x.e.uid === meUid);
   // 꾸민 프로필 (없으면 기본)
@@ -281,7 +280,7 @@ function render() {
         <b>${fmtVal(x.v, t.fmt)}</b><small class="ago">${ago(x.e.t)}</small></li>`).join("") ||
         `<li class="empty">${cache ? (shown.length ? "4위부터는 아직 아무도 없어요!" : "아직 기록이 없어요. 첫 번째 교주가 되어보세요!") : loading ? "불러오는 중…" : ""}</li>`}</ol>
       ${cacheAt ? `<p class="hint">업데이트: ${ago(cacheAt)} · 기록은 집중·의뢰·레벨업 때 자동으로 올라가요</p>` : ""}
-      ${sus.length || isAdmin() ? `<p class="hint rk-sus-note">${sus.length ? `🚫 비정상 기록 ${sus.length}개는 랭킹에서 숨겼어요.` : ""}${isAdmin() ? ` <button class="link" id="rk-sus">${showSus ? "관리 닫기" : "🛡️ 랭킹 관리하기"}</button>` : ""}</p>` : ""}
+      ${isAdmin() ? `<p class="hint rk-sus-note">${sus.length && isAdmin() ? `⚠️ 수상한 기록 ${sus.length}개가 있어요.` : ""}${isAdmin() ? ` <button class="link" id="rk-sus">${showSus ? "관리 닫기" : "🛡️ 랭킹 관리하기"}</button>` : ""}</p>` : ""}
     </div>
     ${isAdmin() ? adminHTML(sus) : ""}`;
   el.querySelectorAll("[data-rt]").forEach((b) => (b.onclick = () => { tab = b.dataset.rt; TS.sfx("click"); render(); }));
