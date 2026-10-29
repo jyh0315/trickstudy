@@ -145,7 +145,7 @@ function render() {
   const titleOf = (e) => (window.Profile ? (PROFILE_TITLES.find((x) => x.id === pp(e).ti) || PROFILE_TITLES[0]).label : "");
   const face = (e) => {
     const c = TS.SADO_MAP[e.partner];
-    return c ? TS.chibiSrc(c) : "assets/chibi/erpin.webp";
+    return c ? TS.chibiSrc(c) : "assets/chibi/erpin.webp?v=2";
   };
   const podium = shown.slice(0, 3);
   el.innerHTML = `

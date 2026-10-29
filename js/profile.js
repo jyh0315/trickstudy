@@ -67,7 +67,7 @@ function prof() {
 }
 const avatarSrc = (id) => {
   const c = TS.SADO_MAP[id];
-  if (!c) return "assets/chibi/erpin.webp";
+  if (!c) return "assets/chibi/erpin.webp?v=2";
   return c.emote ? `assets/emotes/${c.id}/1.webp` : TS.chibiSrc(c);
 };
 

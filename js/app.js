@@ -85,7 +85,7 @@ const titleOf = (c) => (SPECIAL_LINES[c.id] && SPECIAL_LINES[c.id].title) || `${
 const stars = (r) => "★".repeat(r);
 
 /* ───── 이미지 ───── */
-const chibiSrc = (c) => `assets/chibi/${c.id}.webp`;
+const chibiSrc = (c) => `assets/chibi/${c.id}.webp?v=2`; // ?v= : 이미지를 바꾸면 숫자를 올려서 브라우저 캐시 무시
 const emoteCount = (c) => (c.emote && state.owned[c.id] ? state.owned[c.id].emo || 1 : 0);
 function portrait(c, randomEmote = false) {
   const n = emoteCount(c);
@@ -1007,7 +1007,7 @@ function afterTitle() {
 function boot() {
   if (!state.started) {
     $("bubble-text").textContent = "누가 왔나 봐요…?";
-    $("partner-img").src = "assets/chibi/erpin.webp";
+    $("partner-img").src = "assets/chibi/erpin.webp?v=2";
   } else renderPartner(true);
   emit("boot");
   refresh();
