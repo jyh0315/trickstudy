@@ -1426,3 +1426,12 @@ body.ss-open { overflow: hidden; }
 }
 /* 혹시 남아 있는 플레이어 기본 UI 숨김 */
 .live-host .spine-player-controls, .live-host .spine-player-error { display: none !important; }
+.rk-sus-note .link { color: var(--red-d); }
+.rk-admin-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; max-height: 480px; overflow: auto; }
+.rk-admin-list li { display: grid; grid-template-columns: auto 1fr auto; grid-template-areas: "n s b" "w w b" "u u b"; gap: 2px 10px; align-items: center; background: var(--paper); border: 2px solid var(--ink); border-radius: 12px; padding: 6px 10px; }
+.rk-admin-list li.bad { background: #ffecec; border-color: var(--red-d); }
+.rk-admin-list b { grid-area: n; font-family: var(--font-title); font-weight: normal; }
+.rk-admin-list small { grid-area: s; font-size: 12px; color: var(--ink-soft); }
+.rk-admin-list em { grid-area: w; font-style: normal; font-size: 12px; color: var(--red-d); }
+.rk-admin-list code { grid-area: u; font-size: 11px; color: var(--ink-soft); }
+.rk-admin-list .btn, .rk-admin-list .tag { grid-area: b; }

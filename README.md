@@ -59,31 +59,40 @@
 - 미리 보고 싶으면 주소 뒤에 `?event=on` (시작 전 화면 `?event=pre`, 종료 후 `?event=after`, 원래대로 `?event=off`)
 - 날짜·미션·상점 구성은 `js/event.js` 맨 위 `EVENTS` 에서 바꾸고, 다음 이벤트도 여기에 추가하면 돼요
 
-## 🏆 랭킹 (Firebase) 설정
+## 🏆 랭킹 (Firebase) 설정 · 보안
 
-`js/ranking.js` 맨 위 `FIREBASE.dbURL` 에 데이터베이스 주소가 들어 있어요.
-Firebase 콘솔 → **Realtime Database → 규칙(Rules)** 에 아래를 붙여넣고 **게시**하세요.
+### 1단계: 익명 로그인 켜기 (내 기록은 나만 고칠 수 있게)
+1. Firebase 콘솔 → **Authentication → 시작하기 → 로그인 방법 → 익명** 사용 설정
+2. 프로젝트 설정(⚙️) → 일반 → **웹 API 키**를 복사해서 `js/ranking.js` 의 `apiKey` 에 넣기
 
+### 2단계: 관리자 등록
+1. 사이트 → 기록 → 설정의 **내 랭킹 ID** 복사 (apiKey 를 넣은 뒤의 ID)
+2. `js/ranking.js` 의 `admins: ["여기에 ID"]` 에 넣기 → 랭킹 화면에 🛡️ 관리 버튼이 생김
+3. Firebase 콘솔 → Realtime Database → 데이터에서 `admins/<내 ID>` 를 `true` 로 추가
+
+### 3단계: 보안 규칙 (Realtime Database → 규칙 → 붙여넣고 게시)
 ```json
 {
   "rules": {
     ".read": false,
     ".write": false,
+    "admins": { ".read": false, ".write": false },
     "ranking": {
       ".read": true,
       "$uid": {
-        ".write": true,
-        ".validate": "newData.hasChildren(['name', 'lv', 't']) && newData.child('name').isString() && newData.child('name').val().length <= 12 && newData.child('lv').isNumber() && newData.child('lv').val() < 1000"
+        ".write": "auth != null && (auth.uid === $uid || root.child('admins').child(auth.uid).val() === true)",
+        ".validate": "newData.hasChildren(['name','lv','t','total','weekMin','dayMin','boss','sado']) && newData.child('name').isString() && newData.child('name').val().length <= 12 && newData.child('lv').isNumber() && newData.child('lv').val() >= 1 && newData.child('lv').val() <= 300 && newData.child('t').isNumber() && newData.child('t').val() <= now + 600000 && (!data.exists() || newData.child('t').val() >= data.child('t').val() + 5000) && newData.child('total').isNumber() && newData.child('total').val() >= 0 && (data.exists() ? newData.child('total').val() <= data.child('total').val() + (now - data.child('t').val()) / 60000 + 30 : newData.child('total').val() <= 6000) && newData.child('weekMin').isNumber() && newData.child('weekMin').val() >= 0 && newData.child('weekMin').val() <= 10080 && newData.child('weekMin').val() <= newData.child('total').val() + 1 && newData.child('dayMin').isNumber() && newData.child('dayMin').val() >= 0 && newData.child('dayMin').val() <= 1440 && newData.child('boss').isNumber() && newData.child('boss').val() <= newData.child('weekMin').val() * 45 + 6000 && newData.child('sado').isNumber() && newData.child('sado').val() <= 136"
       }
     }
   }
 }
 ```
-
-**더 안전하게 (선택):** 위 규칙은 누구나 아무 기록이나 쓸 수 있어요. 다른 사람이 내 기록을 덮어쓰지 못하게 하려면
-1. Firebase 콘솔 → Authentication → 로그인 방법 → **익명** 사용 설정
-2. 프로젝트 설정 → 일반 → **웹 API 키** 를 `js/ranking.js` 의 `apiKey` 에 넣기
-3. 규칙의 `".write": true` 를 `".write": "auth != null && auth.uid === $uid"` 로 바꾸기
+- 로그인한 본인(또는 관리자)만 기록을 쓰거나 지울 수 있어요
+- 누적 공부 시간은 **실제로 흐른 시간보다 빨리 늘 수 없어요** (처음 등록은 100시간까지)
+- 하루 24시간·일주일 168시간 초과, 레벨 300 초과, 공부 시간에 안 맞는 보스 데미지 등은 서버가 거절
+- 5초에 한 번까지만 저장 가능
+- 사이트에서도 같은 기준으로 비정상 기록을 숨기고, 관리자는 🛡️ 랭킹 관리에서 지울 수 있어요
+- 게임이 브라우저에서 돌아가서 100% 막을 수는 없어요. 위 규칙은 “말이 안 되는 기록”을 막는 거예요
 
 ## 🎵 배경음악
 

@@ -6,8 +6,32 @@
    ========================================================= */
 const FIREBASE = {
   dbURL: "https://trickstudy-default-rtdb.asia-southeast1.firebasedatabase.app",
-  apiKey: "", // 선택: 프로젝트 설정 → 웹 API 키
+  apiKey: "", // 프로젝트 설정 → 웹 API 키 (넣으면 익명 로그인으로 내 기록 보호)
+  admins: [], // 관리자 랭킹 ID (기록 → 설정에 보이는 ID). 이 사람만 랭킹 삭제 버튼이 보임
 };
+
+/* 현실적으로 불가능한 기록인지 검사 → 이유 목록 (빈 배열이면 정상)
+   서버 규칙(README)과 같은 기준 + 레벨·이벤트 등 추가 확인 */
+function rankSuspicion(e, now = Date.now()) {
+  const why = [];
+  const wkStart = new Date(TS_WEEK_START() + "T00:00").getTime();
+  const sameWeek = e.week === TS_WEEK_START();
+  const cumExp = (lv) => 100 * (lv - 1) + 30 * (lv - 1) * (lv - 2);
+  if (e.dayMin > 1440) why.push("하루 24시간 초과");
+  if (e.weekMin > 7 * 1440) why.push("일주일 시간 초과");
+  if (sameWeek && e.weekMin > (now - wkStart) / 60000 + 1440) why.push("이번 주 지난 시간보다 많음");
+  if (sameWeek && e.weekMin > e.total + 1) why.push("이번 주가 누적보다 많음");
+  if (e.day === e.dayKey && e.dayMin > e.weekMin + 1 && sameWeek) why.push("오늘이 이번 주보다 많음");
+  if (e.total > 120000) why.push("누적 2000시간 초과");
+  if (cumExp(e.lv) > e.total * 6 + 8000) why.push("공부 시간에 비해 레벨이 너무 높음");
+  if (sameWeek && e.boss > e.weekMin * 45 + 6000) why.push("보스 데미지가 공부 시간보다 너무 많음");
+  if (e.sado > 136) why.push("사도 수 초과");
+  if (e.streak > 400) why.push("연속 일수 이상");
+  if (e.t > now + 10 * 60000) why.push("미래 시각");
+  if (e.ev && e.ev.c > 5000) why.push("이벤트 재화 이상");
+  return why;
+}
+const TS_WEEK_START = () => window.TS.weekKey();
 
 (() => {
 "use strict";
@@ -51,7 +75,7 @@ async function auth() {
 }
 async function api(path, opts = {}) {
   const { uid, token } = await auth();
-  const url = `${FIREBASE.dbURL}/${path.replace("{uid}", uid)}.json${token ? "?auth=" + token : ""}`;
+  const url = `${FIREBASE.dbURL}/${path.replace("{uid}", uid)}.json${token ? "?auth=" + encodeURIComponent(token) : ""}`;
   const res = await fetch(url, opts);
   if (!res.ok) {
     let msg = res.status;
@@ -75,13 +99,18 @@ function myEntry() {
     ...Object.assign({}, ...RANK_EXTRA.map((fn) => fn())),     // 이벤트 등 모듈 추가 필드
   };
 }
-let upTimer = 0, lastErr = "";
+let upTimer = 0, lastErr = "", lastUp = 0;
 async function upload() {
   if (!rk().on || !S().started) return;
+  if (Date.now() - lastUp < 8000) return scheduleUpload(8000); // 서버 규칙: 너무 자주 쓰면 거절
   try {
+    lastUp = Date.now();
     await api("ranking/{uid}", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(myEntry()) });
     lastErr = "";
-  } catch (e) { lastErr = e.message; console.warn("ranking upload", e); }
+  } catch (e) {
+    lastErr = /permission/i.test(e.message) ? "서버가 기록을 거절했어요 (보안 규칙). 기록이 비정상적으로 빨리 늘었거나 로그인에 문제가 있어요." : e.message;
+    console.warn("ranking upload", e);
+  }
 }
 function scheduleUpload(ms = 3000) { clearTimeout(upTimer); upTimer = setTimeout(upload, ms); }
 ["focus", "levelup", "pull", "todo", "start", "partner", "profile"].forEach((ev) => TS.on(ev, () => scheduleUpload()));
@@ -101,12 +130,16 @@ const num = (v, max = 1e7) => (Number.isFinite(+v) ? Math.max(0, Math.min(max, M
 function clean(uid, e) {
   if (!e || typeof e !== "object") return null;
   return {
-    uid, name: String(e.name || "???").slice(0, 12), lv: num(e.lv, 999), partner: TS.SADO_MAP[e.partner] ? e.partner : "", p: e.p,
-    week: String(e.week || ""), weekMin: num(e.weekMin), day: String(e.day || ""), dayMin: num(e.dayMin, 1440),
-    total: num(e.total), sado: num(e.sado, 999), boss: num(e.boss), streak: num(e.streak, 9999), t: num(e.t, 1e15),
+    // 값을 미리 잘라내지 않음 → 비정상 검사(rankSuspicion)가 원래 값을 봄
+    uid, name: String(e.name || "???").slice(0, 12), lv: num(e.lv, 1e9), partner: TS.SADO_MAP[e.partner] ? e.partner : "", p: e.p,
+    week: String(e.week || ""), weekMin: num(e.weekMin, 1e12), day: String(e.day || ""), dayMin: num(e.dayMin, 1e12),
+    total: num(e.total, 1e12), sado: num(e.sado, 1e9), boss: num(e.boss, 1e15), streak: num(e.streak, 1e9), t: num(e.t, 1e16),
     ev: e.ev && typeof e.ev === "object" ? { id: String(e.ev.id || "").slice(0, 24), c: num(e.ev.c) } : null,
+    dayKey: TS.today(),
   };
 }
+const isAdmin = () => FIREBASE.admins.includes(meUid);
+let showSus = false;
 const fmtVal = (v, f) => f === "min" ? (v >= 60 ? `${Math.floor(v / 60)}시간 ${v % 60}분` : `${v}분`)
   : f === "dmg" ? v.toLocaleString() : f === "lv" ? `Lv.${v}` : f === "charm" ? `🧧 ${v.toLocaleString()}` : `${v}명`;
 const ago = (t) => { const m = Math.floor((Date.now() - t) / 60000); return m < 1 ? "방금" : m < 60 ? `${m}분 전` : m < 1440 ? `${Math.floor(m / 60)}시간 전` : `${Math.floor(m / 1440)}일 전`; };
@@ -118,7 +151,11 @@ async function load(force) {
     if (rk().on) await upload();
     const { uid, data } = await api("ranking");
     meUid = uid;
-    cache = Object.entries(data || {}).map(([u, e]) => clean(u, e)).filter(Boolean);
+    cache = Object.entries(data || {}).map(([u, e]) => {
+      const c = clean(u, e);
+      if (c) { c.sus = rankSuspicion(c); if (e && (typeof e.name !== "string" || typeof e.total !== "number")) c.sus.push("형식 오류"); }
+      return c;
+    }).filter(Boolean);
     cacheAt = Date.now();
   } catch (e) {
     loadErr = e.message;
@@ -126,13 +163,44 @@ async function load(force) {
   loading = false;
   if (TS.view === "rank") render();
 }
+/* ───── 관리자: 기록 삭제 ───── */
+function adminHTML(sus) {
+  if (!showSus) return "";
+  const all = (cache || []).slice().sort((a, b) => b.sus.length - a.sus.length || b.total - a.total);
+  return `<div class="card rk-admin"><h3 class="card-title">🛡️ 랭킹 관리 (관리자 전용) ${sus.length ? `<button class="btn red small" id="rk-del-all" style="margin-left:auto">비정상 ${sus.length}개 모두 삭제</button>` : ""}</h3>
+    <ul class="rk-admin-list">${all.map((e) => `<li class="${e.sus.length ? "bad" : ""}">
+      <b>${esc(e.name)}</b><small>Lv.${e.lv} · 주 ${e.weekMin}분 · 오늘 ${e.dayMin}분 · 누적 ${e.total}분 · 보스 ${e.boss.toLocaleString()} · ${ago(e.t)}</small>
+      ${e.sus.length ? `<em>🚫 ${e.sus.map(esc).join(", ")}</em>` : ""}
+      <code>${esc(e.uid)}</code>
+      ${e.uid === meUid ? '<span class="tag">나</span>' : `<button class="btn small ${e.sus.length ? "red" : "white"}" data-del="${esc(e.uid)}">삭제</button>`}</li>`).join("")}</ul>
+    <p class="hint">삭제는 되돌릴 수 없어요. 보안 규칙을 적용하면 관리자만 남의 기록을 지울 수 있어요.</p></div>`;
+}
+async function adminDelete(uid) {
+  const e = (cache || []).find((x) => x.uid === uid);
+  TS.confirmModal("기록 삭제", `<b>${esc(e ? e.name : uid)}</b>의 랭킹 기록을 지울까요?`, "삭제", async () => {
+    try { await api("ranking/" + encodeURIComponent(uid), { method: "DELETE" }); TS.toast("🗑️ 삭제했어요"); cache = cache.filter((x) => x.uid !== uid); }
+    catch (err) { TS.toast("삭제 실패: " + err.message); }
+    render();
+  }, true);
+}
+function adminDeleteAll(sus) {
+  TS.confirmModal("비정상 기록 모두 삭제", `비정상 기록 <b>${sus.length}개</b>를 모두 지울까요?<br>${sus.slice(0, 10).map((e) => esc(e.name)).join(", ")}${sus.length > 10 ? " …" : ""}`, "모두 삭제", async () => {
+    let ok = 0;
+    for (const e of sus) {
+      try { await api("ranking/" + encodeURIComponent(e.uid), { method: "DELETE" }); ok++; cache = cache.filter((x) => x.uid !== e.uid); } catch (err) { /* 다음 */ }
+    }
+    TS.toast(`🗑️ ${ok}개 삭제했어요`);
+    render();
+  }, true);
+}
 async function myUid() { try { return (await auth()).uid; } catch (e) { return rk().uid; } }
 let meUid = "";
 
 function render() {
   const el = $("view-rank");
   const t = TABS.find((x) => x.id === tab), wk = TS.weekKey(), td = TS.today();
-  const list = (cache || []).map((e) => ({ e, v: t.val(e, wk, td) })).sort((a, b) => b.v - a.v || b.e.lv - a.e.lv);
+  const sus = (cache || []).filter((e) => e.sus.length);
+  const list = (cache || []).filter((e) => !e.sus.length || e.uid === meUid).map((e) => ({ e, v: t.val(e, wk, td) })).sort((a, b) => b.v - a.v || b.e.lv - a.e.lv);
   const shown = list.filter((x) => x.v > 0 || tab === "lv" || tab === "sado");
   const myIdx = shown.findIndex((x) => x.e.uid === meUid);
   // 꾸민 프로필 (없으면 기본)
@@ -180,13 +248,18 @@ function render() {
         <b>${fmtVal(x.v, t.fmt)}</b><small class="ago">${ago(x.e.t)}</small></li>`).join("") ||
         `<li class="empty">${cache ? (shown.length ? "4위부터는 아직 아무도 없어요!" : "아직 기록이 없어요. 첫 번째 교주가 되어보세요!") : loading ? "불러오는 중…" : ""}</li>`}</ol>
       ${cacheAt ? `<p class="hint">업데이트: ${ago(cacheAt)} · 기록은 집중·의뢰·레벨업 때 자동으로 올라가요</p>` : ""}
-    </div>`;
+      ${sus.length ? `<p class="hint rk-sus-note">🚫 비정상 기록 ${sus.length}개는 랭킹에서 숨겼어요.${isAdmin() ? ` <button class="link" id="rk-sus">${showSus ? "닫기" : "관리하기"}</button>` : ""}</p>` : ""}
+    </div>
+    ${isAdmin() ? adminHTML(sus) : ""}`;
   el.querySelectorAll("[data-rt]").forEach((b) => (b.onclick = () => { tab = b.dataset.rt; TS.sfx("click"); render(); }));
   el.querySelectorAll("[data-who]").forEach((r) => (r.onclick = () => {
     const e = (cache || []).find((x) => x.uid === r.dataset.who);
     if (e && window.Profile) window.Profile.view(e);
   }));
   $("rk-refresh").onclick = () => load(true);
+  const sb = $("rk-sus"); if (sb) sb.onclick = () => { showSus = !showSus; render(); };
+  el.querySelectorAll("[data-del]").forEach((b) => (b.onclick = (ev) => { ev.stopPropagation(); adminDelete(b.dataset.del); }));
+  const da = $("rk-del-all"); if (da) da.onclick = () => adminDeleteAll(sus);
   $("rk-on").onchange = async (e) => {
     rk().on = e.target.checked; TS.save();
     if (!rk().on) {
@@ -198,4 +271,8 @@ function render() {
 }
 TS.views.rank = () => { render(); load(false); };
 TS.on("boot", async () => { meUid = await myUid(); });
+TS.on("stats", async () => {
+  const el = $("s-rankid");
+  if (el) el.textContent = meUid || (meUid = await myUid());
+});
 })();
