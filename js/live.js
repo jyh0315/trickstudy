@@ -58,6 +58,38 @@ const affLv = (id) => (window.Affection ? window.Affection.level(id) : 1);
 const skinOwned = (id, i) => i === 0 || skinState(id).own.includes(i) || affLv(id) >= skinAffLv(i);
 const curSkin = (id) => { const st = skinState(id); return skinOwned(id, st.cur) ? st.cur : 0; };
 
+/* ───── 화면에 보일 영역 ─────
+   트릭컬 스켈레톤은 발이 (0,0), 머리가 대략 y=350~450 (단위 같음)
+   body: 모든 사도를 같은 배율로 (무기·이펙트 크기에 휘둘리지 않게)
+   face: 머리 뼈를 중심으로 얼굴 위주 */
+const HEAD_BONES = ["Head", "S1_Head", "S3_Head", "S2_Head", "Head_Root", "S3_Head_Root", "S1_Head_Root"];
+function headPos(sk) {
+  let b = null;
+  for (const n of HEAD_BONES) if ((b = sk.findBone(n))) break;
+  if (!b) b = sk.bones.find((x) => /^(S\d+_)?Head(_Root)?$/i.test(x.data.name));
+  if (b) return { x: b.worldX, y: b.worldY };
+  const off = new spine.Vector2(), size = new spine.Vector2();
+  sk.getBounds(off, size);
+  return { x: off.x + size.x / 2, y: off.y + size.y * 0.6 };
+}
+function frameView(p, mode) {
+  // 불러온 직후엔 뼈 위치가 아직 계산 전이라 한 번 계산
+  p.animationState.apply(p.skeleton);
+  p.skeleton.updateWorldTransform();
+  const h = headPos(p.skeleton);
+  let v;
+  if (mode === "face") {
+    const S = 430;
+    v = { x: h.x - S / 2, y: h.y - 140, width: S, height: S };
+  } else {
+    const top = Math.max(800, h.y + 330); // 큰 사도(빅우드 등)는 머리가 잘리지 않게
+    v = { x: -360, y: -30, width: 720, height: top + 30 };
+  }
+  Object.assign(p.config.viewport, v, { padLeft: 0, padRight: 0, padTop: 0, padBottom: 0, transitionTime: 0 });
+  const cur = p.animationState.getCurrent(0);
+  if (cur) p.setViewport(cur.animation.name);
+}
+
 /* ───── Spine 플레이어 하나 ───── */
 function mount(container, id, opts = {}) {
   if (!canLive(id)) { opts.onFail && opts.onFail(); return null; }
@@ -92,6 +124,7 @@ function mount(container, id, opts = {}) {
           if (sk) { p.skeleton.setSkin(sk); p.skeleton.setSlotsToSetupPose(); }
           p.animationState.setAnimation(0, ctrl.idles[0] || ctrl.anims[0], true);
         }
+        frameView(p, opts.frame || "body");
         ctrl.ready = true;
         container.classList.add("live-ready");
         opts.onReady && opts.onReady(ctrl);
@@ -170,7 +203,7 @@ function mountStage(force) {
   box.classList.remove("live-ready");
   if (!id || !S().started) return;
   if (failedIds.has(key)) return;
-  stage = mount(box, id, { onFail: () => { stage = null; failedIds.add(key); } });
+  stage = mount(box, id, { frame: "face", onFail: () => { stage = null; failedIds.add(key); } });
 }
 function react(kind) { if (stage) return stage.play(kind); return false; }
 

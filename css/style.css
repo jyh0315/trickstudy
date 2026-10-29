@@ -1377,11 +1377,11 @@ body.title-open { overflow: hidden; }
 body.ss-open { overflow: hidden; }
 #ss { position: fixed; inset: 0; z-index: 2000; background: #1d1424; overflow: hidden; color: #fff; user-select: none; }
 #ss.idle { cursor: none; }
-.ss-bg { position: absolute; inset: -6%; background: center/cover no-repeat; opacity: 0; transition: opacity 2.5s ease; animation: ssKb1 60s ease-in-out infinite alternate; }
+.ss-bg { position: absolute; inset: -6%; background: center/cover no-repeat; opacity: 0; transition: opacity 2.5s ease; animation: ssKb1 60s linear infinite alternate; will-change: transform, opacity; backface-visibility: hidden; transform: translate3d(0, 0, 0); }
 .ss-bg.on { opacity: 1; }
-@keyframes ssKb1 { from { transform: scale(1) translate(0, 0); } to { transform: scale(1.12) translate(-3%, -2%); } }
-@keyframes ssKb2 { from { transform: scale(1.12) translate(3%, 0); } to { transform: scale(1) translate(-2%, 2%); } }
-@keyframes ssKb3 { from { transform: scale(1.05) translate(0, 3%); } to { transform: scale(1.15) translate(2%, -2%); } }
+@keyframes ssKb1 { from { transform: translate3d(0, 0, 0) scale(1); } to { transform: translate3d(-3%, -2%, 0) scale(1.1); } }
+@keyframes ssKb2 { from { transform: translate3d(3%, 0, 0) scale(1.1); } to { transform: translate3d(-2%, 2%, 0) scale(1); } }
+@keyframes ssKb3 { from { transform: translate3d(0, 3%, 0) scale(1.04); } to { transform: translate3d(2%, -2%, 0) scale(1.12); } }
 .ss-shade { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(180deg, rgba(20,10,25,.45), rgba(20,10,25,0) 30%, rgba(20,10,25,0) 55%, rgba(20,10,25,.55)); }
 .ss-clock { position: absolute; top: 4vh; left: 4vw; text-shadow: 0 4px 0 rgba(59,42,32,.7), 0 0 30px rgba(0,0,0,.35); }
 .ss-time { font-family: var(--font-title); font-size: clamp(64px, 13vmin, 150px); line-height: .95; letter-spacing: 2px; font-variant-numeric: tabular-nums; }
@@ -1400,11 +1400,12 @@ body.ss-open { overflow: hidden; }
 .ss-char { position: relative; pointer-events: auto; cursor: pointer; display: flex; flex-direction: column; align-items: center; opacity: 0; transform: translateY(40px); transition: opacity .9s, transform .9s cubic-bezier(.3,1.3,.6,1); }
 .ss-char.in { opacity: 1; transform: none; }
 .ss-char.out { opacity: 0; transform: translateY(30px) scale(.95); }
-.ss-body { position: relative; width: 50vh; height: 58vh; }
+.ss-body { position: relative; width: 50vh; height: 58vh; isolation: isolate; }
 .ss-char.n2 .ss-body { width: 42vh; height: 50vh; }
 .ss-char.n3 .ss-body { width: 34vh; height: 42vh; }
 .ss-body.static img { width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 8px 12px rgba(0,0,0,.35)); animation: idle 3.2s ease-in-out infinite; }
-.ss-body .live-host { filter: drop-shadow(0 10px 14px rgba(0,0,0,.35)); }
+/* 그림자 필터는 매 프레임 다시 그려서 끊김 → 발밑 타원 그림자로 */
+.ss-body::after { content: ""; position: absolute; left: 22%; right: 22%; bottom: 1%; height: 5%; border-radius: 50%; background: radial-gradient(closest-side, rgba(0,0,0,.35), transparent); z-index: -1; }
 .ss-name { font-family: var(--font-title); font-size: 14px; background: rgba(59,42,32,.75); padding: 1px 12px; border-radius: 999px; margin-top: -10px; }
 .ss-bubble {
   position: absolute; top: 2%; left: 50%; transform: translateX(-50%) scale(.6); opacity: 0; z-index: 2; max-width: 34vh; width: max-content;
