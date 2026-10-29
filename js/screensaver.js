@@ -157,6 +157,7 @@ async function open() {
   document.body.appendChild(root);
   document.body.classList.add("ss-open");
   swapChars();
+  TS.emit("ss-open", root);
   hud();
   tick = setInterval(() => { hud(); if (Math.random() < 0.06) chatter(); }, 1000);
   rotate = setInterval(() => { swapBg(); swapChars(); }, c.interval * 1000);
@@ -181,6 +182,7 @@ function close() {
   clearInterval(tick); clearInterval(rotate); clearTimeout(cursorT);
   chars.forEach((it) => it.live && it.live.dispose());
   chars = [];
+  TS.emit("ss-close");
   root.remove(); root = null;
   document.body.classList.remove("ss-open");
   fsOn = false;
