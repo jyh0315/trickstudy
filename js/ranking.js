@@ -7,7 +7,7 @@
 const FIREBASE = {
   dbURL: "https://trickstudy-default-rtdb.asia-southeast1.firebasedatabase.app",
   apiKey: "AIzaSyBjj03P3GJpEWAaBF0EGxw1Gnqeligq6NU", // 웹 API 키 (공개돼도 되는 값) → 익명 로그인으로 내 기록 보호
-  admins: [], // 관리자 랭킹 ID (기록 → 설정에 보이는 ID). 이 사람만 랭킹 삭제 버튼이 보임
+  admins: ["4Kw4U3bmNRONoZtVyyDT1OmICFh2"], // 관리자 랭킹 ID (기록 → 설정에 보이는 ID). 이 사람만 랭킹 삭제 버튼이 보임
 };
 
 /* 현실적으로 불가능한 기록인지 검사 → 이유 목록 (빈 배열이면 정상)
