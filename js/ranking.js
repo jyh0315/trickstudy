@@ -281,7 +281,7 @@ function render() {
         <b>${fmtVal(x.v, t.fmt)}</b><small class="ago">${ago(x.e.t)}</small></li>`).join("") ||
         `<li class="empty">${cache ? (shown.length ? "4위부터는 아직 아무도 없어요!" : "아직 기록이 없어요. 첫 번째 교주가 되어보세요!") : loading ? "불러오는 중…" : ""}</li>`}</ol>
       ${cacheAt ? `<p class="hint">업데이트: ${ago(cacheAt)} · 기록은 집중·의뢰·레벨업 때 자동으로 올라가요</p>` : ""}
-      ${sus.length ? `<p class="hint rk-sus-note">🚫 비정상 기록 ${sus.length}개는 랭킹에서 숨겼어요.${isAdmin() ? ` <button class="link" id="rk-sus">${showSus ? "닫기" : "관리하기"}</button>` : ""}</p>` : ""}
+      ${sus.length || isAdmin() ? `<p class="hint rk-sus-note">${sus.length ? `🚫 비정상 기록 ${sus.length}개는 랭킹에서 숨겼어요.` : ""}${isAdmin() ? ` <button class="link" id="rk-sus">${showSus ? "관리 닫기" : "🛡️ 랭킹 관리하기"}</button>` : ""}</p>` : ""}
     </div>
     ${isAdmin() ? adminHTML(sus) : ""}`;
   el.querySelectorAll("[data-rt]").forEach((b) => (b.onclick = () => { tab = b.dataset.rt; TS.sfx("click"); render(); }));

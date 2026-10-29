@@ -23,6 +23,7 @@ function cfg() {
 let fsOn = false, root = null, chars = [], tick = 0, rotate = 0, cursorT = 0, wake = null, bgIdx = 0, bgList = [];
 
 function pickChars(n) {
+  if (!n) return []; // 0명: 배경만
   const s = S(), owned = Object.keys(s.owned).filter((id) => TS.SADO_MAP[id]);
   if (cfg().source === "partner" || owned.length <= 1) return [s.partner].filter(Boolean).slice(0, 1);
   const pool = owned.filter((id) => id !== s.partner).sort(() => Math.random() - 0.5);
@@ -146,7 +147,7 @@ async function open() {
     </div>
     <div class="ss-panel hidden" id="ss-panel">
       <label>바뀌는 간격 <select id="ss-int">${[[30, "30초"], [60, "1분"], [120, "2분"], [300, "5분"], [600, "10분"]].map(([v, l]) => `<option value="${v}" ${c.interval === v ? "selected" : ""}>${l}</option>`).join("")}</select></label>
-      <label>사도 수 <select id="ss-cnt">${[1, 2, 3].map((n) => `<option ${c.count === n ? "selected" : ""}>${n}</option>`).join("")}</select></label>
+      <label>사도 수 <select id="ss-cnt">${[0, 1, 2, 3].map((n) => `<option value="${n}" ${c.count === n ? "selected" : ""}>${n ? n + "명" : "없음 (배경만)"}</option>`).join("")}</select></label>
       <label>사도 <select id="ss-src"><option value="owned" ${c.source === "owned" ? "selected" : ""}>보유 사도 랜덤</option><option value="partner" ${c.source === "partner" ? "selected" : ""}>대표 사도만</option></select></label>
       <label class="check"><input type="checkbox" id="ss-clk" ${c.clock ? "checked" : ""}> 큰 시계</label>
       <label>배경 <select id="ss-bgsrc">${[["game", "게임 배경 (155장)"], ["illust", "레벨업 일러스트"], ["mix", "둘 다 섞어서"]].map(([v, l]) => `<option value="${v}" ${c.bgSrc === v ? "selected" : ""}>${l}</option>`).join("")}</select></label>
