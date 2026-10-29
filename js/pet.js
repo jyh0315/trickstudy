@@ -65,18 +65,98 @@ function pull(n) {
   TS.save(); TS.refresh();
   show(res);
 }
+/* ───── 뽑기 연출: 알을 톡톡 두드려 깨기 → 결과 카드 뒤집기 ─────
+   두드릴 때마다 금이 가고, 빛깔이 일반(회색)→고급(초록)→희귀(파랑)→전설(보라)로 한 단계씩 올라감
+   (나온 것 중 가장 좋은 등급까지만 올라감). 전설이면 한 번 더 두드려야 하고 화면이 크게 흔들림 */
+const G_ORDER = ["C", "A", "E", "L"];
+const G_COLOR = { C: "#d9dde4", A: "#8fdc5a", E: "#5aa8ff", L: "#c47bff" };
 function show(res) {
-  const best = res.some((r) => r.pet.grade === "L");
-  TS.sfx(best ? "r3" : "r2");
-  if (best) TS.confetti(70);
-  TS.modal(`<h2>🐾 펫 뽑기 결과</h2>
-    <div class="pet-res ${res.length === 1 ? "one" : ""}">${res.map((r, i) => `
-      <div class="pet-card g-${r.pet.grade}" style="animation-delay:${i * 70}ms">
-        ${r.isNew ? '<span class="new">NEW!</span>' : `<span class="dup">별사탕 +${PET_GRADES[r.pet.grade].candy}</span>`}
-        <img src="${r.pet.img}" alt=""><b>${esc(r.pet.name)}</b><small>${PET_GRADES[r.pet.grade].label} 펫</small>
-      </div>`).join("")}</div>
-    <div class="modal-actions"><button class="btn white" id="pet-bag-go">🎒 펫 가방</button><button class="btn yellow" data-close>확인</button></div>`,
-  (el, close) => { el.querySelector("#pet-bag-go").onclick = () => { close(); openBag(); }; });
+  const bestIdx = Math.max(...res.map((r) => G_ORDER.indexOf(r.pet.grade)));
+  const taps = bestIdx === 3 ? 4 : 3;
+  const st = document.createElement("div");
+  st.className = "pet-stage";
+  st.innerHTML = `
+    <div class="ps-rays"></div>
+    <div class="ps-egg-wrap">
+      <div class="ps-egg"><svg class="ps-cracks" viewBox="0 0 100 130">
+        <polyline class="c1" points="20,52 32,58 28,66 40,70"/>
+        <polyline class="c2" points="58,40 66,50 60,57 72,64 68,74"/>
+        <polyline class="c3" points="35,88 46,82 52,92 63,86 70,95"/>
+        <polyline class="c4" points="44,20 50,30 46,38 55,46"/>
+      </svg></div>
+      <div class="ps-shadow"></div>
+    </div>
+    <div class="ps-msg">알을 톡톡 두드려 주세요!</div>
+    <button class="btn white small ps-skip">건너뛰기 ⏭</button>`;
+  document.body.appendChild(st);
+  const egg = st.querySelector(".ps-egg"), msg = st.querySelector(".ps-msg");
+  let k = 0, done = false;
+  TS.sfx("click");
+  const setGlow = (gi) => { st.style.setProperty("--g", G_COLOR[G_ORDER[gi]]); st.dataset.g = G_ORDER[gi]; };
+  setGlow(0);
+  const hit = () => {
+    if (done) return;
+    k++;
+    const gi = Math.min(bestIdx, Math.round((k / taps) * bestIdx + 0.001 * k));
+    setGlow(Math.min(gi, bestIdx));
+    egg.classList.remove("hit"); void egg.offsetWidth; egg.classList.add("hit");
+    st.querySelectorAll(".ps-cracks polyline").forEach((pl, i) => pl.classList.toggle("on", i < k));
+    st.classList.toggle("rumble", bestIdx === 3 && k >= taps - 1);
+    if (k < taps) {
+      TS.sfx(gi >= 2 ? "r2" : "poke");
+      msg.textContent = k === taps - 1 ? (bestIdx === 3 ? "!? 알이 심상치 않아요…!" : "조금만 더!") : ["톡!", "톡톡!", "꿈틀…?"][Math.min(k - 1, 2)];
+      return;
+    }
+    hatch();
+  };
+  const hatch = () => {
+    done = true;
+    st.classList.remove("rumble");
+    st.classList.add("burst");
+    TS.sfx(bestIdx === 3 ? "r3" : bestIdx === 2 ? "r2" : "flip");
+    if (bestIdx === 3) TS.confetti(90);
+    setTimeout(() => reveal(), 650);
+  };
+  egg.addEventListener("click", hit);
+  st.querySelector(".ps-skip").onclick = () => { if (!done) { k = taps; setGlow(bestIdx); hatch(); } else finishAll(); };
+
+  function reveal() {
+    st.classList.add("cards");
+    st.innerHTML = `<div class="ps-rays"></div>
+      <div class="pet-res ${res.length === 1 ? "one" : ""}">${res.map((r, i) => `
+        <div class="pf pg-${r.pet.grade}" data-i="${i}" style="animation-delay:${i * 60}ms">
+          <div class="pf-in">
+            <div class="pf-back"><span>🥚</span></div>
+            <div class="pf-face pet-card g-${r.pet.grade}">
+              ${r.isNew ? '<span class="new">NEW!</span>' : `<span class="dup">별사탕 +${PET_GRADES[r.pet.grade].candy}</span>`}
+              <img src="${r.pet.img}" alt=""><b>${esc(r.pet.name)}</b><small>${PET_GRADES[r.pet.grade].label} 펫</small>
+            </div>
+          </div>
+        </div>`).join("")}</div>
+      <div class="ps-msg">카드를 눌러 뒤집어요!</div>
+      <div class="ps-actions"><button class="btn white" id="ps-all">모두 열기</button><button class="btn white hidden" id="ps-bag">🎒 펫 가방</button><button class="btn yellow hidden" id="ps-ok">확인</button></div>`;
+    const cards = [...st.querySelectorAll(".pf")];
+    const flip = (el) => {
+      if (el.classList.contains("flip")) return;
+      el.classList.add("flip");
+      const g = res[+el.dataset.i].pet.grade;
+      TS.sfx(g === "L" ? "r3" : g === "E" ? "r2" : "flip");
+      if (g === "L") { TS.confetti(50); st.classList.remove("ps-flash"); void st.offsetWidth; st.classList.add("ps-flash"); }
+      if (cards.every((c) => c.classList.contains("flip"))) {
+        st.querySelector(".ps-msg").textContent = bestIdx === 3 ? "✨ 전설 펫 등장! ✨" : "부화 완료!";
+        st.querySelector("#ps-all").classList.add("hidden");
+        st.querySelector("#ps-ok").classList.remove("hidden");
+        st.querySelector("#ps-bag").classList.remove("hidden");
+      }
+    };
+    // 전설·희귀는 뒤집기 전에도 뒷면이 은은하게 빛나서 두근두근
+    cards.forEach((el) => (el.onclick = () => flip(el)));
+    if (res.length === 1) setTimeout(() => flip(cards[0]), 500);
+    st.querySelector("#ps-all").onclick = () => cards.filter((c) => !c.classList.contains("flip")).forEach((el, i) => setTimeout(() => flip(el), i * 160));
+    st.querySelector("#ps-ok").onclick = finishAll;
+    st.querySelector("#ps-bag").onclick = () => { finishAll(); openBag(); };
+  }
+  function finishAll() { st.remove(); renderStage(); }
 }
 
 /* ───── 펫 가방 (도감 + 데리고 다닐 펫 고르기) ───── */

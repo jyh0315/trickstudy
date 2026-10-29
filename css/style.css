@@ -1654,3 +1654,49 @@ html.plain .pet-slot, html.plain .ss-pet { display: none; }
 .ttl-tap-msg { font-family: var(--font-title); font-size: clamp(20px, 2.6vw, 28px); color: #fff; letter-spacing: 2px; animation: ttlBlink 1.8s ease-in-out infinite; }
 @keyframes ttlBlink { 50% { opacity: .35; } }
 .ttl-scene.tapwait .ttl-bg { transform: scale(1.1); filter: none; }
+
+/* ───── 펫 뽑기 연출 (알 부화) ───── */
+.pet-stage { --g: #d9dde4; position: fixed; inset: 0; z-index: 1500; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px; background: radial-gradient(circle at 50% 45%, color-mix(in srgb, var(--g) 35%, #2a1d2e), #120c16 70%); transition: background .5s; overflow: hidden; user-select: none; }
+.ps-rays { position: absolute; left: 50%; top: 45%; width: 160vmax; height: 160vmax; translate: -50% -50%; pointer-events: none; opacity: .35;
+  background: repeating-conic-gradient(from 0deg, color-mix(in srgb, var(--g) 70%, transparent) 0 6deg, transparent 6deg 18deg); animation: psSpin 18s linear infinite; mask: radial-gradient(circle, #000 0, transparent 55%); }
+@keyframes psSpin { to { rotate: 360deg; } }
+.ps-egg-wrap { position: relative; display: flex; flex-direction: column; align-items: center; }
+.ps-egg { position: relative; width: 170px; height: 220px; cursor: pointer; border-radius: 50% 50% 50% 50% / 60% 60% 42% 42%;
+  background: radial-gradient(circle at 35% 30%, #fff, #fff6e6 45%, #f0dcc0 100%); border: 5px solid var(--ink);
+  box-shadow: 0 0 40px 8px color-mix(in srgb, var(--g) 80%, transparent), inset -12px -16px 0 rgba(59,42,32,.12);
+  animation: psFloat 2.2s ease-in-out infinite; transition: box-shadow .4s; }
+.ps-egg::before, .ps-egg::after { content: ""; position: absolute; border-radius: 50%; background: color-mix(in srgb, var(--g) 70%, #f5c9d6); opacity: .8; }
+.ps-egg::before { width: 30px; height: 24px; left: 30px; top: 70px; }
+.ps-egg::after { width: 22px; height: 18px; right: 34px; top: 120px; }
+@keyframes psFloat { 50% { translate: 0 -10px; } }
+.ps-egg.hit { animation: psHit .45s cubic-bezier(.3,1.6,.6,1); }
+@keyframes psHit { 20% { transform: rotate(-12deg) scale(1.06, .94); } 45% { transform: rotate(10deg) scale(.96, 1.04); } 70% { transform: rotate(-5deg); } }
+.ps-cracks { position: absolute; inset: 0; width: 100%; height: 100%; }
+.ps-cracks polyline { fill: none; stroke: var(--ink); stroke-width: 2.6; stroke-linejoin: round; stroke-dasharray: 60; stroke-dashoffset: 60; transition: stroke-dashoffset .25s; }
+.ps-cracks polyline.on { stroke-dashoffset: 0; }
+.ps-shadow { width: 130px; height: 18px; margin-top: 14px; border-radius: 50%; background: rgba(0,0,0,.45); }
+.ps-msg { position: relative; font-family: var(--font-title); font-size: clamp(22px, 3vw, 32px); color: #fff; text-shadow: 0 3px 0 rgba(0,0,0,.5); text-align: center; }
+.ps-skip { position: absolute; right: 20px; bottom: 20px; }
+.pet-stage.rumble { animation: psRumble .12s linear infinite; }
+@keyframes psRumble { 25% { translate: 3px -2px; } 50% { translate: -3px 2px; } 75% { translate: 2px 3px; } }
+.pet-stage.rumble .ps-egg { animation: psRumble .09s linear infinite; }
+.pet-stage[data-g="L"] .ps-rays { opacity: .6; animation-duration: 6s; }
+.pet-stage.burst .ps-egg { animation: psBurst .6s ease-in forwards; }
+@keyframes psBurst { 40% { transform: scale(1.25, .85); } 100% { transform: scale(2.4); opacity: 0; filter: brightness(4); } }
+.pet-stage.burst::after, .pet-stage.ps-flash::after { content: ""; position: absolute; inset: 0; background: color-mix(in srgb, var(--g) 40%, #fff); pointer-events: none; animation: psFlash .7s ease-out forwards; }
+@keyframes psFlash { from { opacity: 1; } to { opacity: 0; } }
+.pet-stage.cards .pet-res { position: relative; width: min(920px, 94vw); margin: 0; }
+.pet-stage.cards .pet-res.one { grid-template-columns: 200px; }
+.ps-actions { position: relative; display: flex; gap: 10px; }
+.pf { perspective: 700px; cursor: pointer; animation: pop .45s cubic-bezier(.3,1.6,.6,1) backwards; min-height: 150px; }
+.pet-res.one .pf { min-height: 230px; }
+.pf-in { position: relative; width: 100%; height: 100%; min-height: inherit; transition: transform .55s cubic-bezier(.3,1.3,.5,1); transform-style: preserve-3d; }
+.pf.flip .pf-in { transform: rotateY(180deg); }
+.pf-back, .pf-face { position: absolute; inset: 0; backface-visibility: hidden; }
+.pf-face { transform: rotateY(180deg); justify-content: center; }
+.pf-back { display: flex; align-items: center; justify-content: center; font-size: 44px; border: 3px solid var(--ink); border-radius: 14px; background: repeating-linear-gradient(45deg, #fff3e0 0 10px, #ffe7c4 10px 20px); }
+.pf.pg-E .pf-back { box-shadow: 0 0 14px 2px #5aa8ff; }
+.pf.pg-L .pf-back { box-shadow: 0 0 22px 5px #c47bff; animation: psGlow 1s ease-in-out infinite; }
+@keyframes psGlow { 50% { box-shadow: 0 0 34px 10px #c47bff; } }
+.pf:not(.flip):hover .pf-in { transform: translateY(-4px); }
+@media (max-width: 600px) { .pf { min-height: 130px; } }
