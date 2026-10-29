@@ -10,7 +10,7 @@ const TS = window.TS;
 function show(done) {
   const s = TS.state;
   const c = TS.SADO_MAP[s.partner] || TS.SADO_MAP.butter;
-  const src = c.emote ? `assets/emotes/${c.id}/1.gif` : TS.chibiSrc(c);
+  const src = c.emote ? `assets/emotes/${c.id}/1.webp` : TS.chibiSrc(c);
   const root = document.createElement("div");
   root.id = "title";
   root.innerHTML = `

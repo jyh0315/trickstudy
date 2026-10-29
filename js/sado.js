@@ -1,5 +1,5 @@
 /* 자동 생성된 사도 목록 (트릭컬 치비 그리드에서 잘라낸 이미지: assets/chibi/<id>.webp)
-   이름/등급/성격은 자유롭게 고쳐도 됨. emote: true 인 사도는 assets/emotes/<id>/1~4.gif 사용 */
+   이름/등급/성격은 자유롭게 고쳐도 됨. emote: true 인 사도는 assets/emotes/<id>/1~4.webp 사용 */
 const SADO = [
   { id: "amelia", name: "아멜리아", en: "Amelia", rarity: 2, pers: "cool" },
   { id: "aragnia", name: "아라그니아", en: "Aragnia", rarity: 1, pers: "cool" },

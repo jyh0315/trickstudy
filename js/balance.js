@@ -96,7 +96,35 @@ TS.on("focus", ({ min, subject }) => {
   recount();
   TS.save();
 });
-TS.on("boot", recount);
+/* v1.3 이전 기록 채우기 (한 번만): 과목별 누적에는 있는데 날짜별 기록에 없는 시간을
+   실제로 공부한 날짜(stats.days)에 오래된 날부터 채워 넣음. 과목 합계는 정확, 날짜 배분은 추정 */
+function backfill() {
+  const st = S().stats;
+  if (st.subjMigrated) return;
+  st.subjMigrated = true;
+  const sd = subjDays(), recorded = {};
+  for (const m of Object.values(sd)) for (const [k, v] of Object.entries(m)) recorded[k] = (recorded[k] || 0) + v;
+  const pool = Object.entries(st.subjects || {}).map(([k, v]) => [k, v - (recorded[k] || 0)]).filter(([, v]) => v > 0);
+  for (const d of Object.keys(st.days).sort()) {
+    let gap = st.days[d] - Object.values(sd[d] || {}).reduce((a, b) => a + b, 0);
+    while (gap > 0 && pool.length) {
+      const take = Math.min(gap, pool[0][1]);
+      sd[d] = sd[d] || {};
+      sd[d][pool[0][0]] = (sd[d][pool[0][0]] || 0) + take;
+      gap -= take; pool[0][1] -= take;
+      if (pool[0][1] <= 0) pool.shift();
+    }
+  }
+}
+/* 과목 목록 정리: "한국사. 영어" 처럼 마침표 등으로 적은 것도 나눔 */
+function normalizeSubjects() {
+  const s = S().settings, fixed = [...new Set(s.subjects.flatMap((x) => x.split(/[,，.。、/·]/)).map((x) => x.trim()).filter(Boolean))];
+  if (fixed.join("|") !== s.subjects.join("|")) {
+    s.subjects = fixed.length ? fixed : SUBJECTS_DEFAULT.slice();
+    if (!s.subjects.includes(S().timer.subject)) S().timer.subject = s.subjects[0];
+  }
+}
+TS.on("boot", () => { normalizeSubjects(); backfill(); recount(); TS.save(); });
 
 /* ───── 화면 ───── */
 function balanceHTML(compact) {

@@ -90,7 +90,7 @@ const emoteCount = (c) => (c.emote && state.owned[c.id] ? state.owned[c.id].emo 
 function portrait(c, randomEmote = false) {
   const n = emoteCount(c);
   if (!n) return chibiSrc(c);
-  return `assets/emotes/${c.id}/${randomEmote ? 1 + Math.floor(Math.random() * n) : 1}.gif`;
+  return `assets/emotes/${c.id}/${randomEmote ? 1 + Math.floor(Math.random() * n) : 1}.webp`;
 }
 
 /* ───── 효과음 (WebAudio, 파일 없이) ───── */
@@ -672,7 +672,7 @@ function gachaShow(results) {
         <div class="g-card c${x.c.rarity}" data-i="${i}">
           ${x.isNew ? '<span class="new">NEW!</span>' : ""}${x.extra ? `<span class="extra">${esc(x.extra)}</span>` : ""}
           <div class="in"><div class="back">?</div>
-          <div class="face"><span class="st">${stars(x.c.rarity)}</span><img src="${x.c.emote ? `assets/emotes/${x.c.id}/1.gif` : chibiSrc(x.c)}" alt=""><span class="nm">${esc(x.c.name)}</span></div></div>
+          <div class="face"><span class="st">${stars(x.c.rarity)}</span><img src="${x.c.emote ? `assets/emotes/${x.c.id}/1.webp` : chibiSrc(x.c)}" alt=""><span class="nm">${esc(x.c.name)}</span></div></div>
         </div>`).join("")}</div>
         <div class="gacha-tip">카드를 눌러 뒤집어요!</div>
         <div class="gacha-actions"><button class="btn white" id="g-all">모두 열기</button><button class="btn yellow hidden" id="g-ok">확인</button></div>`;
@@ -750,7 +750,7 @@ function sadoDetail(id) {
   const c = SADO_MAP[id], o = state.owned[id];
   const cost = CONFIG.exchangeCost[c.rarity];
   const emotes = c.emote ? `<div class="emote-row">${[1, 2, 3, 4].map((i) =>
-    o && i <= o.emo ? `<div><img src="assets/emotes/${c.id}/${i}.gif" alt=""></div>` : "<div>?</div>").join("")}</div>
+    o && i <= o.emo ? `<div><img src="assets/emotes/${c.id}/${i}.webp" alt=""></div>` : "<div>?</div>").join("")}</div>
     <p class="hint">중복으로 영입할 때마다 표정이 하나씩 해금돼요.</p>` : "";
   modal(`<img class="detail-img" src="${o ? portrait(c) : chibiSrc(c)}" style="${o ? "" : "filter:grayscale(1) opacity(.6)"}" alt="">
     <h2 style="margin-top:12px">${esc(c.name)}</h2>
@@ -830,7 +830,7 @@ function onboarding() {
   modal(`<h2>어서 오세요, 교주님!</h2>
     <p>엘리아스에 오신 걸 환영해요.<br>함께 공부할 <b>첫 사도</b>를 골라주세요.</p>
     <div class="starter-grid">${EMOTE_SADO.map((c, i) =>
-      `<button data-pick="${c.id}" class="${i === 0 ? "on" : ""}"><img src="assets/emotes/${c.id}/1.gif" alt=""><span>${esc(c.name)}</span></button>`).join("")}</div>
+      `<button data-pick="${c.id}" class="${i === 0 ? "on" : ""}"><img src="assets/emotes/${c.id}/1.webp" alt=""><span>${esc(c.name)}</span></button>`).join("")}</div>
     <label style="display:flex;flex-direction:column;gap:6px;font-family:var(--font-title);text-align:left">교주님의 이름은?
       <input id="m-name" maxlength="12" placeholder="교주" value=""></label>
     <div class="modal-actions"><button class="btn yellow big" id="m-start">공부 시작!</button></div>`,
@@ -945,7 +945,7 @@ $("f-pers").innerHTML += Object.entries(PERS).map(([k, p]) => `<option value="${
 $("s-name").onchange = (e) => { state.name = e.target.value.trim() || "교주"; save(); refresh(); };
 $("s-goal").onchange = (e) => { state.settings.goal = clampNum(e.target.value, 10, 900, 120); save(); refresh(); };
 $("s-subjects").onchange = (e) => {
-  const list = e.target.value.split(",").map((x) => x.trim()).filter(Boolean);
+  const list = e.target.value.split(/[,，.。、/·]/).map((x) => x.trim()).filter(Boolean); // 쉼표 말고 마침표 등으로 나눠도 됨
   state.settings.subjects = list.length ? [...new Set(list)] : SUBJECTS_DEFAULT.slice();
   if (!state.settings.subjects.includes(T().subject)) T().subject = state.settings.subjects[0];
   save(); refresh();
