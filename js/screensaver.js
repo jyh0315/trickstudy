@@ -17,6 +17,7 @@ const pad = TS.pad;
 function cfg() {
   const s = S();
   if (!s.ss) s.ss = { interval: 120, count: 2, source: "owned", clock: true, auto: false, allBg: false };
+  if (!s.ss.bgSrc) s.ss.bgSrc = "game"; // game: 게임 배경 · illust: 레벨업 일러스트 · mix: 둘 다
   return s.ss;
 }
 let fsOn = false, root = null, chars = [], tick = 0, rotate = 0, cursorT = 0, wake = null, bgIdx = 0, bgList = [];
@@ -27,9 +28,18 @@ function pickChars(n) {
   const pool = owned.filter((id) => id !== s.partner).sort(() => Math.random() - 0.5);
   return [s.partner, ...pool].slice(0, n).sort(() => Math.random() - 0.5);
 }
+/* 배경 목록 (이미지 주소) */
+function buildBgList(c) {
+  const game = (typeof SS_BACKGROUNDS !== "undefined" ? SS_BACKGROUNDS : []).map((n) => `assets/ssbg/${n}.webp`);
+  const illust = (c.allBg ? BACKGROUNDS.map((b) => b.id) : S().unlockedBg.slice()).map((id) => `assets/bg/${id}.jpg`);
+  const list = c.bgSrc === "illust" ? illust : c.bgSrc === "mix" ? game.concat(illust) : game;
+  return (list.length ? list : illust).sort(() => Math.random() - 0.5);
+}
 function nextBg() {
-  if (!bgList.length) return S().bg;
+  if (!bgList.length) return `assets/bg/${S().bg}.jpg`;
   bgIdx = (bgIdx + 1) % bgList.length;
+  const next = bgList[(bgIdx + 1) % bgList.length];
+  if (next) new Image().src = next; // 다음 배경 미리 받아두기 (바뀔 때 깜빡임 방지)
   return bgList[bgIdx];
 }
 
@@ -77,7 +87,7 @@ function quote() {
 function swapBg() {
   const layers = root.querySelectorAll(".ss-bg");
   const front = root.querySelector(".ss-bg.on"), back = [...layers].find((l) => l !== front);
-  back.style.backgroundImage = TS.isPlain() ? "none" : `url("assets/bg/${nextBg()}.jpg")`;
+  back.style.backgroundImage = TS.isPlain() ? "none" : `url("${nextBg()}")`;
   back.style.animationName = rand(["ssKb1", "ssKb2", "ssKb3"]);
   back.classList.add("on");
   if (front) front.classList.remove("on");
@@ -117,12 +127,12 @@ function chatter() {
 async function open() {
   if (root || !S().started) return;
   const c = cfg();
-  bgList = (c.allBg ? BACKGROUNDS.map((b) => b.id) : S().unlockedBg.slice()).sort(() => Math.random() - 0.5);
-  bgIdx = Math.max(0, bgList.indexOf(S().bg));
+  bgList = buildBgList(c);
+  bgIdx = 0;
   root = document.createElement("div");
   root.id = "ss";
   root.innerHTML = `
-    <div class="ss-bg on" style="${TS.isPlain() ? "" : `background-image:url('assets/bg/${S().bg}.jpg')`}"></div><div class="ss-bg"></div>
+    <div class="ss-bg on" style="${TS.isPlain() ? "" : `background-image:url('${bgList[0] || `assets/bg/${S().bg}.jpg`}')`}"></div><div class="ss-bg"></div>
     <div class="ss-shade"></div>
     <div class="ss-clock"><div class="ss-time"></div><div class="ss-date"></div></div>
     <div class="ss-timer hidden"><span></span><b></b><div class="ss-tbar"><i></i></div></div>
@@ -139,7 +149,8 @@ async function open() {
       <label>사도 수 <select id="ss-cnt">${[1, 2, 3].map((n) => `<option ${c.count === n ? "selected" : ""}>${n}</option>`).join("")}</select></label>
       <label>사도 <select id="ss-src"><option value="owned" ${c.source === "owned" ? "selected" : ""}>보유 사도 랜덤</option><option value="partner" ${c.source === "partner" ? "selected" : ""}>대표 사도만</option></select></label>
       <label class="check"><input type="checkbox" id="ss-clk" ${c.clock ? "checked" : ""}> 큰 시계</label>
-      <label class="check"><input type="checkbox" id="ss-allbg" ${c.allBg ? "checked" : ""}> 잠긴 배경도 보기</label>
+      <label>배경 <select id="ss-bgsrc">${[["game", "게임 배경 (155장)"], ["illust", "레벨업 일러스트"], ["mix", "둘 다 섞어서"]].map(([v, l]) => `<option value="${v}" ${c.bgSrc === v ? "selected" : ""}>${l}</option>`).join("")}</select></label>
+      <label class="check"><input type="checkbox" id="ss-allbg" ${c.allBg ? "checked" : ""}> 잠긴 일러스트도 보기</label>
       <label class="check"><input type="checkbox" id="ss-auto" ${c.auto ? "checked" : ""}> 집중 시작하면 자동으로 켜기</label>
     </div>`;
   document.body.appendChild(root);
@@ -156,11 +167,11 @@ async function open() {
   $("ss-set").onclick = () => { $("ss-panel").classList.toggle("hidden"); wakeCursor(); };
   root.addEventListener("keydown", wakeCursor);
   const save = () => {
-    Object.assign(c, { interval: +$("ss-int").value, count: +$("ss-cnt").value, source: $("ss-src").value, clock: $("ss-clk").checked, allBg: $("ss-allbg").checked, auto: $("ss-auto").checked });
+    Object.assign(c, { interval: +$("ss-int").value, count: +$("ss-cnt").value, source: $("ss-src").value, clock: $("ss-clk").checked, allBg: $("ss-allbg").checked, auto: $("ss-auto").checked, bgSrc: $("ss-bgsrc").value });
     TS.save(); hud();
     clearInterval(rotate); rotate = setInterval(() => { swapBg(); swapChars(); }, c.interval * 1000);
   };
-  root.querySelectorAll("#ss-panel select, #ss-panel input").forEach((x) => (x.onchange = () => { save(); if (x.id === "ss-cnt" || x.id === "ss-src") swapChars(); }));
+  root.querySelectorAll("#ss-panel select, #ss-panel input").forEach((x) => (x.onchange = () => { save(); if (x.id === "ss-cnt" || x.id === "ss-src") swapChars(); if (x.id === "ss-bgsrc" || x.id === "ss-allbg") { bgList = buildBgList(c); bgIdx = -1; swapBg(); } }));
   try { if (document.documentElement.requestFullscreen) { await document.documentElement.requestFullscreen(); fsOn = true; } } catch (e) { /* 무시 */ }
   lockWake();
 }

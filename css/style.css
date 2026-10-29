@@ -1525,3 +1525,8 @@ html.plain .ss-quote.show { animation: ssq 1.4s ease forwards; }
 .box-stack > :nth-child(2) { left: 13px; z-index: 1; }
 .box-stack > :nth-child(3) { left: 26px; transform: rotate(10deg); }
 .box-stack.r-SSR .it-img { box-shadow: 0 0 8px rgba(255, 190, 40, .9); }
+/* 화면보호기: 배경 레이어가 버튼 위로 올라와 클릭을 가로막던 문제 */
+#ss .ss-bg, #ss .ss-shade { pointer-events: none; z-index: 0; }
+#ss .ss-clock, #ss .ss-timer, #ss .ss-info, #ss .ss-quote { z-index: 2; pointer-events: none; }
+#ss .ss-chars { z-index: 3; }
+#ss .ss-ctrl, #ss .ss-panel { z-index: 10; }
