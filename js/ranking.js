@@ -12,8 +12,19 @@ const FIREBASE = {
 
 /* 현실적으로 불가능한 기록인지 검사 → 이유 목록 (빈 배열이면 정상)
    서버 규칙(README)과 같은 기준 + 레벨·이벤트 등 추가 확인 */
+/* 랭킹 검증 기준 (서버 보안 규칙과 같음)
+   - 기록마다 처음 올린 시각 c 가 있고, 공부 시간은 c 이후 흐른 시간 + RANK_START_CAP 분을 넘을 수 없음
+   - 레벨² ≤ 누적분/5 + 100 */
+const RANK_START_CAP = 180;
+const rankAllowed = (c, now = Date.now()) => Math.max(0, Math.floor((now - c) / 60000)) + RANK_START_CAP;
 function rankSuspicion(e, now = Date.now()) {
   const why = [];
+  if (!e.c) why.push("검증 안 된 예전 기록 (사이트를 다시 열면 새로 올라가요)");
+  else {
+    if (e.total > rankAllowed(e.c, now) + 5) why.push("기록을 올린 뒤 흐른 시간보다 공부 시간이 많음");
+    if (e.c > now + 60000) why.push("미래 시각");
+  }
+  if (e.lv * e.lv > e.total / 5 + 100) why.push("공부 시간에 비해 레벨이 너무 높음");
   const wkStart = new Date(TS_WEEK_START() + "T00:00").getTime();
   const sameWeek = e.week === TS_WEEK_START();
   const cumExp = (lv) => 100 * (lv - 1) + 30 * (lv - 1) * (lv - 2);
@@ -93,24 +104,39 @@ async function api(path, opts = {}) {
 
 /* ───── 내 기록 올리기 ───── */
 function myEntry() {
-  const s = S(), st = s.stats, wk = TS.weekKey(), td = TS.today();
+  const s = S(), st = s.stats, wk = TS.weekKey(), td = TS.today(), now = Date.now();
   const wkMin = Object.entries(st.days).filter(([d]) => d >= wk).reduce((a, [, m]) => a + m, 0);
   const b = s.boss && s.boss.week === wk ? s.boss.dmg : 0;
+  // 서버 규칙에 맞게: 처음 올린 뒤 흐른 시간만큼만 인정 (진짜 공부한 사람은 시간이 지나면 다 반영됨)
+  const cap = rankAllowed(rk().c, now) - 1;
+  const total = Math.min(st.totalMin, cap), week = Math.min(wkMin, total), day = Math.min(st.days[td] || 0, week, 1440);
+  const lv = Math.max(1, Math.min(s.level, Math.floor(Math.sqrt(total / 5 + 100))));
   return {
-    name: String(s.name).slice(0, 12), lv: s.level, partner: s.partner || "",
-    week: wk, weekMin: wkMin, day: td, dayMin: st.days[td] || 0,
-    total: st.totalMin, sado: Object.keys(s.owned).length,
-    boss: Math.round(b), streak: st.streak, t: Date.now(),
+    name: String(s.name).slice(0, 12), lv, partner: s.partner || "",
+    week: wk, weekMin: week, day: td, dayMin: day,
+    total, sado: Math.min(136, Object.keys(s.owned).length),
+    boss: Math.min(Math.round(b), week * 45 + 6000), streak: st.streak, t: now, c: rk().c,
     p: window.Profile ? window.Profile.publicProfile() : null, // 꾸민 프로필
     ...Object.assign({}, ...RANK_EXTRA.map((fn) => fn())),     // 이벤트 등 모듈 추가 필드
   };
 }
-let upTimer = 0, lastErr = "", lastUp = 0;
+let upTimer = 0, lastErr = "", lastUp = 0, cChecked = false;
+/* 서버에 있는 내 기록의 처음 시각(c)을 가져와 맞춤. 없으면 지금이 처음 */
+async function ensureC() {
+  if (cChecked && rk().c) return;
+  const { uid, data } = await api("ranking/{uid}");
+  const r = rk();
+  if (data && typeof data.c === "number" && r.cUid === uid) r.c = data.c;
+  else if (data && typeof data.c === "number") { r.c = data.c; r.cUid = uid; }
+  else if (!r.c || r.cUid !== uid) { r.c = Date.now(); r.cUid = uid; }
+  cChecked = true; TS.save();
+}
 async function upload() {
   if (!rk().on || !S().started) return;
   if (Date.now() - lastUp < 8000) return scheduleUpload(8000); // 서버 규칙: 너무 자주 쓰면 거절
   try {
     lastUp = Date.now();
+    await ensureC();
     await api("ranking/{uid}", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(myEntry()) });
     lastErr = "";
   } catch (e) {
@@ -141,7 +167,7 @@ function clean(uid, e) {
     week: String(e.week || ""), weekMin: num(e.weekMin, 1e12), day: String(e.day || ""), dayMin: num(e.dayMin, 1e12),
     total: num(e.total, 1e12), sado: num(e.sado, 1e9), boss: num(e.boss, 1e15), streak: num(e.streak, 1e9), t: num(e.t, 1e16),
     ev: e.ev && typeof e.ev === "object" ? { id: String(e.ev.id || "").slice(0, 24), c: num(e.ev.c) } : null,
-    dayKey: TS.today(),
+    dayKey: TS.today(), c: typeof e.c === "number" ? e.c : 0,
   };
 }
 const isAdmin = () => FIREBASE.admins.includes(meUid);

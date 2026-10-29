@@ -99,14 +99,15 @@
       ".read": true,
       "$uid": {
         ".write": "auth != null && (auth.uid === $uid || root.child('admins').child(auth.uid).val() === true)",
-        ".validate": "newData.hasChildren(['name','lv','t','total','weekMin','dayMin','boss','sado']) && newData.child('name').isString() && newData.child('name').val().length <= 12 && newData.child('lv').isNumber() && newData.child('lv').val() >= 1 && newData.child('lv').val() <= 300 && newData.child('t').isNumber() && newData.child('t').val() <= now + 600000 && (!data.exists() || newData.child('t').val() >= data.child('t').val() + 5000) && newData.child('total').isNumber() && newData.child('total').val() >= 0 && (data.exists() ? newData.child('total').val() <= data.child('total').val() + (now - data.child('t').val()) / 60000 + 30 : newData.child('total').val() <= 6000) && newData.child('weekMin').isNumber() && newData.child('weekMin').val() >= 0 && newData.child('weekMin').val() <= 10080 && newData.child('weekMin').val() <= newData.child('total').val() + 1 && newData.child('dayMin').isNumber() && newData.child('dayMin').val() >= 0 && newData.child('dayMin').val() <= 1440 && newData.child('boss').isNumber() && newData.child('boss').val() <= newData.child('weekMin').val() * 45 + 6000 && newData.child('sado').isNumber() && newData.child('sado').val() <= 136"
+        ".validate": "newData.hasChildren(['name','lv','t','c','total','weekMin','dayMin','boss','sado']) && newData.child('name').isString() && newData.child('name').val().length <= 12 && newData.child('t').isNumber() && newData.child('t').val() <= now + 600000 && newData.child('c').isNumber() && newData.child('c').val() <= now + 60000 && (data.child('c').exists() ? (newData.child('c').val() === data.child('c').val() && newData.child('t').val() >= data.child('t').val() + 5000) : newData.child('c').val() >= now - 600000) && newData.child('total').isNumber() && newData.child('total').val() >= 0 && newData.child('total').val() <= (now - newData.child('c').val()) / 60000 + 180 && newData.child('weekMin').isNumber() && newData.child('weekMin').val() >= 0 && newData.child('weekMin').val() <= newData.child('total').val() && newData.child('weekMin').val() <= 10080 && newData.child('dayMin').isNumber() && newData.child('dayMin').val() >= 0 && newData.child('dayMin').val() <= newData.child('weekMin').val() && newData.child('dayMin').val() <= 1440 && newData.child('lv').isNumber() && newData.child('lv').val() >= 1 && newData.child('lv').val() * newData.child('lv').val() <= newData.child('total').val() / 5 + 100 && newData.child('boss').isNumber() && newData.child('boss').val() <= newData.child('weekMin').val() * 45 + 6000 && newData.child('sado').isNumber() && newData.child('sado').val() <= 136"
       }
     }
   }
 }
 ```
 - 로그인한 본인(또는 관리자)만 기록을 쓰거나 지울 수 있어요
-- 누적 공부 시간은 **실제로 흐른 시간보다 빨리 늘 수 없어요** (처음 등록은 100시간까지)
+- 기록마다 **처음 올린 시각(c)** 이 있고, 공부 시간은 그 뒤로 **실제로 흐른 시간 + 3시간**을 넘을 수 없어요 (새 계정으로 큰 숫자 올리기 불가)
+- 레벨² ≤ 누적분/5 + 100 (공부 안 하고 레벨만 올린 기록 거절)
 - 하루 24시간·일주일 168시간 초과, 레벨 300 초과, 공부 시간에 안 맞는 보스 데미지 등은 서버가 거절
 - 5초에 한 번까지만 저장 가능
 - 사이트에서도 같은 기준으로 비정상 기록을 숨기고, 관리자는 🛡️ 랭킹 관리에서 지울 수 있어요
