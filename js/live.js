@@ -6,7 +6,8 @@
          연타 = 어지러움·화남 / 집중 완료·선물·레벨업 등에도 반응
    스킨: 기본 스킨은 무료, 나머지는 호감도 Lv(2·4·6·8…) 달성 또는 별사탕으로 해금
    ========================================================= */
-const SKIN_COST = 50;                     // 스킨 1개 해금 별사탕
+const SKIN_COST = 50;
+const LOAD_TIMEOUT = 25000;               // 이 시간 안에 못 불러오면 그림으로 표시                     // 스킨 1개 해금 별사탕
 const skinAffLv = (idx) => idx * 2;       // idx번째 스킨 무료 해금 호감도 레벨
 const LIVE_REACT = {                      // 반응 → 애니메이션 후보 (있는 것 중에서 고름)
   touch:    [["Touch_Idle", "Touch_End"]],
@@ -66,15 +67,17 @@ function mount(container, id, opts = {}) {
   host.className = "live-host";
   container.appendChild(host);
   const ctrl = { id, host, ready: false, anims: [], idles: [], player: null, play, dispose, busyUntil: 0 };
-  let tries = 0;
+  let tries = 0, giveUp = 0, failed = false;
   function create(full) {
     tries++;
     host.innerHTML = "";
     const cfg = {
       skelUrl: base + ".skel.asset", atlasUrl: base + ".atlas.asset",
-      showControls: false, alpha: true, backgroundColor: "#00000000", premultipliedAlpha: false,
+      showControls: false, showLoading: false, alpha: true, // 로딩 로고 안 보이게 (그동안 기존 그림이 보임) backgroundColor: "#00000000", premultipliedAlpha: false,
       viewport: { padLeft: "6%", padRight: "6%", padTop: "8%", padBottom: "3%", transitionTime: 0 },
       success: (p) => {
+        clearTimeout(giveUp);
+        if (failed) return;
         const data = p.skeleton.data;
         ctrl.anims = data.animations.map((a) => a.name);
         ctrl.idles = ctrl.anims.filter((n) => /^Idle_/.test(n));
@@ -88,6 +91,8 @@ function mount(container, id, opts = {}) {
         opts.onReady && opts.onReady(ctrl);
       },
       error: (p, msg) => {
+        clearTimeout(giveUp);
+        if (failed) return;
         try { p.dispose(); } catch (e) { /* 무시 */ }
         if (full && tries < 2) return create(false);
         console.warn("live load failed", id, msg);
@@ -97,6 +102,16 @@ function mount(container, id, opts = {}) {
     };
     if (full) { cfg.skin = "Normal"; cfg.animation = "Idle_1"; }
     ctrl.player = new spine.SpinePlayer(host, cfg);
+    // 너무 오래 걸리면 포기하고 그림으로 (느린 인터넷·그래픽 문제)
+    clearTimeout(giveUp);
+    giveUp = setTimeout(() => {
+      if (ctrl.ready) return;
+      failed = true;
+      console.warn("live load timeout", id);
+      try { ctrl.player.dispose(); } catch (e) { /* 무시 */ }
+      host.remove();
+      opts.onFail && opts.onFail();
+    }, LOAD_TIMEOUT);
   }
   function play(kind) {
     if (!ctrl.ready) return false;
@@ -133,6 +148,7 @@ function mount(container, id, opts = {}) {
 
 /* ───── 대표 사도 무대 ───── */
 let stage = null, stageKey = "";
+const failedIds = new Set(); // 이번 접속에서 못 불러온 사도 (새로고침하면 다시 시도)
 function mountStage(force) {
   const id = S().partner, box = $("partner");
   const key = id + ":" + curSkin(id || "") + ":" + liveOn();
@@ -141,7 +157,8 @@ function mountStage(force) {
   if (stage) { stage.dispose(); stage = null; }
   box.classList.remove("live-ready");
   if (!id || !S().started) return;
-  stage = mount(box, id, { onFail: () => { stage = null; } });
+  if (failedIds.has(key)) return;
+  stage = mount(box, id, { onFail: () => { stage = null; failedIds.add(key); } });
 }
 function react(kind) { if (stage) return stage.play(kind); return false; }
 

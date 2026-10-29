@@ -1424,3 +1424,5 @@ body.ss-open { overflow: hidden; }
   .ss-timer { top: auto; bottom: 64vh; right: 50%; transform: translateX(50%); min-width: 0; }
   .ss-char.n2 .ss-body, .ss-char.n3 .ss-body { width: 30vw; height: 40vh; }
 }
+/* 혹시 남아 있는 플레이어 기본 UI 숨김 */
+.live-host .spine-player-controls, .live-host .spine-player-error { display: none !important; }
