@@ -14,17 +14,17 @@ const FIREBASE = {
    서버 규칙(README)과 같은 기준 + 레벨·이벤트 등 추가 확인 */
 /* 랭킹 검증 기준 (서버 보안 규칙과 같음)
    - 기록마다 처음 올린 시각 c 가 있고, 공부 시간은 c 이후 흐른 시간 + RANK_START_CAP 분을 넘을 수 없음
-   - 레벨² ≤ 누적분/5 + 100 */
+   - 레벨² ≤ 누적분/3 + 200
+   - 이 규칙 전에 있던 기록(c 없음)은 그대로 인정하고, 다음에 올릴 때 그동안의 누적 시간을 이어받음 */
 const RANK_START_CAP = 180;
 const rankAllowed = (c, now = Date.now()) => Math.max(0, Math.floor((now - c) / 60000)) + RANK_START_CAP;
 function rankSuspicion(e, now = Date.now()) {
   const why = [];
-  if (!e.c) why.push("검증 안 된 예전 기록 (사이트를 다시 열면 새로 올라가요)");
-  else {
+  if (e.c) {
     if (e.total > rankAllowed(e.c, now) + 5) why.push("기록을 올린 뒤 흐른 시간보다 공부 시간이 많음");
     if (e.c > now + 60000) why.push("미래 시각");
   }
-  if (e.lv * e.lv > e.total / 5 + 100) why.push("공부 시간에 비해 레벨이 너무 높음");
+  if (e.lv * e.lv > e.total / 3 + 200) why.push("공부 시간에 비해 레벨이 너무 높음");
   const wkStart = new Date(TS_WEEK_START() + "T00:00").getTime();
   const sameWeek = e.week === TS_WEEK_START();
   const cumExp = (lv) => 100 * (lv - 1) + 30 * (lv - 1) * (lv - 2);
@@ -110,7 +110,7 @@ function myEntry() {
   // 서버 규칙에 맞게: 처음 올린 뒤 흐른 시간만큼만 인정 (진짜 공부한 사람은 시간이 지나면 다 반영됨)
   const cap = rankAllowed(rk().c, now) - 1;
   const total = Math.min(st.totalMin, cap), week = Math.min(wkMin, total), day = Math.min(st.days[td] || 0, week, 1440);
-  const lv = Math.max(1, Math.min(s.level, Math.floor(Math.sqrt(total / 5 + 100))));
+  const lv = Math.max(1, Math.min(s.level, Math.floor(Math.sqrt(total / 3 + 200))));
   return {
     name: String(s.name).slice(0, 12), lv, partner: s.partner || "",
     week: wk, weekMin: week, day: td, dayMin: day,
@@ -126,8 +126,9 @@ async function ensureC() {
   if (cChecked && rk().c) return;
   const { uid, data } = await api("ranking/{uid}");
   const r = rk();
-  if (data && typeof data.c === "number" && r.cUid === uid) r.c = data.c;
-  else if (data && typeof data.c === "number") { r.c = data.c; r.cUid = uid; }
+  if (data && typeof data.c === "number") { r.c = data.c; r.cUid = uid; }
+  // 규칙 전부터 있던 기록: 그동안 쌓은 누적 시간만큼 이전에 시작한 걸로 쳐서 기록을 그대로 이어감
+  else if (data && typeof data.total === "number") { r.c = Date.now() - Math.max(0, Math.floor(data.total)) * 60000; r.cUid = uid; }
   else if (!r.c || r.cUid !== uid) { r.c = Date.now(); r.cUid = uid; }
   cChecked = true; TS.save();
 }
