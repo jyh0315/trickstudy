@@ -1,18 +1,19 @@
 /* =========================================================
    🎉 기간 한정 이벤트
-   지금 이벤트: 두근두근 기말고사 대작전 (12/1 ~ 12/4)
+   지금 이벤트: 두근두근 기말고사 대작전 (11/17 ~ 11/30, 기말고사 12/1 ~ 12/4 전 준비 기간)
    - 미리보기: 시작 7일 전부터 (시험 준비 도구는 미리 써도 됨)
    - 본 이벤트: 미션 · 출석 도장 · 상점 · 집중 보너스 · 이벤트 랭킹
-   - 종료 후 3일은 상점 교환 기간, 7일 뒤 탭이 사라짐
+   - 시험 기간(12/1~12/4)엔 시험 응원 모드, 상점은 12/7까지, 12/11에 탭이 사라짐
    테스트: 주소 뒤에 ?event=on / ?event=pre / ?event=after (되돌리기: ?event=off)
    ========================================================= */
 const EVENTS = [
   {
     id: "final2026",
     title: "두근두근 기말고사 대작전",
-    sub: "사도들이 총출동! 함께 기말고사를 정복해요",
-    start: "2026-12-01", end: "2026-12-04",
-    previewDays: 7, shopDays: 3, afterDays: 7,
+    sub: "기말고사 2주 전! 사도들과 함께 시험 준비를 끝내요",
+    start: "2026-11-17", end: "2026-11-30",          // 이벤트 기간 (시험 전 준비)
+    exam: { start: "2026-12-01", end: "2026-12-04" }, // 실제 기말고사 기간
+    previewDays: 7, shopDays: 7, afterDays: 11,
     coin: { name: "합격 부적", icon: "🧧" },
     focusBonus: 1.5,     // 기간 중 집중 보상(엘리프·EXP·보스 데미지) 배율
     charmPerMin: 5,      // 집중 n분마다 부적 1
@@ -30,30 +31,38 @@ const EVENTS = [
       { id: "plan",     title: "기말 시험 시간표 등록하기",        goal: 1,   charm: 20, prog: (st) => st.exams.length },
       { id: "rangeset", title: "시험 범위 10칸 이상 적어두기",     goal: 10,  charm: 15, prog: (st) => st.ranges.length },
       { id: "cardset",  title: "암기카드 30장 만들기",            goal: 30,  charm: 15, prog: (st) => st.cards.length },
-      { id: "focus600", title: "이벤트 기간 집중 600분",           goal: 600, charm: 40, prog: (st, ev) => ev.focusTotal },
-      { id: "cards100", title: "이벤트 기간 암기카드 100장 복습",   goal: 100, charm: 30, prog: (st, ev) => ev.cardsTotal },
-      { id: "rangeall", title: "기말고사 마왕 쓰러뜨리기 (범위 100%)", goal: 1, charm: 50, prog: (st, ev) => (ev.raidBeat ? 1 : 0) },
+      { id: "focus1200", title: "이벤트 기간 집중 1200분",          goal: 1200, charm: 80, prog: (st, ev) => ev.focusTotal },
+      { id: "cards200",  title: "이벤트 기간 암기카드 200장 복습",   goal: 200,  charm: 50, prog: (st, ev) => ev.cardsTotal },
+      { id: "mock5",     title: "모의고사 5회 완주",                goal: 5,    charm: 40, prog: (st) => st.mocks.length },
+      { id: "rangeall",  title: "시험 전에 기말고사 마왕 쓰러뜨리기 (범위 100%)", goal: 1, charm: 80, prog: (st, ev) => (ev.raidBeat ? 1 : 0) },
     ],
-    stamps: [
-      { label: "1일차", reward: { elif: 300 },           text: "엘리프 300" },
-      { label: "2일차", reward: { charm: 20 },           text: "합격 부적 20" },
-      { label: "3일차", reward: { candy: 40 },           text: "별사탕 40" },
-      { label: "4일차", reward: { charm: 30, title: 1 }, text: "부적 30 + 칭호 「기말 개근러」" },
+    stamps: [   // 이벤트 기간에 접속한 날마다 1개 (연속 아니어도 됨)
+      { label: "1회", reward: { elif: 300 },           text: "엘리프 300" },
+      { label: "2회", reward: { charm: 20 },           text: "합격 부적 20" },
+      { label: "3회", reward: { candy: 40 },           text: "별사탕 40" },
+      { label: "4회", reward: { charm: 30 },           text: "합격 부적 30" },
+      { label: "5회", reward: { elif: 500 },           text: "엘리프 500" },
+      { label: "6회", reward: { charm: 40 },           text: "합격 부적 40" },
+      { label: "7회", reward: { charm: 60, title: 1 }, text: "부적 60 + 칭호 「기말 개근러」" },
     ],
     shop: [
-      { id: "title", icon: "🏆", name: "한정 칭호 「기말 정복자」",   cost: 60,  limit: 1 },
-      { id: "frame", icon: "🧧", name: "한정 프레임 「합격 부적」",   cost: 80,  limit: 1 },
-      { id: "theme", icon: "❄️", name: "한정 테마 「눈꽃 시험장」",   cost: 60,  limit: 1 },
-      { id: "badge", icon: "📝", name: "한정 뱃지 「기말 대작전」",   cost: 40,  limit: 1 },
-      { id: "ssr",   icon: "🎫", name: "★★★ 사도 선택권",          cost: 150, limit: 1, desc: "아직 없는 ★★★ 사도 1명을 골라 영입" },
-      { id: "yeot",  icon: "🍯", name: "합격 엿",                  cost: 25,  limit: 3, desc: "대표 사도 호감도 +100" },
-      { id: "elif",  icon: "💎", name: "엘리프 500",               cost: 20,  limit: 5 },
-      { id: "candy", icon: "🍬", name: "별사탕 50",                cost: 20,  limit: 3 },
+      { id: "title", icon: "🏆", name: "한정 칭호 「기말 정복자」",   cost: 120, limit: 1 },
+      { id: "frame", icon: "🧧", name: "한정 프레임 「합격 부적」",   cost: 160,  limit: 1 },
+      { id: "theme", icon: "❄️", name: "한정 테마 「눈꽃 시험장」",   cost: 120,  limit: 1 },
+      { id: "badge", icon: "📝", name: "한정 뱃지 「기말 대작전」",   cost: 80,   limit: 1 },
+      { id: "ssr",   icon: "🎫", name: "★★★ 사도 선택권",          cost: 300, limit: 1, desc: "아직 없는 ★★★ 사도 1명을 골라 영입" },
+      { id: "yeot",  icon: "🍯", name: "합격 엿",                  cost: 40,  limit: 3, desc: "대표 사도 호감도 +100" },
+      { id: "elif",  icon: "💎", name: "엘리프 500",               cost: 30,  limit: 5 },
+      { id: "candy", icon: "🍬", name: "별사탕 50",                cost: 30,  limit: 3 },
     ],
     lines: {
       idle:  ["기말고사 대작전 진행 중! 오늘 미션 확인했어요?", "오답노트 한 장만 같이 써볼까요?", "암기카드 넘기러 가요! 딱 20장만!", "시험 범위, 오늘은 어디까지 지울 거예요?"],
       cheer: ["이번 기말은 우리가 정복한다!", "합격 부적 모으는 중~ 집중 집중!", "시험장에서 웃는 건 교주님이에요!"],
       done:  ["기말고사 마왕이 떨고 있어요!", "이 기세면 전교 1등도 꿈이 아니에요!"],
+    },
+    examLines: { // 시험 기간(12/1~12/4) 응원 대사
+      idle:  ["오늘 시험 잘 봐요, 교주님! 준비한 만큼 다 나올 거예요!", "시험 끝난 과목은 잊고, 다음 과목에 집중!", "긴장되면 심호흡! 후~ 하~"],
+      cheer: ["내일 시험 과목 마지막 정리 화이팅!", "오답노트 한 번만 더 훑어봐요!"],
     },
   },
 ];
@@ -72,7 +81,7 @@ const CARD_INTERVAL = [0, 1, 2, 4, 7]; // 암기카드 상자 1~5 복습 간격(
 const evState = (s, id = "final2026") => (s.ev && s.ev[id]) || { bought: {}, stamps: [] };
 PROFILE_TITLES.push(
   { id: "ev_final",  label: "기말 정복자", cond: "기말고사 대작전 상점", ok: (s) => !!evState(s).bought.title },
-  { id: "ev_attend", label: "기말 개근러", cond: "기말고사 대작전 출석 4일", ok: (s) => evState(s).stamps.length >= 4 },
+  { id: "ev_attend", label: "기말 개근러", cond: "기말고사 대작전 출석 7회", ok: (s) => evState(s).stamps.length >= 7 },
 );
 PROFILE_FRAMES.push({ id: "charm", label: "합격 부적", cond: "기말고사 대작전 상점", ok: (s) => !!evState(s).bought.frame });
 PROFILE_THEMES.push({ id: "snow", label: "눈꽃 시험장", cond: "기말고사 대작전 상점", ok: (s) => !!evState(s).bought.theme });
@@ -110,6 +119,14 @@ function status() {
   return "none";
 }
 const isOn = () => status() === "on";
+const inExam = () => { const t = TS.today(); return t >= EV.exam.start && t <= EV.exam.end; };
+const examDday = () => Math.round((new Date(EV.exam.start + "T00:00") - new Date(TS.today() + "T00:00")) / 864e5);
+function examLine() {
+  const d = examDday();
+  if (inExam()) return "📚 기말고사 기간! 시험 잘 봐요 💪";
+  if (d > 0) return `📚 기말고사 ${fmtDate(EV.exam.start)} ~ ${fmtDate(EV.exam.end)} · <b>D-${d}</b>`;
+  return "📚 기말고사 끝! 정말 수고했어요 🎉";
+}
 const shopOpen = () => isOn() || (status() === "after" && (forced() === "after" || TS.today() <= addDays(EV.end, EV.shopDays)));
 function countdown() {
   const st = status();
@@ -168,7 +185,7 @@ TS.on("focus", ({ min, full, tag, subject, extras }) => {
   if (giveCharm(c)) extras.push(`${EV.coin.icon} +${c}`);
   TS.save();
 });
-TS.lineHooks.push((c, kind) => (status() === "on" || status() === "pre" ? EV.lines[kind] || [] : []));
+TS.lineHooks.push((c, kind) => (inExam() && status() !== "none" ? EV.examLines[kind] || [] : status() === "on" || status() === "pre" ? EV.lines[kind] || [] : []));
 window.RANK_EXTRA && window.RANK_EXTRA.push(() => (status() !== "none" ? { ev: { id: EV.id, c: ev().earned } } : {}));
 window.RANK_TABS && window.RANK_TABS.push({ id: "event", label: "🎉 이벤트", val: (e) => (e.ev && e.ev.id === EV.id ? e.ev.c : 0), fmt: "charm", show: () => status() !== "none" });
 
@@ -196,13 +213,14 @@ TS.on("start", stampCheck);
 let pane = "mission";
 function hero() {
   const st = status(), e = ev();
-  const msg = { pre: `${fmtDate(EV.start)} 시작! 시험 준비 도구는 지금부터 쓸 수 있어요`, on: "진행 중!", after: shopOpen() ? "이벤트 종료 · 상점 교환 기간" : "이벤트 종료" }[st];
+  const msg = { pre: `${fmtDate(EV.start)} 시작! 시험 준비 도구는 지금부터 쓸 수 있어요`, on: "진행 중!", after: inExam() ? "준비 끝! 이제 시험 기간이에요" : shopOpen() ? "이벤트 종료 · 상점 교환 기간" : "이벤트 종료" }[st];
   return `<div class="ev-hero">
     <div class="ev-hero-text">
       <span class="ev-tag">기간 한정 이벤트</span>
       <h2 class="ev-title">💓 ${esc(EV.title)}</h2>
       <p class="ev-sub">${esc(EV.sub)}</p>
       <p class="ev-period">📅 ${fmtDate(EV.start)} ~ ${fmtDate(EV.end)} · <b>${msg}</b></p>
+      <p class="ev-exam">${examLine()}</p>
       ${st !== "after" ? `<p class="ev-count">${st === "pre" ? "시작까지" : "종료까지"} <b id="ev-count">${countdown()}</b></p>` : ""}
       <div class="ev-chips">
         <span class="ev-coin">${EV.coin.icon} ${esc(EV.coin.name)} <b>${e.charm.toLocaleString()}</b></span>
@@ -269,7 +287,7 @@ function paneStamp() {
   P().innerHTML = `${lockNote()}<div class="card"><h3 class="card-title">💌 출석 도장 <span class="count">${e.stamps.length} / ${EV.stamps.length}</span></h3>
     <div class="stamp-row big">${EV.stamps.map((x, i) => `<div class="stamp ${i < e.stamps.length ? "on" : ""}">
       <span>${i < e.stamps.length ? "합격" : i + 1}</span><small>${x.label}</small><em>${esc(x.text)}</em></div>`).join("")}</div>
-    <p class="hint">이벤트 기간에 접속한 날마다 도장이 하나씩 찍혀요. 4개 다 모으면 한정 칭호 「기말 개근러」!</p></div>`;
+    <p class="hint">이벤트 기간(${fmtDate(EV.start)} ~ ${fmtDate(EV.end)})에 접속한 날마다 도장이 하나씩 찍혀요. 연속이 아니어도 괜찮아요. 7개 다 모으면 한정 칭호 「기말 개근러」!</p></div>`;
 }
 
 /* ───── 시험 준비: 시험 시간표 + 범위 + 기말고사 마왕 ───── */
@@ -300,7 +318,7 @@ function paneExam() {
       <h3 class="card-title">🗓️ 기말 시험 시간표 <span class="hint" style="margin:0 0 0 auto">등록하면 D-day에도 떠요</span></h3>
       <form class="tt-row ev-form" id="ex-form" autocomplete="off">
         <select id="ex-subj">${subjects().map((x) => `<option>${esc(x)}</option>`).join("")}</select>
-        <input type="date" id="ex-date" value="${EV.start}" required>
+        <input type="date" id="ex-date" value="${EV.exam.start}" required>
         <select id="ex-period">${[1, 2, 3, 4, 5, 6, 7].map((n) => `<option value="${n}">${n}교시</option>`).join("")}</select>
         <button class="btn yellow" type="submit">추가</button>
       </form>
@@ -620,7 +638,7 @@ function renderBanner() {
   const rc = readyCount();
   el.innerHTML = `<div class="evb-text"><span class="ev-tag">${st === "pre" ? "곧 시작" : st === "on" ? "진행 중" : "종료"}</span>
       <b>💓 ${esc(EV.title)}</b>
-      <small>${st === "pre" ? `${fmtDate(EV.start)} 시작 · 시작까지 ${countdown()}` : st === "on" ? `종료까지 ${countdown()} · 오늘 미션 ${EV.daily.filter(dailyClaimed).length}/${EV.daily.length}` : shopOpen() ? "상점 교환 기간이에요" : "참여해 주셔서 고마워요!"}</small></div>
+      <small>${st === "pre" ? `${fmtDate(EV.start)} 시작 · 시작까지 ${countdown()}` : st === "on" ? `종료까지 ${countdown()} · 오늘 미션 ${EV.daily.filter(dailyClaimed).length}/${EV.daily.length} · 기말고사 D-${examDday()}` : inExam() ? "시험 기간! 준비한 만큼 다 보여줘요 💪" : shopOpen() ? "상점 교환 기간이에요" : "참여해 주셔서 고마워요!"}</small></div>
     <span class="ev-coin">${EV.coin.icon} <b>${ev().charm}</b></span>
     <button class="btn pink" data-go="event">${rc ? `🎁 보상 ${rc}개` : "이벤트 보기"}</button>`;
 }
