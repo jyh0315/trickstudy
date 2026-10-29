@@ -1596,3 +1596,25 @@ html.plain .ss-quote.show { animation: ssq 1.4s ease forwards; }
 .pet-cell.lock img { filter: brightness(0) opacity(.25); }
 @media (max-width: 600px) { .pet-res { grid-template-columns: repeat(3, 1fr); } }
 html.plain .pet-slot, html.plain .ss-pet { display: none; }
+
+/* ───── 시작 화면 (게임처럼: 배경 + 사도 3명) ───── */
+.ttl-scene .ttl-bg { animation: ttlpan 40s ease-in-out infinite alternate; }
+.ttl-scene .ttl-bg::after { background: linear-gradient(180deg, rgba(255,255,255,0) 60%, rgba(255,240,220,.35)); }
+.ttl-cast { position: absolute; inset: 0; cursor: grab; touch-action: none; }
+.ttl-actor { position: absolute; aspect-ratio: 1; pointer-events: none; }
+.ttl-actor .ttl-live { inset: 0; }
+.ttl-actor.a0 { right: 1vw; bottom: -16vh; width: min(112vh, 60vw); z-index: 3; }
+.ttl-actor.a1 { left: 0; bottom: -8vh; width: min(80vh, 44vw); z-index: 1; }
+.ttl-actor.a2 { left: 21vw; bottom: -14vh; width: min(92vh, 50vw); z-index: 2; }
+.ttl-scene .ttl-hint { position: absolute; left: 50%; bottom: max(80px, 11vh); transform: translateX(-50%); z-index: 5; white-space: nowrap; pointer-events: none; }
+.ttl-scene .ttl-pop { position: absolute; z-index: 6; top: 45%; }
+.ttl-scene .ttl-logo, .ttl-scene .ttl-ver, .ttl-scene .ttl-copy { z-index: 5; }
+.ttl-scene .ttl-dday { z-index: 6; }
+.ttl-scene .ttl-mode { z-index: 6; }
+@media (max-aspect-ratio: 1/1) {
+  .ttl-actor.a0 { right: -14vw; bottom: -6vh; width: 112vw; }
+  .ttl-actor.a1 { left: -16vw; bottom: 14vh; width: 78vw; }
+  .ttl-actor.a2 { left: auto; right: -18vw; bottom: 18vh; width: 74vw; }
+  .ttl-scene .ttl-mode button { white-space: nowrap; padding: 5px 9px; }
+  .ttl-scene .ttl-hint { bottom: 12vh; font-size: 24px; }
+}

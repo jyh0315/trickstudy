@@ -81,6 +81,9 @@ function frameView(p, mode, host) {
   if (mode === "face") {
     const S = 430;
     v = { x: h.x - S / 2, y: h.y - 140, width: S, height: S };
+  } else if (mode === "bust") { // 시작 화면: 얼굴~허리 (아래는 화면 밖으로)
+    const S = 780;
+    v = { x: h.x - S / 2, y: h.y - 430, width: S, height: S };
   } else {
     // 모든 사도 같은 배율. 기본 틀(가로 -360~360, 세로 -30~800)보다 큰 사도(꼬리·드릴·캡슐 등)는
     // 축소하지 않고 그리는 칸(host)을 그만큼 넓혀서 삐져나오게 → 크기가 다른 사도와 똑같음

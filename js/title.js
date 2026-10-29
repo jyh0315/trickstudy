@@ -66,8 +66,91 @@ function showPlain(done) {
   modeSwitch(root, done, cleanup);
 }
 
+/* 게임 시작 화면처럼: 들판 배경 + 사도 3명(대표 사도는 앞에 크게), 아무 볼이나 잡아당기면 시작 */
+function pickCast(main) {
+  const has = (id) => window.Live && window.Live.canLive(id);
+  const owned = Object.keys(TS.state.owned).filter((id) => id !== main && has(id)).sort(() => Math.random() - 0.5);
+  const extra = ["erpin", "butter", "kommy", "ui", "chloe", "xxionx"].filter((id) => id !== main && !owned.includes(id) && has(id));
+  return [main, ...owned, ...extra].slice(0, 3);
+}
+function showScene(done, mainId) {
+  const cast = pickCast(mainId);
+  const root = document.createElement("div");
+  root.id = "title";
+  root.className = "ttl-scene";
+  root.innerHTML = `
+    <div class="ttl-bg" style="background-image:url('assets/title-bg.webp')"></div>
+    <div class="ttl-logo"><span class="l2">트릭스터디</span><span class="l1">~교주님 공부하세요!~</span></div>
+    <div class="ttl-ver">Ver 4.8 · 교주 전용</div>
+    <div class="ttl-copy">♥ Trickcal fan-made study</div>
+    <div class="ttl-cast">${cast.map((id, i) => `<div class="ttl-actor a${i}" data-id="${id}"></div>`).join("")}</div>
+    <span class="ttl-pop" id="ttl-pop">뾰옹~!</span>
+    <div class="ttl-hint" id="ttl-hint">볼을 잡아당겨서 시작하기!</div>
+    <div class="ttl-dday hidden" id="ttl-dday"></div>`;
+  document.body.appendChild(root);
+  document.body.classList.add("title-open");
+  const hint = root.querySelector("#ttl-hint");
+  renderDday(root.querySelector("#ttl-dday"));
+  const ddTimer = setInterval(() => renderDday(root.querySelector("#ttl-dday")), 1000);
+  let finished = false, drag = null;
+  const actors = [...root.querySelectorAll(".ttl-actor")].map((el) => ({ el, id: el.dataset.id, live: mountLive(el, el.dataset.id, "bust") }));
+  // 겹쳐 있어서, 누른 곳에서 볼이 가장 가까운 사도를 잡음
+  const castEl = root.querySelector(".ttl-cast");
+  castEl.addEventListener("pointerdown", (e) => {
+    if (finished || drag || e.button > 0) return;
+    let best = null, bd = Infinity;
+    for (const a of actors) {
+      if (!a.live.ready()) continue;
+      const d = a.live.near(e.clientX, e.clientY);
+      if (d < bd) { bd = d; best = a; }
+    }
+    if (!best || bd > Math.max(90, best.el.clientWidth * 0.22)) return;
+    e.preventDefault();
+    castEl.setPointerCapture(e.pointerId);
+    drag = { a: best, sx: e.clientX, sy: e.clientY, dx: 0, dy: 0 };
+    best.live.grab(e.clientX, e.clientY);
+    best.el.classList.add("pulling");
+    if (!TS.voice(best.id, "pull")) TS.sfx("poke");
+  });
+  castEl.addEventListener("pointermove", (e) => {
+    if (!drag) return;
+    drag.dx = e.clientX - drag.sx; drag.dy = e.clientY - drag.sy;
+    drag.a.live.move(e.clientX, e.clientY);
+    hint.textContent = Math.hypot(drag.dx, drag.dy) > far() ? "놓으면 시작!" : "쭈우욱~";
+  });
+  const up = () => {
+    if (!drag) return;
+    const d = drag, a = d.a; drag = null;
+    if (Math.hypot(d.dx, d.dy) > far()) { finished = true; a.live.release(() => finish()); }
+    else { hint.textContent = "조금 더 세게 당겨주세요!"; TS.sfx("click"); a.live.release(() => a.el.classList.remove("pulling")); }
+  };
+  castEl.addEventListener("pointerup", up);
+  castEl.addEventListener("pointercancel", up);
+  const far = () => Math.min(window.innerWidth, window.innerHeight) * 0.16;
+  function finish() {
+    finished = true;
+    TS.sfx("level");
+    root.querySelector("#ttl-pop").classList.add("show");
+    hint.textContent = "출발!";
+    setTimeout(() => {
+      root.classList.add("bye");
+      document.body.classList.remove("title-open");
+      if (window.BGM) window.BGM.onStart();
+      setTimeout(() => { clearInterval(ddTimer); actors.forEach((a) => a.live.dispose()); root.remove(); done(); }, 550);
+    }, 350);
+  }
+  const onKey = (e) => {
+    if (finished) return document.removeEventListener("keydown", onKey);
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); document.removeEventListener("keydown", onKey); finish(); }
+  };
+  document.addEventListener("keydown", onKey);
+  modeSwitch(root, done, () => { finished = true; clearInterval(ddTimer); actors.forEach((a) => a.live.dispose()); document.removeEventListener("keydown", onKey); document.body.classList.remove("title-open"); });
+}
+
 function show(done) {
   if (TS.isPlain()) return showPlain(done);
+  const mainId = (TS.SADO_MAP[TS.state.partner] ? TS.state.partner : "butter");
+  if (window.Live && window.Live.canLive(mainId)) return showScene(done, mainId);
   const s = TS.state;
   const c = TS.SADO_MAP[s.partner] || TS.SADO_MAP.butter;
   const src = TS.emoteSrc(c);
@@ -76,7 +159,7 @@ function show(done) {
   root.innerHTML = `
     <div class="ttl-bg" style="background-image:url('assets/bg/${s.bg || "trickcal"}.jpg')"></div>
     <div class="ttl-logo"><span class="l2">트릭스터디</span><span class="l1">~교주님 공부하세요!~</span></div>
-    <div class="ttl-ver">Ver 4.7 · 교주 전용</div>
+    <div class="ttl-ver">Ver 4.8 · 교주 전용</div>
     <div class="ttl-copy">♥ Trickcal fan-made study</div>
     <div class="ttl-face" id="ttl-face">
       <img id="ttl-img" src="${src}" alt="" draggable="false">
@@ -227,8 +310,8 @@ function show(done) {
 /* ───── 움직이는 사도(Spine)로 진짜 볼 당기기 ─────
    트릭컬 스켈레톤엔 볼 뼈(Character_Ball_Move = 한쪽 볼, *_Ball_L = 반대쪽 볼)가 있어서
    그 뼈를 끌면 볼 살이 늘어남. 잡는 동안 Touch_Idle(꼬집힌 얼굴), 놓으면 띠용 돌아오고 Touch_End */
-function mountLive(face, id) {
-  const none = { ready: () => false, grab() {}, move() {}, release(cb) { cb && cb(); }, dispose() {} };
+function mountLive(face, id, frame = "face") {
+  const none = { ready: () => false, near: () => Infinity, grab() {}, move() {}, release(cb) { cb && cb(); }, dispose() {} };
   if (!window.Live || !window.Live.canLive(id)) return none;
   const box = document.createElement("div");
   box.className = "ttl-live";
@@ -236,7 +319,7 @@ function mountLive(face, id) {
   let ctrl = null, ok = false, bones = [];
   const pull = { bone: null, wx: 0, wy: 0, start: null, on: false };
   ctrl = window.Live.mount(box, id, {
-    frame: "face",
+    frame,
     onReady: (c) => {
       const sk = c.player.skeleton;
       const ball = sk.findBone("Character_Ball_Move");
@@ -272,6 +355,12 @@ function mountLive(face, id) {
   let springT = 0;
   return {
     ready: () => ok,
+    // 누른 곳 ↔ 가장 가까운 볼 뼈 거리 (화면 px)
+    near(cx, cy) {
+      const w = toWorld(cx, cy), r = ctrl.player.canvas.getBoundingClientRect();
+      const k = r.width / ctrl.player.config.viewport.width;
+      return Math.min(...bones.map((b) => Math.hypot(b.worldX - w.x, b.worldY - w.y))) * k;
+    },
     grab(cx, cy) {
       cancelAnimationFrame(springT);
       const w = toWorld(cx, cy);
@@ -283,8 +372,9 @@ function mountLive(face, id) {
     move(cx, cy) {
       const w = toWorld(cx, cy);
       let dx = w.x - pull.start.x, dy = w.y - pull.start.y;
-      const len = Math.hypot(dx, dy), max = 190;
-      if (len > max) { const k = (max + (len - max) * 0.15) / len; dx *= k; dy *= k; } // 끝으로 갈수록 뻣뻣하게
+      // 너무 늘리면 얼굴이 찢어져 보여서 살짝만 (끝으로 갈수록 뻣뻣하게)
+      const len = Math.hypot(dx, dy), max = 85;
+      if (len > 0) { const k = (max * Math.tanh(len / (max * 1.6))) / len; dx *= k; dy *= k; }
       pull.wx = dx; pull.wy = dy;
     },
     release(cb) {
