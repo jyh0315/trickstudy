@@ -82,8 +82,14 @@ function frameView(p, mode) {
     const S = 430;
     v = { x: h.x - S / 2, y: h.y - 140, width: S, height: S };
   } else {
-    const top = Math.max(800, h.y + 330); // 큰 사도(빅우드 등)는 머리가 잘리지 않게
-    v = { x: -360, y: -30, width: 720, height: top + 30 };
+    // 기본은 모든 사도 같은 배율. 몸체가 그보다 큰 사도(에드의 캡슐, 빅우드 등)만 잘리지 않게 넓힘
+    const off = new spine.Vector2(), size = new spine.Vector2();
+    p.skeleton.getBounds(off, size);
+    const ok = Number.isFinite(off.x) && size.x > 0 && size.x < 5000;
+    const half = Math.max(360, ok ? Math.max(-off.x, off.x + size.x) + 25 : 0);
+    const bottom = Math.min(-30, ok ? off.y - 15 : -30);
+    const top = Math.max(800, h.y + 330, ok ? off.y + size.y + 30 : 0);
+    v = { x: -half, y: bottom, width: half * 2, height: top - bottom };
   }
   Object.assign(p.config.viewport, v, { padLeft: 0, padRight: 0, padTop: 0, padBottom: 0, transitionTime: 0 });
   const cur = p.animationState.getCurrent(0);
