@@ -7,16 +7,6 @@
 "use strict";
 const TS = window.TS;
 
-/* 볼 당기기 음성 (assets/voice/<id>.mp3) — 있는 사도만 */
-const VOICES = new Set("amelia ashur aya belita beni bigwood butter canna chloe daya diana elena erpin espi festa fricle gabia ifrit jade jubee kidian kommy levi maestromk2 mago marie mayo meluna ner posher rim rohne rudd shaydi sist speaki sylla tig ui velvet xxionx".split(" "));
-let voice = null;
-function playVoice(id) {
-  if (!VOICES.has(id) || !TS.state.settings.sound) return false;
-  if (!voice || voice.dataset.id !== id) { if (voice) voice.pause(); voice = new Audio(`assets/voice/${id}.mp3`); voice.dataset.id = id; voice.volume = 0.9; }
-  voice.currentTime = 0;
-  voice.play().catch(() => {});
-  return true;
-}
 
 /* 모드 전환 스위치 (시작 화면 아래) — 누르면 시작 화면을 다시 그림 */
 function modeSwitch(root, done, cleanup) {
@@ -86,7 +76,7 @@ function show(done) {
   root.innerHTML = `
     <div class="ttl-bg" style="background-image:url('assets/bg/${s.bg || "trickcal"}.jpg')"></div>
     <div class="ttl-logo"><span class="l2">트릭스터디</span><span class="l1">~교주님 공부하세요!~</span></div>
-    <div class="ttl-ver">Ver 4.0 · 교주 전용</div>
+    <div class="ttl-ver">Ver 4.1 · 교주 전용</div>
     <div class="ttl-copy">♥ Trickcal fan-made study</div>
     <div class="ttl-face" id="ttl-face">
       <img id="ttl-img" src="${src}" alt="" draggable="false">
@@ -174,7 +164,7 @@ function show(done) {
     const p = toCanvas(e);
     drag = { gx: p.x, gy: p.y, sx: p.x, sy: p.y, dx: 0, dy: 0 };
     face.classList.add("pulling");
-    if (!playVoice(c.id)) TS.sfx("poke");
+    if (!TS.voice(c.id, "pull")) TS.sfx("poke");
   });
   face.addEventListener("pointermove", (e) => {
     if (!drag) return;

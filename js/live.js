@@ -222,6 +222,7 @@ partner.addEventListener("pointerdown", (e) => {
   down.timer = setTimeout(() => {
     if (!down || down.moved > 20) return;
     gesture = "pat";
+    TS.voice(S().partner, "pat");
     react("pat"); hearts(); TS.say(TS.fmt(rand(LIVE_LINES.pat), TS.SADO_MAP[S().partner]), false);
   }, 550);
 });
