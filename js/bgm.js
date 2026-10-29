@@ -315,5 +315,4 @@ window.BGM = {
   },
   get ctx() { return ctx; },
 };
-window.BGM.title(); // 페이지 열리자마자
 })();

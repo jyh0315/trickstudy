@@ -81,17 +81,30 @@ function showScene(done, mainId) {
   root.innerHTML = `
     <div class="ttl-bg" style="background-image:url('assets/title-bg.webp')"></div>
     <div class="ttl-logo"><span class="l2">트릭스터디</span><span class="l1">~교주님 공부하세요!~</span></div>
-    <div class="ttl-ver">Ver 5.0 · 교주 전용</div>
+    <div class="ttl-ver">Ver 5.1 · 교주 전용</div>
     <div class="ttl-copy">♥ Trickcal fan-made study</div>
     <div class="ttl-cast">${cast.map((id, i) => `<div class="ttl-actor a${i}" data-id="${id}"></div>`).join("")}</div>
     <div class="ttl-sweep"></div>
     <div class="ttl-hint" id="ttl-hint">볼을 잡아당겨서 시작하기!</div>
-    <div class="ttl-dday hidden" id="ttl-dday"></div>`;
-  root.classList.add("wait"); // 사도를 다 불러오면 솨악~ 하고 등장
+    <div class="ttl-dday hidden" id="ttl-dday"></div>
+    <div class="ttl-tap" id="ttl-tap">
+      <div class="ttl-tap-msg">화면을 터치해 주세요</div>
+    </div>`;
+  root.classList.add("wait", "tapwait"); // ① 화면 터치 → 메인 테마 ② 사도들이 솨악~ 등장 ③ 볼 당겨서 시작
   document.body.appendChild(root);
   document.body.classList.add("title-open");
-  const t0 = Date.now();
+  let t0 = 0, tapped = false;
+  const tap = () => {
+    if (tapped) return;
+    tapped = true; t0 = Date.now();
+    if (window.BGM) window.BGM.title(); // 터치(사용자 조작) 직후라 바로 재생됨
+    TS.sfx("click");
+    root.classList.remove("tapwait");
+    setTimeout(() => root.querySelector("#ttl-tap").remove(), 700);
+  };
+  root.querySelector("#ttl-tap").addEventListener("pointerdown", (e) => { e.preventDefault(); tap(); });
   const waitT = setInterval(() => {
+    if (!tapped) return;
     const n = root.querySelectorAll(".ttl-actor.live").length;
     if (n < actors.length && Date.now() - t0 < 3500) return;
     clearInterval(waitT);
@@ -152,7 +165,10 @@ function showScene(done, mainId) {
   }
   const onKey = (e) => {
     if (finished) return document.removeEventListener("keydown", onKey);
-    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); document.removeEventListener("keydown", onKey); finish(); }
+    if (e.key !== "Enter" && e.key !== " ") return;
+    e.preventDefault();
+    if (!tapped) return tap(); // 첫 Enter는 터치와 같음
+    document.removeEventListener("keydown", onKey); finish();
   };
   document.addEventListener("keydown", onKey);
   modeSwitch(root, done, () => { finished = true; clearInterval(ddTimer); clearInterval(waitT); actors.forEach((a) => a.live.dispose()); document.removeEventListener("keydown", onKey); document.body.classList.remove("title-open"); });
@@ -170,7 +186,7 @@ function show(done) {
   root.innerHTML = `
     <div class="ttl-bg" style="background-image:url('assets/bg/${s.bg || "trickcal"}.jpg')"></div>
     <div class="ttl-logo"><span class="l2">트릭스터디</span><span class="l1">~교주님 공부하세요!~</span></div>
-    <div class="ttl-ver">Ver 5.0 · 교주 전용</div>
+    <div class="ttl-ver">Ver 5.1 · 교주 전용</div>
     <div class="ttl-copy">♥ Trickcal fan-made study</div>
     <div class="ttl-face" id="ttl-face">
       <img id="ttl-img" src="${src}" alt="" draggable="false">

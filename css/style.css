@@ -1644,3 +1644,13 @@ html.plain .pet-slot, html.plain .ss-pet { display: none; }
 @media (max-aspect-ratio: 1/1) { .ttl-scene.go .ttl-logo { transform: translate(-50%, -50%) scale(1.6) rotate(-4deg); } }
 .ttl-scene.wait .ttl-actor, .ttl-scene.wait .ttl-logo, .ttl-scene.wait .ttl-hint, .ttl-scene.wait .ttl-mode { opacity: 0; }
 .ttl-scene.wait .ttl-bg { transform: scale(1.35); filter: brightness(1.6) saturate(.6); animation: none; }
+/* ① 터치 대기 화면 */
+.ttl-tap { position: absolute; inset: 0; z-index: 9; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; background: #000; transition: opacity .7s ease-in; }
+.ttl-scene:not(.tapwait) .ttl-tap { opacity: 0; pointer-events: none; }
+.ttl-tap-logo { display: flex; flex-direction: column; align-items: center; line-height: .95; transform: rotate(-4deg); font-family: var(--font-title); animation: ttlLogoIn .8s cubic-bezier(.3,1.6,.6,1) both;
+  filter: drop-shadow(4px 0 0 #fff) drop-shadow(-4px 0 0 #fff) drop-shadow(0 4px 0 #fff) drop-shadow(0 -4px 0 #fff) drop-shadow(0 7px 0 var(--ink)); }
+.ttl-tap-logo .l2 { font-size: clamp(64px, 12vw, 140px); background: linear-gradient(90deg, #ff6f9c, #ffb347 35%, #7fd6c2 65%, #6cb8ff); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.ttl-tap-logo .l1 { font-size: clamp(26px, 4vw, 48px); color: #ff6f9c; }
+.ttl-tap-msg { font-family: var(--font-title); font-size: clamp(20px, 2.6vw, 28px); color: #fff; letter-spacing: 2px; animation: ttlBlink 1.8s ease-in-out infinite; }
+@keyframes ttlBlink { 50% { opacity: .35; } }
+.ttl-scene.tapwait .ttl-bg { transform: scale(1.1); filter: none; }
