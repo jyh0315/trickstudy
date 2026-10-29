@@ -123,11 +123,12 @@ let actx;
 /* 사도 음성 (assets/voice/<id>-pull.mp3 볼 당기기 · <id>-pat.mp3 쓰다듬기) — 있는 사도만 */
 const VOICES = new Set("amelia ashur aya belita beni bigwood butter canna chloe daya diana elena erpin espi festa fricle gabia ifrit jade jubee kidian kommy levi maestromk2 mago marie mayo meluna ner posher rim rohne rudd shaydi sist speaki sylla tig ui velvet xxionx".split(" "));
 let voiceEl = null;
+const voiceVol = () => (typeof state.settings.voiceVol === "number" ? state.settings.voiceVol : 40);
 function voice(id, kind = "pull") {
   if (!VOICES.has(id) || !state.settings.sound) return false;
   const src = `assets/voice/${id}-${kind}.mp3`;
   if (voiceEl) voiceEl.pause();
-  voiceEl = new Audio(src); voiceEl.volume = 0.9;
+  voiceEl = new Audio(src); voiceEl.volume = voiceVol() / 100;
   voiceEl.play().catch(() => {});
   return true;
 }
@@ -887,6 +888,7 @@ function renderStats() {
   $("s-goal").value = st.goal;
   $("s-subjects").value = st.subjects.join(", ");
   $("s-sound").checked = st.sound;
+  $("s-voice").value = voiceVol(); $("s-voice-v").textContent = voiceVol() + "%";
   $("s-notify").checked = st.notify;
 }
 
@@ -1017,6 +1019,8 @@ $("s-subjects").onchange = (e) => {
   save(); refresh();
 };
 $("s-sound").onchange = (e) => { state.settings.sound = e.target.checked; save(); sfx("click"); };
+$("s-voice").oninput = (e) => { state.settings.voiceVol = +e.target.value; $("s-voice-v").textContent = e.target.value + "%"; if (voiceEl) voiceEl.volume = +e.target.value / 100; };
+$("s-voice").onchange = () => { save(); voice(state.partner, "pull"); };
 $("s-notify").onchange = (e) => {
   state.settings.notify = e.target.checked; save();
   if (e.target.checked && "Notification" in window && Notification.permission !== "granted") {
