@@ -480,7 +480,7 @@ function renderTimer() {
   $("view-timer").querySelector(".timer-card").classList.toggle("locked", busy);
   $("t-start").textContent = t.running ? "진행 중…" : t.remain ? "계속하기!" : t.mode === "focus" ? "집중 시작!" : "휴식 시작";
   $("t-start").classList.toggle("hidden", t.running);
-  $("t-pause").classList.toggle("hidden", !t.running);
+  $("t-pause").classList.toggle("hidden", !t.running || t.tag === "mock");
   $("t-stop").classList.toggle("hidden", !busy);
   $("t-focus").value = s.focus; $("t-break").value = s.brk; $("t-auto").checked = s.auto;
   const subj = $("t-subject");
@@ -495,7 +495,7 @@ function updateClock() {
   const clock = $("clock");
   if (clock) {
     $("clock-time").textContent = txt;
-    $("clock-label").textContent = t.mode === "focus" ? (t.running ? "집중 중" : "집중") : (t.running ? "휴식 중" : "휴식");
+    $("clock-label").textContent = t.tag === "mock" ? "📝 모의고사 중" : t.mode === "focus" ? (t.running ? "집중 중" : "집중") : (t.running ? "휴식 중" : "휴식");
     clock.classList.toggle("brk", t.mode === "break");
     clock.classList.toggle("running", t.running);
     $("clk-fg").style.strokeDashoffset = 552.9 * (1 - left / dur);
@@ -526,6 +526,7 @@ function startTimer() {
 function pauseTimer() {
   const t = T();
   if (!t.running) return;
+  if (t.tag === "mock") return toast("📝 모의고사는 실제 시험처럼 일시정지할 수 없어요!");
   t.remain = Math.max(1000, t.endAt - Date.now());
   t.running = false;
   timerEvent(false);
@@ -549,12 +550,13 @@ function stopTimer() {
       resetTimer("focus");
       timerEvent(false);
       if (partial) grantFocus(elapsedMin, false);
-      else { sfx("sad"); sayKind("fail"); }
+      else { T().tag = ""; sfx("sad"); sayKind("fail"); }
       save(); refresh();
     }, true);
 }
 function grantFocus(min, full) {
   const t = T(), s = state.stats, d = today();
+  const tag = t.tag || ""; t.tag = ""; // 특별 세션 표시 (예: "mock" = 모의고사)
   // 모듈(과목 밸런스 등)이 보상 기준 시간을 조정할 수 있음. 공부 기록 자체는 실제 시간 그대로
   const rw = { min, subject: t.subject, eff: min, notes: [] };
   rewardHooks.forEach((fn) => { try { fn(rw); } catch (e) { console.error(e); } });
@@ -570,7 +572,7 @@ function grantFocus(min, full) {
   const linked = full && t.todoId ? state.todos.find((x) => x.id === t.todoId && !x.done) : null;
   const line = c ? fmt(rand(linesOf(c, full ? "done" : "fail")), c) : "";
   const extras = [...rw.notes];   // 모듈이 넣는 추가 보상 칩 (보스 데미지, 호감도 등)
-  emit("focus", { min, eff: rw.eff, full, subject: t.subject, partner: state.partner, extras });
+  emit("focus", { min, eff: rw.eff, full, tag, subject: t.subject, partner: state.partner, extras });
   sfx(full ? "done" : "coin");
   if (full) confetti(50);
   modal(`<h2>${full ? "집중 완료!" : "중간 정산"}</h2>

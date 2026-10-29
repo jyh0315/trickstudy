@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Jua&family=Gowun+Dodum&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css?v=1.3">
+  <link rel="stylesheet" href="css/style.css?v=1.4">
 </head>
 <body>
   <div id="bg" aria-hidden="true"></div>
@@ -89,6 +89,7 @@
     <main class="panel">
       <nav class="tabs" id="tabs">
         <button data-view="lobby" class="on"><i>🏠</i><span>로비</span></button>
+        <button data-view="event" id="tab-event" class="tab-event hidden"><i>🎉</i><span>이벤트</span><em class="dot hidden" id="dot-event"></em></button>
         <button data-view="timer"><i>⏰</i><span>집중</span></button>
         <button data-view="todo"><i>📜</i><span>의뢰</span><em class="dot hidden" id="dot-todo"></em></button>
         <button data-view="quest"><i>🎯</i><span>임무</span><em class="dot hidden" id="dot-quest"></em></button>
@@ -101,6 +102,7 @@
 
       <!-- 로비 -->
       <section class="view on" id="view-lobby">
+        <div class="ev-banner hidden" id="event-banner"></div>
         <div class="card brief">
           <h2 class="ribbon">오늘의 브리핑</h2>
           <p class="brief-say" id="brief-say">…</p>
@@ -224,6 +226,9 @@
         </div>
       </section>
 
+      <!-- 이벤트 -->
+      <section class="view" id="view-event"></section>
+
       <!-- 주간 보스 -->
       <section class="view" id="view-boss"></section>
 
@@ -316,18 +321,19 @@
   <div id="modal-root"></div>
   <div id="toasts"></div>
 
-  <script src="js/sado.js?v=1.3"></script>
-  <script src="js/data.js?v=1.3"></script>
-  <script src="js/app.js?v=1.3"></script>
-  <script src="js/affection.js?v=1.3"></script>
-  <script src="js/balance.js?v=1.3"></script>
-  <script src="js/profile.js?v=1.3"></script>
-  <script src="js/boss.js?v=1.3"></script>
-  <script src="js/schedule.js?v=1.3"></script>
-  <script src="js/grass.js?v=1.3"></script>
-  <script src="js/pip.js?v=1.3"></script>
-  <script src="js/ranking.js?v=1.3"></script>
-  <script src="js/bgm.js?v=1.3"></script>
-  <script src="js/title.js?v=1.3"></script>
+  <script src="js/sado.js?v=1.4"></script>
+  <script src="js/data.js?v=1.4"></script>
+  <script src="js/app.js?v=1.4"></script>
+  <script src="js/affection.js?v=1.4"></script>
+  <script src="js/balance.js?v=1.4"></script>
+  <script src="js/profile.js?v=1.4"></script>
+  <script src="js/boss.js?v=1.4"></script>
+  <script src="js/schedule.js?v=1.4"></script>
+  <script src="js/grass.js?v=1.4"></script>
+  <script src="js/pip.js?v=1.4"></script>
+  <script src="js/ranking.js?v=1.4"></script>
+  <script src="js/bgm.js?v=1.4"></script>
+  <script src="js/title.js?v=1.4"></script>
+  <script src="js/event.js?v=1.4"></script>
 </body>
 </html>

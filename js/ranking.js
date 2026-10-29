@@ -72,6 +72,7 @@ function myEntry() {
     total: st.totalMin, sado: Object.keys(s.owned).length,
     boss: Math.round(b), streak: st.streak, t: Date.now(),
     p: window.Profile ? window.Profile.publicProfile() : null, // 꾸민 프로필
+    ...Object.assign({}, ...RANK_EXTRA.map((fn) => fn())),     // 이벤트 등 모듈 추가 필드
   };
 }
 let upTimer = 0, lastErr = "";
@@ -86,7 +87,8 @@ function scheduleUpload(ms = 3000) { clearTimeout(upTimer); upTimer = setTimeout
 ["focus", "levelup", "pull", "todo", "start", "partner", "profile"].forEach((ev) => TS.on(ev, () => scheduleUpload()));
 
 /* ───── 랭킹 화면 ───── */
-const TABS = [
+const RANK_EXTRA = window.RANK_EXTRA = [];   // () => 랭킹에 올릴 추가 필드
+const TABS = window.RANK_TABS = [
   { id: "week",  label: "이번 주",  val: (e, wk) => (e.week === wk ? e.weekMin : 0), fmt: "min" },
   { id: "day",   label: "오늘",     val: (e, wk, td) => (e.day === td ? e.dayMin : 0), fmt: "min" },
   { id: "total", label: "누적",     val: (e) => e.total, fmt: "min" },
@@ -102,10 +104,11 @@ function clean(uid, e) {
     uid, name: String(e.name || "???").slice(0, 12), lv: num(e.lv, 999), partner: TS.SADO_MAP[e.partner] ? e.partner : "", p: e.p,
     week: String(e.week || ""), weekMin: num(e.weekMin), day: String(e.day || ""), dayMin: num(e.dayMin, 1440),
     total: num(e.total), sado: num(e.sado, 999), boss: num(e.boss), streak: num(e.streak, 9999), t: num(e.t, 1e15),
+    ev: e.ev && typeof e.ev === "object" ? { id: String(e.ev.id || "").slice(0, 24), c: num(e.ev.c) } : null,
   };
 }
 const fmtVal = (v, f) => f === "min" ? (v >= 60 ? `${Math.floor(v / 60)}시간 ${v % 60}분` : `${v}분`)
-  : f === "dmg" ? v.toLocaleString() : f === "lv" ? `Lv.${v}` : `${v}명`;
+  : f === "dmg" ? v.toLocaleString() : f === "lv" ? `Lv.${v}` : f === "charm" ? `🧧 ${v.toLocaleString()}` : `${v}명`;
 const ago = (t) => { const m = Math.floor((Date.now() - t) / 60000); return m < 1 ? "방금" : m < 60 ? `${m}분 전` : m < 1440 ? `${Math.floor(m / 60)}시간 전` : `${Math.floor(m / 1440)}일 전`; };
 
 async function load(force) {
@@ -155,7 +158,7 @@ function render() {
           <button class="btn white small" id="rk-refresh">${loading ? "불러오는 중…" : "🔄 새로고침"}</button>
         </span>
       </div>
-      <div class="seg rank-seg">${TABS.map((x) => `<button data-rt="${x.id}" class="${x.id === tab ? "on" : ""}">${x.label}</button>`).join("")}</div>
+      <div class="seg rank-seg">${TABS.filter((x) => !x.show || x.show()).map((x) => `<button data-rt="${x.id}" class="${x.id === tab ? "on" : ""}">${x.label}</button>`).join("")}</div>
     </div>
     ${loadErr ? `<div class="card rank-err"><b>랭킹 서버에 연결하지 못했어요</b><p>${esc(loadErr)}</p><p class="hint">Firebase 콘솔 → Realtime Database → 규칙(Rules)에서 <code>ranking</code> 읽기/쓰기가 허용돼 있는지 확인해 주세요. (README에 규칙 예시가 있어요)</p></div>` : ""}
     ${lastErr && !loadErr ? `<p class="hint">⚠️ 내 기록 업로드 실패: ${esc(lastErr)}</p>` : ""}
