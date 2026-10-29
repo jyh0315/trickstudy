@@ -128,7 +128,7 @@ const curTrack = () => tracks[curIdx()];
 function playTrack(t) {
   if (!t) return;
   if (st.cur !== t.id || !audio.src) { audio.src = t.src; st.cur = t.id; save(); }
-  audio.play().catch(() => { /* 사용자 조작 전 자동재생 차단 */ });
+  return audio.play().then(() => true, () => false); // 사용자 조작 전엔 자동재생이 막힐 수 있음
 }
 function playCtx(exclude) {
   const pool = poolFor(ctx);
@@ -283,9 +283,33 @@ document.addEventListener("keydown", (e) => {
 });
 
 const ready = reload();
+let titleOn = false;
 window.BGM = {
   // 시작 화면에서 볼을 당긴 직후 (사용자 조작이라 자동재생 허용됨)
-  onStart() { if (st.onStart) ready.then(() => { ctx = currentCtx(); if (tracks.length) playCtx(); }); },
+  onStart() {
+    if (!st.onStart) return;
+    ready.then(() => {
+      ctx = currentCtx();
+      if (titleOn && !audio.paused) return; // 시작 화면 메인 테마가 나오는 중이면 그대로 이어서
+      if (tracks.length) playCtx();
+    });
+  },
+  // 시작 화면이 뜨자마자 메인 테마. 브라우저가 막으면 화면을 처음 누르는 순간 재생
+  title() {
+    if (!st.onStart) return;
+    // 곡 목록(GitHub API)을 기다리지 않고 메인 테마 파일을 바로 틂
+    const MAIN = "01. Trickal Main Title.mp3";
+    const t = tracks.find((x) => /Main Title/i.test(x.title)) || { id: "f:" + MAIN, title: prettyName(MAIN), src: "assets/bgm/" + encodeURIComponent(MAIN) };
+    {
+      titleOn = true;
+      playTrack(t).then((ok) => {
+        if (ok) return;
+        const kick = () => { if (audio.paused && titleOn) playTrack(t); off(); };
+        const off = () => ["pointerdown", "keydown", "touchstart"].forEach((ev) => document.removeEventListener(ev, kick, true));
+        ["pointerdown", "keydown", "touchstart"].forEach((ev) => document.addEventListener(ev, kick, true));
+      });
+    }
+  },
   get ctx() { return ctx; },
 };
 })();

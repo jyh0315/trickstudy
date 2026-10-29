@@ -1603,18 +1603,41 @@ html.plain .pet-slot, html.plain .ss-pet { display: none; }
 .ttl-cast { position: absolute; inset: 0; cursor: grab; touch-action: none; }
 .ttl-actor { position: absolute; aspect-ratio: 1; pointer-events: none; }
 .ttl-actor .ttl-live { inset: 0; }
-.ttl-actor.a0 { right: 1vw; bottom: -16vh; width: min(112vh, 60vw); z-index: 3; }
-.ttl-actor.a1 { left: 0; bottom: -8vh; width: min(80vh, 44vw); z-index: 1; }
-.ttl-actor.a2 { left: 21vw; bottom: -14vh; width: min(92vh, 50vw); z-index: 2; }
+.ttl-actor.a0 { left: 50%; margin-left: max(-14vw, -24vh); bottom: -16vh; width: min(112vh, 60vw); z-index: 3; }
+.ttl-actor.a1 { left: 50%; margin-left: max(-50vw, -84vh); bottom: -8vh; width: min(80vh, 44vw); z-index: 1; }
+.ttl-actor.a2 { left: 50%; margin-left: max(-36vw, -62vh); bottom: -14vh; width: min(92vh, 50vw); z-index: 2; }
 .ttl-scene .ttl-hint { position: absolute; left: 50%; bottom: max(80px, 11vh); transform: translateX(-50%); z-index: 5; white-space: nowrap; pointer-events: none; }
 .ttl-scene .ttl-pop { position: absolute; z-index: 6; top: 45%; }
 .ttl-scene .ttl-logo, .ttl-scene .ttl-ver, .ttl-scene .ttl-copy { z-index: 5; }
 .ttl-scene .ttl-dday { z-index: 6; }
 .ttl-scene .ttl-mode { z-index: 6; }
 @media (max-aspect-ratio: 1/1) {
-  .ttl-actor.a0 { right: -14vw; bottom: -6vh; width: 112vw; }
-  .ttl-actor.a1 { left: -16vw; bottom: 14vh; width: 78vw; }
-  .ttl-actor.a2 { left: auto; right: -18vw; bottom: 18vh; width: 74vw; }
+  .ttl-actor.a0 { left: -6vw; margin-left: 0; bottom: -6vh; width: 112vw; }
+  .ttl-actor.a1 { left: -16vw; margin-left: 0; bottom: 14vh; width: 78vw; }
+  .ttl-actor.a2 { left: auto; margin-left: 0; right: -18vw; bottom: 18vh; width: 74vw; }
   .ttl-scene .ttl-mode button { white-space: nowrap; padding: 5px 9px; }
   .ttl-scene .ttl-hint { bottom: 12vh; font-size: 24px; }
 }
+
+/* 솨악~ 등장: 배경이 확 당겨지고, 빛줄기가 훑고 지나가며 사도들이 차례로 튀어나옴 */
+.ttl-sweep { position: absolute; inset: 0; z-index: 7; pointer-events: none; opacity: 0; background: linear-gradient(105deg, transparent 35%, rgba(255,255,255,.95) 48%, rgba(255,250,220,.9) 52%, transparent 65%); background-size: 300% 100%; }
+.ttl-scene.intro .ttl-sweep { animation: ttlSweep .9s cubic-bezier(.5,0,.3,1) .05s; }
+@keyframes ttlSweep { 0% { opacity: 1; background-position: 120% 0; } 100% { opacity: 1; background-position: -40% 0; } }
+.ttl-scene.intro .ttl-bg { animation: ttlBgIn 1.1s cubic-bezier(.2,.8,.2,1) both, ttlpan 40s ease-in-out 1.1s infinite alternate; }
+@keyframes ttlBgIn { from { transform: scale(1.35); filter: brightness(1.6) saturate(.6); } }
+.ttl-scene.intro .ttl-actor { animation: ttlActorIn .8s cubic-bezier(.25,1.4,.5,1) both; }
+.ttl-scene.intro .ttl-actor.a0 { animation-delay: .55s; }
+.ttl-scene.intro .ttl-actor.a1 { animation-delay: .3s; --from: -40vw; }
+.ttl-scene.intro .ttl-actor.a2 { animation-delay: .42s; --from: -30vw; }
+@keyframes ttlActorIn { from { opacity: 0; transform: translateX(var(--from, 40vw)) scale(.9); } }
+.ttl-scene.intro .ttl-logo { animation: ttlLogoIn .7s cubic-bezier(.3,1.6,.6,1) .8s both; }
+@keyframes ttlLogoIn { from { opacity: 0; transform: translateY(-40px) scale(.6) rotate(-12deg); } }
+.ttl-scene.intro .ttl-hint, .ttl-scene.intro .ttl-mode { animation: modalin .5s ease-out 1.1s both; }
+/* 시작! → 로고가 화면 가운데에 크게 */
+.ttl-scene .ttl-logo { transition: top .55s cubic-bezier(.3,1.4,.5,1), left .55s cubic-bezier(.3,1.4,.5,1), transform .55s cubic-bezier(.3,1.4,.5,1); }
+.ttl-scene.go .ttl-logo { top: 50%; left: 50%; z-index: 8; align-items: center; transform: translate(-50%, -50%) scale(2.3) rotate(-4deg); }
+.ttl-scene.go .ttl-hint, .ttl-scene.go .ttl-mode, .ttl-scene.go .ttl-dday { opacity: 0; transition: opacity .3s; }
+.ttl-scene.go::after { content: ""; position: absolute; inset: 0; z-index: 7; background: radial-gradient(circle, rgba(255,255,255,.55), rgba(255,255,255,0) 70%); animation: modalin .5s ease-out both; pointer-events: none; }
+@media (max-aspect-ratio: 1/1) { .ttl-scene.go .ttl-logo { transform: translate(-50%, -50%) scale(1.6) rotate(-4deg); } }
+.ttl-scene.wait .ttl-actor, .ttl-scene.wait .ttl-logo, .ttl-scene.wait .ttl-hint, .ttl-scene.wait .ttl-mode { opacity: 0; }
+.ttl-scene.wait .ttl-bg { transform: scale(1.35); filter: brightness(1.6) saturate(.6); animation: none; }

@@ -81,14 +81,25 @@ function showScene(done, mainId) {
   root.innerHTML = `
     <div class="ttl-bg" style="background-image:url('assets/title-bg.webp')"></div>
     <div class="ttl-logo"><span class="l2">트릭스터디</span><span class="l1">~교주님 공부하세요!~</span></div>
-    <div class="ttl-ver">Ver 4.8 · 교주 전용</div>
+    <div class="ttl-ver">Ver 4.9 · 교주 전용</div>
     <div class="ttl-copy">♥ Trickcal fan-made study</div>
     <div class="ttl-cast">${cast.map((id, i) => `<div class="ttl-actor a${i}" data-id="${id}"></div>`).join("")}</div>
-    <span class="ttl-pop" id="ttl-pop">뾰옹~!</span>
+    <div class="ttl-sweep"></div>
     <div class="ttl-hint" id="ttl-hint">볼을 잡아당겨서 시작하기!</div>
     <div class="ttl-dday hidden" id="ttl-dday"></div>`;
+  root.classList.add("wait"); // 사도를 다 불러오면 솨악~ 하고 등장
   document.body.appendChild(root);
   document.body.classList.add("title-open");
+  const t0 = Date.now();
+  const waitT = setInterval(() => {
+    const n = root.querySelectorAll(".ttl-actor.live").length;
+    if (n < actors.length && Date.now() - t0 < 3500) return;
+    clearInterval(waitT);
+    root.classList.replace("wait", "intro");
+    TS.sfx("flip");
+    setTimeout(() => root.classList.remove("intro"), 1800);
+  }, 80);
+  if (window.BGM) window.BGM.title();
   const hint = root.querySelector("#ttl-hint");
   renderDday(root.querySelector("#ttl-dday"));
   const ddTimer = setInterval(() => renderDday(root.querySelector("#ttl-dday")), 1000);
@@ -130,21 +141,22 @@ function showScene(done, mainId) {
   function finish() {
     finished = true;
     TS.sfx("level");
-    root.querySelector("#ttl-pop").classList.add("show");
-    hint.textContent = "출발!";
+    clearInterval(waitT);
+    root.classList.remove("intro", "wait");
+    root.classList.add("go"); // 로고가 가운데로 크게
+    if (window.BGM) window.BGM.onStart();
     setTimeout(() => {
       root.classList.add("bye");
       document.body.classList.remove("title-open");
-      if (window.BGM) window.BGM.onStart();
       setTimeout(() => { clearInterval(ddTimer); actors.forEach((a) => a.live.dispose()); root.remove(); done(); }, 550);
-    }, 350);
+    }, 1300);
   }
   const onKey = (e) => {
     if (finished) return document.removeEventListener("keydown", onKey);
     if (e.key === "Enter" || e.key === " ") { e.preventDefault(); document.removeEventListener("keydown", onKey); finish(); }
   };
   document.addEventListener("keydown", onKey);
-  modeSwitch(root, done, () => { finished = true; clearInterval(ddTimer); actors.forEach((a) => a.live.dispose()); document.removeEventListener("keydown", onKey); document.body.classList.remove("title-open"); });
+  modeSwitch(root, done, () => { finished = true; clearInterval(ddTimer); clearInterval(waitT); actors.forEach((a) => a.live.dispose()); document.removeEventListener("keydown", onKey); document.body.classList.remove("title-open"); });
 }
 
 function show(done) {
@@ -159,7 +171,7 @@ function show(done) {
   root.innerHTML = `
     <div class="ttl-bg" style="background-image:url('assets/bg/${s.bg || "trickcal"}.jpg')"></div>
     <div class="ttl-logo"><span class="l2">트릭스터디</span><span class="l1">~교주님 공부하세요!~</span></div>
-    <div class="ttl-ver">Ver 4.8 · 교주 전용</div>
+    <div class="ttl-ver">Ver 4.9 · 교주 전용</div>
     <div class="ttl-copy">♥ Trickcal fan-made study</div>
     <div class="ttl-face" id="ttl-face">
       <img id="ttl-img" src="${src}" alt="" draggable="false">
