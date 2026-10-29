@@ -72,7 +72,7 @@ function headPos(sk) {
   sk.getBounds(off, size);
   return { x: off.x + size.x / 2, y: off.y + size.y * 0.6 };
 }
-function frameView(p, mode) {
+function frameView(p, mode, host) {
   // 불러온 직후엔 뼈 위치가 아직 계산 전이라 한 번 계산
   p.animationState.apply(p.skeleton);
   p.skeleton.updateWorldTransform();
@@ -82,14 +82,20 @@ function frameView(p, mode) {
     const S = 430;
     v = { x: h.x - S / 2, y: h.y - 140, width: S, height: S };
   } else {
-    // 기본은 모든 사도 같은 배율. 몸체가 그보다 큰 사도(에드의 캡슐, 빅우드 등)만 잘리지 않게 넓힘
+    // 모든 사도 같은 배율. 기본 틀(가로 -360~360, 세로 -30~800)보다 큰 사도(꼬리·드릴·캡슐 등)는
+    // 축소하지 않고 그리는 칸(host)을 그만큼 넓혀서 삐져나오게 → 크기가 다른 사도와 똑같음
     const off = new spine.Vector2(), size = new spine.Vector2();
     p.skeleton.getBounds(off, size);
     const ok = Number.isFinite(off.x) && size.x > 0 && size.x < 5000;
-    const half = Math.max(360, ok ? Math.max(-off.x, off.x + size.x) + 25 : 0);
-    const bottom = Math.min(-30, ok ? off.y - 15 : -30);
-    const top = Math.max(800, h.y + 330, ok ? off.y + size.y + 30 : 0);
+    const BH = 360, BB = -30, BT = 800;
+    const half = Math.max(BH, ok ? Math.max(-off.x, off.x + size.x) + 25 : 0);
+    const bottom = Math.min(BB, ok ? off.y - 15 : BB);
+    const top = Math.max(BT, h.y + 330, ok ? off.y + size.y + 30 : 0);
     v = { x: -half, y: bottom, width: half * 2, height: top - bottom };
+    if (host) {
+      const w = (half / BH) * 100, hh = ((top - bottom) / (BT - BB)) * 100;
+      Object.assign(host.style, { inset: "auto", left: `${50 - w / 2}%`, width: `${w}%`, bottom: `${((bottom - BB) / (BT - BB)) * 100}%`, height: `${hh}%` });
+    }
   }
   Object.assign(p.config.viewport, v, { padLeft: 0, padRight: 0, padTop: 0, padBottom: 0, transitionTime: 0 });
   const cur = p.animationState.getCurrent(0);
@@ -130,7 +136,7 @@ function mount(container, id, opts = {}) {
           if (sk) { p.skeleton.setSkin(sk); p.skeleton.setSlotsToSetupPose(); }
           p.animationState.setAnimation(0, ctrl.idles[0] || ctrl.anims[0], true);
         }
-        frameView(p, opts.frame || "body");
+        frameView(p, opts.frame || "body", host);
         ctrl.ready = true;
         container.classList.add("live-ready");
         opts.onReady && opts.onReady(ctrl);
