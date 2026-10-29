@@ -362,6 +362,17 @@ function poke() {
 
 /* ───── 추천 (할 일 알려주기) ───── */
 function pendingTodos() { return state.todos.filter((x) => !x.done); }
+/* 하루 의뢰 등록 제한: 난이도별 TODO_LIMIT개 (매일 반복 의뢰도 그날 자리를 차지함, 지운 건 해결 전이면 자리 돌려줌) */
+const TODO_LIMIT = 3;
+function todoUsed() {
+  const d = state.daily;
+  if (!d.reg) { // 처음엔 오늘 등록한 의뢰 + 매일 반복 의뢰로 계산
+    d.reg = { easy: 0, normal: 0, hard: 0 };
+    for (const x of state.todos) if ((x.daily || x.created === today()) && d.reg[x.diff] != null) d.reg[x.diff]++;
+  }
+  return d.reg;
+}
+const todoLeft = (diff) => Math.max(0, TODO_LIMIT - (todoUsed()[diff] || 0));
 function readyQuests() {
   return [
     ...DAILY_QUESTS.filter((q) => questReady(q, "daily")),
@@ -511,7 +522,15 @@ function renderTodos() {
   $("todo-done").innerHTML = done.map(todoHTML).join("");
   $("todo-done").dataset.empty = "아직 해결한 의뢰가 없어요.";
   $("todo-count").textContent = pend.length;
-  document.querySelectorAll("#todo-diff button").forEach((b) => b.classList.toggle("on", b.dataset.d === newDiff));
+  document.querySelectorAll("#todo-diff button").forEach((b) => {
+    const left = todoLeft(b.dataset.d);
+    b.classList.toggle("on", b.dataset.d === newDiff);
+    b.classList.toggle("full", !left);
+    b.innerHTML = `${DIFFICULTY[b.dataset.d].label} <small>${TODO_LIMIT - left}/${TODO_LIMIT}</small>`;
+  });
+  const all = ["easy", "normal", "hard"].every((d) => !todoLeft(d));
+  $("todo-limit").innerHTML = all ? "오늘 의뢰를 모두 등록했어요! 내일 또 만나요 🌙" : `하루에 <b>쉬움·보통·어려움 각 ${TODO_LIMIT}개</b>까지 등록할 수 있어요. (매일 반복 의뢰도 포함)`;
+  $("todo-limit").classList.toggle("full", all);
 }
 function completeTodo(id) {
   const x = state.todos.find((t) => t.id === id);
@@ -944,6 +963,7 @@ document.addEventListener("click", (e) => {
     const x = state.todos.find((t) => t.id === del.dataset.del);
     return confirmModal("의뢰 삭제", `“${esc(x.text)}” 의뢰를 지울까요?`, "삭제", () => {
       state.todos = state.todos.filter((t) => t !== x);
+      if (!x.done && (x.created === today() || x.daily) && todoUsed()[x.diff] > 0) todoUsed()[x.diff]--; // 해결 전에 지우면 자리 돌려줌
       if (state.timer.todoId === x.id) state.timer.todoId = "";
       save(); refresh();
     }, true);
@@ -985,6 +1005,8 @@ $("todo-form").onsubmit = (e) => {
   e.preventDefault();
   const text = $("todo-text").value.trim();
   if (!text) return;
+  if (!todoLeft(newDiff)) { toast(`오늘 ${DIFFICULTY[newDiff].label} 의뢰는 ${TODO_LIMIT}개를 다 등록했어요! 다른 난이도를 고르거나 내일 등록해요.`); sfx("sad"); return; }
+  todoUsed()[newDiff]++;
   state.todos.push({ id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), text, diff: newDiff, daily: $("todo-daily").checked, done: null, created: today() });
   $("todo-text").value = "";
   sfx("click");

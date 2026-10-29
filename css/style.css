@@ -1703,3 +1703,8 @@ html.plain .pet-slot, html.plain .ss-pet { display: none; }
 /* 심플 모드 포켓몬 그림: 잘리지 않게 통째로 */
 html.plain img[src^="assets/plain/"] { object-fit: contain !important; }
 html.plain .partner img { padding: 10%; box-sizing: border-box; }
+/* 의뢰 하루 등록 제한 */
+#todo-diff button small { font-size: 11px; opacity: .7; margin-left: 2px; }
+#todo-diff button.full { opacity: .45; text-decoration: line-through; }
+.todo-limit { margin: 8px 0 0; }
+.todo-limit.full { color: var(--pink-d); font-weight: 700; }
