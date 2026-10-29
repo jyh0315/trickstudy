@@ -62,7 +62,9 @@ const curSkin = (id) => { const st = skinState(id); return skinOwned(id, st.cur)
 function mount(container, id, opts = {}) {
   if (!canLive(id)) { opts.onFail && opts.onFail(); return null; }
   const d = SPINE_DATA[id], idx = Math.min(opts.skin != null ? opts.skin : curSkin(id), d.skins.length - 1);
-  const base = encodeURI(SPINE_HOST + d.dir + "/" + d.skins[idx][0]);
+  // 우리 저장소(trickstudy-assets) 먼저, 안 되면 원래 사이트
+  const bases = SPINE_HOSTS.map((h) => encodeURI(h.url + h.dir(d.dir) + "/" + d.skins[idx][0]));
+  let hostIdx = 0;
   const host = document.createElement("div");
   host.className = "live-host";
   container.appendChild(host);
@@ -70,6 +72,7 @@ function mount(container, id, opts = {}) {
   let tries = 0, giveUp = 0, failed = false;
   function create(full) {
     tries++;
+    const base = bases[hostIdx];
     host.innerHTML = "";
     const cfg = {
       skelUrl: base + ".skel.asset", atlasUrl: base + ".atlas.asset",
@@ -94,7 +97,8 @@ function mount(container, id, opts = {}) {
         clearTimeout(giveUp);
         if (failed) return;
         try { p.dispose(); } catch (e) { /* 무시 */ }
-        if (full && tries < 2) return create(false);
+        if (full) return create(false);                                   // 스킨·애니 이름이 달라서 실패했을 수도
+        if (hostIdx < bases.length - 1) { hostIdx++; return create(true); } // 다음 서버
         console.warn("live load failed", id, msg);
         host.remove();
         opts.onFail && opts.onFail();

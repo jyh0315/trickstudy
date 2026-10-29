@@ -1,7 +1,12 @@
 /* 움직이는 사도 (Spine 4.1) 데이터 위치 — lootandwaifus.com 에서 불러옴
-   https://lootandwaifus.com/l2d/trickcal/<dir>/<파일>.skel.asset / .atlas.asset
+   1순위 https://jyh0315.github.io/trickstudy-assets/l2d/<dir>/  2순위 https://lootandwaifus.com/l2d/trickcal/<dir>/
    skins: [파일 이름, 표시 이름] — 첫 번째가 기본 스킨 */
 const SPINE_HOST = "https://lootandwaifus.com/l2d/trickcal/";
+// 차례대로 시도. 우리 저장소는 폴더 이름의 띄어쓰기·괄호를 _ 로 바꿔 둠 ("Tig (Hero)" → "Tig_Hero")
+const SPINE_HOSTS = [
+  { url: "https://jyh0315.github.io/trickstudy-assets/l2d/", dir: (d) => d.replace(/[^A-Za-z0-9]+/g, "_").replace(/^_+|_+$/g, "") },
+  { url: SPINE_HOST, dir: (d) => d },
+];
 const SPINE_DATA = {
   "alice": { dir: "Alice", skins: [["Alice", "Base"], ["AliceSkin1", "Skin 1"], ["AliceSkin2", "Skin 2"], ["AliceSkin3", "Skin 3"], ["AliceSkin4", "Skin 4"]] },
   "allet": { dir: "Allet", skins: [["Allet", "Base"]] },
