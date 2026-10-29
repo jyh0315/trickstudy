@@ -6,7 +6,7 @@
    ========================================================= */
 const FIREBASE = {
   dbURL: "https://trickstudy-default-rtdb.asia-southeast1.firebasedatabase.app",
-  apiKey: "", // 프로젝트 설정 → 웹 API 키 (넣으면 익명 로그인으로 내 기록 보호)
+  apiKey: "AIzaSyBjj03P3GJpEWAaBF0EGxw1Gnqeligq6NU", // 웹 API 키 (공개돼도 되는 값) → 익명 로그인으로 내 기록 보호
   admins: [], // 관리자 랭킹 ID (기록 → 설정에 보이는 ID). 이 사람만 랭킹 삭제 버튼이 보임
 };
 
@@ -71,6 +71,12 @@ async function auth() {
     a = { uid: j.localId, idToken: j.idToken, refreshToken: j.refreshToken, exp: Date.now() + j.expiresIn * 1000 };
   }
   localStorage.setItem(AUTH_KEY, JSON.stringify(a));
+  // 로그인 전에 쓰던 ID 의 기록은 한 번 지움 (랭킹에 같은 사람이 두 번 나오지 않게)
+  const old = rk();
+  if (!old.migrated && old.uid && old.uid !== a.uid) {
+    old.migrated = true; TS.save();
+    fetch(`${FIREBASE.dbURL}/ranking/${encodeURIComponent(old.uid)}.json?auth=${encodeURIComponent(a.idToken)}`, { method: "DELETE" }).catch(() => {});
+  }
   return { uid: a.uid, token: a.idToken };
 }
 async function api(path, opts = {}) {
