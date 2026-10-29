@@ -1,5 +1,5 @@
 /* =========================================================
-   교주님, 공부하세요! — 게임 로직
+   트릭스터디 ~교주님 공부하세요!~ — 게임 로직
    저장: localStorage("trickcal-study")
    ========================================================= */
 (() => {
@@ -563,7 +563,7 @@ function updateClock() {
   $("mini-timer").classList.toggle("brk", t.mode === "break");
   $("mini-mode").textContent = (t.mode === "focus" ? "집중" : "휴식") + (t.running ? " 중" : " 일시정지");
   $("mini-time").textContent = txt;
-  const appName = isPlain() ? "공부 플래너" : "교주님, 공부하세요!";
+  const appName = isPlain() ? "공부 플래너" : "트릭스터디";
   document.title = t.running ? `${t.mode === "focus" ? "📚" : "☕"} ${txt} · ${appName}` : appName;
 }
 function startTimer() {

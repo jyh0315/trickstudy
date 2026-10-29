@@ -1530,3 +1530,10 @@ html.plain .ss-quote.show { animation: ssq 1.4s ease forwards; }
 #ss .ss-clock, #ss .ss-timer, #ss .ss-info, #ss .ss-quote { z-index: 2; pointer-events: none; }
 #ss .ss-chars { z-index: 3; }
 #ss .ss-ctrl, #ss .ss-panel { z-index: 10; }
+
+/* 사이트 이름: 트릭스터디 ~교주님 공부하세요!~ */
+.logo-sub { font-size: 24px; }
+.logo-main { font-size: 12px; margin-top: 2px; }
+.ttl-logo .l2 { font-size: 64px; }
+.ttl-logo .l1 { font-size: 22px; align-self: center; margin-top: 4px; }
+@media (max-width: 900px) { .ttl-logo .l2 { font-size: 42px; } .ttl-logo .l1 { font-size: 16px; } }
