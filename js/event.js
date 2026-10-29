@@ -636,9 +636,10 @@ function renderBanner() {
   el.classList.toggle("hidden", st === "none");
   if (st === "none") return;
   const rc = readyCount();
-  el.innerHTML = `<div class="evb-text"><span class="ev-tag">${st === "pre" ? "곧 시작" : st === "on" ? "진행 중" : "종료"}</span>
+  const todayExams = study().exams.filter((x) => x.date === TS.today()).sort((a, b) => a.period - b.period);
+  el.innerHTML = `<div class="evb-text"><span class="ev-tag">${st === "pre" ? "곧 시작" : st === "on" ? "진행 중" : inExam() ? "📚 시험 기간" : "종료"}</span>
       <b>💓 ${esc(EV.title)}</b>
-      <small>${st === "pre" ? `${fmtDate(EV.start)} 시작 · 시작까지 ${countdown()}` : st === "on" ? `종료까지 ${countdown()} · 오늘 미션 ${EV.daily.filter(dailyClaimed).length}/${EV.daily.length} · 기말고사 D-${examDday()}` : inExam() ? "시험 기간! 준비한 만큼 다 보여줘요 💪" : shopOpen() ? "상점 교환 기간이에요" : "참여해 주셔서 고마워요!"}</small></div>
+      <small>${st === "pre" ? `${fmtDate(EV.start)} 시작 · 시작까지 ${countdown()}` : st === "on" ? `종료까지 ${countdown()} · 오늘 미션 ${EV.daily.filter(dailyClaimed).length}/${EV.daily.length} · 기말고사 D-${examDday()}` : inExam() ? (todayExams.length ? `오늘 시험: ${todayExams.map((x) => `${esc(x.subject)} ${x.period}교시`).join(" · ")} — 준비한 만큼 다 보여줘요 💪` : "시험 기간! 준비한 만큼 다 보여줘요 💪") : shopOpen() ? "상점 교환 기간이에요" : "참여해 주셔서 고마워요!"}</small></div>
     <span class="ev-coin">${EV.coin.icon} <b>${ev().charm}</b></span>
     <button class="btn pink" data-go="event">${rc ? `🎁 보상 ${rc}개` : "이벤트 보기"}</button>`;
 }
