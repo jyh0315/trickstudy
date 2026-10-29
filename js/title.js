@@ -76,7 +76,7 @@ function show(done) {
   root.innerHTML = `
     <div class="ttl-bg" style="background-image:url('assets/bg/${s.bg || "trickcal"}.jpg')"></div>
     <div class="ttl-logo"><span class="l2">트릭스터디</span><span class="l1">~교주님 공부하세요!~</span></div>
-    <div class="ttl-ver">Ver 4.5 · 교주 전용</div>
+    <div class="ttl-ver">Ver 4.6 · 교주 전용</div>
     <div class="ttl-copy">♥ Trickcal fan-made study</div>
     <div class="ttl-face" id="ttl-face">
       <img id="ttl-img" src="${src}" alt="" draggable="false">
@@ -95,6 +95,7 @@ function show(done) {
   renderDday(root.querySelector("#ttl-dday"));
   const ddTimer = setInterval(() => renderDday(root.querySelector("#ttl-dday")), 1000);
   const W = cv.width, H = cv.height, R = W * 0.42;
+  const live = mountLive(face, c.id);
   let srcData = null, out = null, canWarp = true;
   let drag = null; // { gx, gy, sx, sy, dx, dy }
   let finished = false;
@@ -160,6 +161,13 @@ function show(done) {
     if (finished) return;
     e.preventDefault();
     face.setPointerCapture(e.pointerId);
+    if (live.ready()) {
+      drag = { live: true, sx: e.clientX, sy: e.clientY, dx: 0, dy: 0 };
+      live.grab(e.clientX, e.clientY);
+      face.classList.add("pulling");
+      if (!TS.voice(c.id, "pull")) TS.sfx("poke");
+      return;
+    }
     capture();
     const p = toCanvas(e);
     drag = { gx: p.x, gy: p.y, sx: p.x, sy: p.y, dx: 0, dy: 0 };
@@ -168,6 +176,12 @@ function show(done) {
   });
   face.addEventListener("pointermove", (e) => {
     if (!drag) return;
+    if (drag.live) {
+      drag.dx = e.clientX - drag.sx; drag.dy = e.clientY - drag.sy;
+      live.move(e.clientX, e.clientY);
+      hint.textContent = Math.hypot(drag.dx, drag.dy) > face.clientWidth * 0.3 ? "놓으면 시작!" : "쭈우욱~";
+      return;
+    }
     const p = toCanvas(e);
     drag.dx = p.x - drag.sx; drag.dy = p.y - drag.sy;
     warp(drag.dx, drag.dy, drag.gx, drag.gy);
@@ -176,6 +190,12 @@ function show(done) {
   const release = () => {
     if (!drag) return;
     const d = drag; drag = null;
+    if (d.live) {
+      const far = Math.hypot(d.dx, d.dy) > face.clientWidth * 0.3;
+      if (far) { finished = true; live.release(() => finish(null)); }
+      else { hint.textContent = "조금 더 세게 당겨주세요!"; TS.sfx("click"); live.release(() => face.classList.remove("pulling")); }
+      return;
+    }
     if (Math.hypot(d.dx, d.dy) > W * 0.3) finish(d);
     else { hint.textContent = "조금 더 세게 당겨주세요!"; TS.sfx("click"); springBack(d); }
   };
@@ -183,6 +203,7 @@ function show(done) {
   face.addEventListener("pointercancel", release);
 
   function finish(d) {
+    if (finished && d) return;
     finished = true;
     TS.sfx("level");
     const pop = root.querySelector("#ttl-pop");
@@ -192,7 +213,7 @@ function show(done) {
       root.classList.add("bye");
       document.body.classList.remove("title-open");
       if (window.BGM) window.BGM.onStart(); // 사용자 조작 직후라 자동재생 가능
-      setTimeout(() => { clearInterval(ddTimer); root.remove(); done(); }, 550);
+      setTimeout(() => { clearInterval(ddTimer); live.dispose(); root.remove(); done(); }, 550);
     };
     if (d) springBack(d, go); else go();
   }
@@ -203,6 +224,88 @@ function show(done) {
   document.addEventListener("keydown", onKey);
   modeSwitch(root, done, () => { finished = true; clearInterval(ddTimer); document.removeEventListener("keydown", onKey); document.body.classList.remove("title-open"); });
 }
+/* ───── 움직이는 사도(Spine)로 진짜 볼 당기기 ─────
+   트릭컬 스켈레톤엔 볼 뼈(Character_Ball_Move = 한쪽 볼, *_Ball_L = 반대쪽 볼)가 있어서
+   그 뼈를 끌면 볼 살이 늘어남. 잡는 동안 Touch_Idle(꼬집힌 얼굴), 놓으면 띠용 돌아오고 Touch_End */
+function mountLive(face, id) {
+  const none = { ready: () => false, grab() {}, move() {}, release(cb) { cb && cb(); }, dispose() {} };
+  if (!window.Live || !window.Live.canLive(id)) return none;
+  const box = document.createElement("div");
+  box.className = "ttl-live";
+  face.appendChild(box);
+  let ctrl = null, ok = false, bones = [];
+  const pull = { bone: null, wx: 0, wy: 0, start: null, on: false };
+  ctrl = window.Live.mount(box, id, {
+    frame: "face",
+    onReady: (c) => {
+      const sk = c.player.skeleton;
+      const ball = sk.findBone("Character_Ball_Move");
+      const left = sk.bones.find((b) => /^(S\d+_)?(F_)?Ball_L$/.test(b.data.name));
+      bones = [ball, left].filter(Boolean);
+      if (!bones.length || !c.anims.includes("Touch_Idle")) return; // 볼 뼈가 없으면 기존 방식
+      const orig = sk.updateWorldTransform.bind(sk);
+      sk.updateWorldTransform = function (...a) {
+        // 꼬집힌 얼굴의 붉은 기운(glow·Shy) 효과는 여기선 회색 얼룩으로 보여서 숨김
+        if (pull.on) for (const sl of sk.slots) if (sl.attachment && /glow|shy|blush/i.test(sl.attachment.name)) sl.attachment = null;
+        orig(...a);
+        if (!pull.bone || (!pull.wx && !pull.wy)) return;
+        // 화면(월드) 기준으로 끈 만큼 → 부모 뼈 기준 이동량으로 바꿔서 적용
+        const par = pull.bone.parent;
+        const o = { x: par.worldX, y: par.worldY }, t = { x: par.worldX + pull.wx, y: par.worldY + pull.wy };
+        par.worldToLocal(o); par.worldToLocal(t);
+        const dx = t.x - o.x, dy = t.y - o.y;
+        pull.bone.x += dx; pull.bone.y += dy;
+        orig(...a);
+        pull.bone.x -= dx; pull.bone.y -= dy;
+      };
+      ok = true;
+      face.classList.add("live");
+    },
+  });
+  if (!ctrl) { box.remove(); return none; }
+  const toWorld = (cx, cy) => {
+    const p = ctrl.player, cvs = p.canvas, r = cvs.getBoundingClientRect();
+    const v = p.sceneRenderer.camera.screenToWorld(new spine.Vector3(cx - r.left, cy - r.top, 0), r.width, r.height);
+    return { x: v.x, y: v.y };
+  };
+  const st = () => ctrl.player.animationState;
+  let springT = 0;
+  return {
+    ready: () => ok,
+    grab(cx, cy) {
+      cancelAnimationFrame(springT);
+      const w = toWorld(cx, cy);
+      pull.bone = bones.reduce((a, b) => (Math.hypot(b.worldX - w.x, b.worldY - w.y) < Math.hypot(a.worldX - w.x, a.worldY - w.y) ? b : a));
+      pull.start = w; pull.wx = pull.wy = 0; pull.on = true;
+      ctrl.busyUntil = Infinity;
+      st().setAnimation(0, "Touch_Idle", true);
+    },
+    move(cx, cy) {
+      const w = toWorld(cx, cy);
+      let dx = w.x - pull.start.x, dy = w.y - pull.start.y;
+      const len = Math.hypot(dx, dy), max = 190;
+      if (len > max) { const k = (max + (len - max) * 0.15) / len; dx *= k; dy *= k; } // 끝으로 갈수록 뻣뻣하게
+      pull.wx = dx; pull.wy = dy;
+    },
+    release(cb) {
+      const x0 = pull.wx, y0 = pull.wy, t0 = performance.now();
+      const step = (now) => {
+        const t = (now - t0) / 1000, a = Math.exp(-6 * t) * Math.cos(22 * t);
+        pull.wx = x0 * a; pull.wy = y0 * a;
+        if (t < 0.7) { springT = requestAnimationFrame(step); return; }
+        pull.wx = pull.wy = 0;
+        if (ctrl.anims.includes("Touch_End")) st().setAnimation(0, "Touch_End", false);
+        st().addAnimation(0, ctrl.idles[0] || ctrl.anims[0], true, 0);
+        ctrl.busyUntil = Date.now() + 3000;
+        setTimeout(() => (pull.on = false), 3000);
+        cb && cb();
+      };
+      springT = requestAnimationFrame(step);
+    },
+    dispose() { cancelAnimationFrame(springT); ctrl.dispose(); },
+  };
+}
+
 /* 시작 화면 D-day 보드: 가장 가까운 D-day는 크게 + 실시간 카운트다운 */
 function renderDday(el) {
   if (!el || !window.Schedule) return;
