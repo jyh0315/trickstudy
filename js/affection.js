@@ -7,16 +7,10 @@
    ========================================================= */
 const AFF_LEVELS = [0, 30, 80, 160, 280, 450, 680, 980, 1360, 1830]; // Lv1 ~ Lv10 필요 누적치
 
-const GIFTS = [
-  { id: "cookie",   name: "버터 쿠키",   icon: "🍪", cost: 30,  pts: 8 },
-  { id: "milk",     name: "딸기우유",    icon: "🥛", cost: 60,  pts: 18 },
-  { id: "doll",     name: "곰인형",      icon: "🧸", cost: 120, pts: 40, fav: "pure" },
-  { id: "book",     name: "두꺼운 책",   icon: "📚", cost: 120, pts: 40, fav: "cool" },
-  { id: "firework", name: "폭죽 세트",   icon: "🎆", cost: 120, pts: 40, fav: "mad" },
-  { id: "cake",     name: "딸기 케이크", icon: "🍰", cost: 120, pts: 40, fav: "jolly" },
-  { id: "blanket",  name: "포근한 담요", icon: "🧣", cost: 120, pts: 40, fav: "gloomy" },
-  { id: "crown",    name: "반짝이 왕관", icon: "👑", cost: 400, pts: 150, fav: "special" },
-];
+/* 선물 = 트릭컬 아티팩트 (artifacts.js). 등급별 가격·호감도
+   그 사도의 전용 아티팩트는 3배, 그 성격의 증표는 2배 */
+const GIFT_PRICE = { SSR: { cost: 300, pts: 90 }, SR: { cost: 150, pts: 45 }, R: { cost: 80, pts: 22 }, N: { cost: 40, pts: 10 } };
+const giftMult = (g, c) => (g.char === c.id ? 3 : g.pers === c.pers ? 2 : 1);
 
 /* 호감도 레벨별로 해금되는 대사 (idle 대사에 섞여 나옴) */
 const AFF_LINES = {
@@ -104,37 +98,49 @@ TS.on("refresh", () => {
   if (el) { el.textContent = id ? `💗${level(id)}` : ""; el.classList.toggle("hidden", !id); }
 });
 
+let giftTab = "pick";
 function openGift(id) {
   const c = TS.SADO_MAP[id];
   if (!c || !S().owned[id]) return;
-  const p = progress(id);
+  const card = (g) => {
+    const pr = GIFT_PRICE[g.rarity], m = giftMult(g, c);
+    return `<button class="gift r-${g.rarity} ${m > 1 ? "fav" : ""}" data-buy="${g.id}" ${S().elif < pr.cost ? "disabled" : ""} title="${TS.esc(g.en)}">
+      <img class="gi" src="assets/artifacts/${g.id}.webp" alt="" loading="lazy"><b>${TS.esc(g.name)}</b>
+      <small><i class="ic-elif"></i>${pr.cost} · 💗+${pr.pts * m}</small>
+      ${m === 3 ? "<em>전용!</em>" : m === 2 ? "<em>취향!</em>" : ""}</button>`;
+  };
+  const picks = ARTIFACTS.filter((g) => giftMult(g, c) > 1);
+  const tabs = [["pick", "💖 추천"], ["SSR", "SSR"], ["SR", "SR"], ["R", "R"], ["N", "N"]];
+  const list = () => (giftTab === "pick" ? (picks.length ? picks : ARTIFACTS.filter((g) => g.rarity === "N")) : ARTIFACTS.filter((g) => g.rarity === giftTab));
   TS.modal(`<h2>🎁 ${TS.esc(c.name)}에게 선물</h2>
     <img class="modal-emote" src="${TS.portrait(c, true)}" alt="" style="width:110px;height:110px">
     ${heartBar(id).replace(/<div class="aff-foot">[\s\S]*?<\/div>/, "")}
-    <div class="gift-grid">${GIFTS.map((g) => {
-      const fav = g.fav === c.pers;
-      return `<button class="gift ${fav ? "fav" : ""}" data-buy="${g.id}" ${S().elif < g.cost ? "disabled" : ""}>
-        <span class="gi">${g.icon}</span><b>${g.name}</b>
-        <small><i class="ic-elif"></i>${g.cost} · 💗+${fav ? g.pts * 2 : g.pts}</small>
-        ${fav ? '<em>최애!</em>' : ""}</button>`;
-    }).join("")}</div>
-    <p class="hint">보유 엘리프 ${S().elif.toLocaleString()} · 성격마다 제일 좋아하는 선물은 호감도 2배!</p>`,
+    <div class="seg small gift-tabs">${tabs.map(([k, l]) => `<button data-gtab="${k}" class="${k === giftTab ? "on" : ""}">${l}</button>`).join("")}</div>
+    <div class="gift-grid" id="gift-grid"></div>
+    <p class="hint">보유 엘리프 ${S().elif.toLocaleString()} · 그 사도의 <b>전용 아티팩트는 호감도 3배</b>, 성격 증표는 2배!</p>`,
     (el, close) => {
-      el.querySelectorAll("[data-buy]").forEach((b) => (b.onclick = () => {
-        const g = GIFTS.find((x) => x.id === b.dataset.buy);
-        if (S().elif < g.cost) return;
-        const fav = g.fav === c.pers;
-        S().elif -= g.cost;
+      const draw = () => {
+        el.querySelector("#gift-grid").innerHTML = list().map(card).join("");
+        el.querySelectorAll("[data-gtab]").forEach((b) => b.classList.toggle("on", b.dataset.gtab === giftTab));
+        el.querySelectorAll("[data-buy]").forEach((b) => (b.onclick = () => give(b.dataset.buy)));
+      };
+      const give = (gid) => {
+        const g = ARTIFACTS.find((x) => x.id === gid), pr = GIFT_PRICE[g.rarity], m = giftMult(g, c);
+        if (S().elif < pr.cost) return;
+        S().elif -= pr.cost;
         close();
-        TS.sfx(fav ? "r3" : "coin");
+        TS.sfx(m > 1 ? "r3" : "coin");
         if (S().partner === id) {
-          TS.say(fav ? `와아아! ${g.name}! 제일 좋아하는 거예요!!` : `${g.name}? 고마워요, 교주님!`);
+          TS.say(m === 3 ? `이건… 제 ${g.name.replace(/^.+?의 /, "")}!! 어떻게 찾았어요?!` : m === 2 ? `와아! ${g.name}! 제 취향이에요!` : `${g.name}? 고마워요, 교주님!`);
         }
-        TS.toast(`${g.icon} ${c.name}에게 ${g.name} 선물! 💗+${fav ? g.pts * 2 : g.pts}`);
-        if (fav) TS.confetti(40);
-        gain(id, fav ? g.pts * 2 : g.pts);
+        TS.toast(`🎁 ${c.name}에게 ${g.name} 선물! 💗+${pr.pts * m}`);
+        if (m > 1) TS.confetti(m === 3 ? 80 : 40);
+        TS.emit("gift", { id, gift: gid });
+        gain(id, pr.pts * m);
         TS.save(); TS.refresh();
-      }));
+      };
+      el.querySelectorAll("[data-gtab]").forEach((b) => (b.onclick = () => { giftTab = b.dataset.gtab; draw(); }));
+      draw();
     });
 }
 

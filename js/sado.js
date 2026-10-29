@@ -57,7 +57,7 @@ const SADO = [
   { id: "ayla", name: "아일라", en: "Ayla", rarity: 1, pers: "pure" },
   { id: "bigwood", name: "빅우드", en: "Bigwood", rarity: 1, pers: "pure" },
   { id: "daya", name: "다야", en: "Daya", rarity: 2, pers: "pure" },
-  { id: "della", name: "델라", en: "Della", rarity: 2, pers: "pure" },
+  { id: "della", name: "델리아", en: "Delia", rarity: 2, pers: "pure" },
   { id: "ed-rehab", name: "에드(재활)", en: "Ed (Rehab)", rarity: 3, pers: "pure" },
   { id: "erpin", name: "에르핀", en: "Erpin", rarity: 3, pers: "pure", emote: true },
   { id: "erpin-royale", name: "에르핀(로열)", en: "Erpin (Royale)", rarity: 3, pers: "pure" },

@@ -9,7 +9,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Jua&family=Gowun+Dodum&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css?v=1.8">
+  <link rel="stylesheet" href="css/spine-player.css">
+  <link rel="stylesheet" href="css/style.css?v=2.0">
 </head>
 <body>
   <div id="bg" aria-hidden="true"></div>
@@ -49,6 +50,7 @@
       <p class="hint">곡 옆 메뉴에서 어떤 상황에 틀지 바꿀 수 있어요. 추가한 음악은 이 브라우저에 저장돼요. 단축키: <b>M</b> = 재생/정지</p>
     </div>
 
+    <button class="ss-top" id="ss-btn" title="화면보호기 (공부하는 동안 켜두기)">🌙</button>
     <div class="wallet">
       <span class="coin" title="엘리프 — 사도 모집에 사용"><i class="ic-elif"></i><b id="elif">0</b></span>
       <span class="coin" title="별사탕 — 중복 사도로 모아서 교환소에서 사용"><i class="ic-candy"></i><b id="candy">0</b></span>
@@ -72,6 +74,7 @@
       <div class="stage-btns">
         <button class="btn pink small" id="gift-btn">🎁 선물하기</button>
         <button class="btn white small" id="pip-btn" title="다른 창 위에 떠 있는 작은 타이머">📺 미니 타이머</button>
+        <button class="btn white small" id="ss-btn2" title="공부하는 동안 켜두는 화면">🌙 화면보호기</button>
       </div>
       <div class="stage-mini">
         <div class="mini-timer hidden" id="mini-timer">
@@ -306,6 +309,7 @@
           <label>하루 목표 집중 시간 <span><input type="number" id="s-goal" min="10" max="900" step="10"> 분</span></label>
           <label>과목 목록 (쉼표로 구분) <input id="s-subjects"></label>
           <label class="check"><input type="checkbox" id="s-sound"> 효과음</label>
+          <label class="check"><input type="checkbox" id="s-live"> 움직이는 사도 (애니메이션)</label>
           <label class="check"><input type="checkbox" id="s-notify"> 타이머 끝나면 알림 받기</label>
           <div class="row">
             <button class="btn white" id="s-export">💾 데이터 내보내기</button>
@@ -321,19 +325,24 @@
   <div id="modal-root"></div>
   <div id="toasts"></div>
 
-  <script src="js/sado.js?v=1.8"></script>
-  <script src="js/data.js?v=1.8"></script>
-  <script src="js/app.js?v=1.8"></script>
-  <script src="js/affection.js?v=1.8"></script>
-  <script src="js/balance.js?v=1.8"></script>
-  <script src="js/profile.js?v=1.8"></script>
-  <script src="js/boss.js?v=1.8"></script>
-  <script src="js/schedule.js?v=1.8"></script>
-  <script src="js/grass.js?v=1.8"></script>
-  <script src="js/pip.js?v=1.8"></script>
-  <script src="js/ranking.js?v=1.8"></script>
-  <script src="js/bgm.js?v=1.8"></script>
-  <script src="js/title.js?v=1.8"></script>
-  <script src="js/event.js?v=1.8"></script>
+  <script src="js/sado.js?v=2.0"></script>
+  <script src="js/vendor/spine-player.min.js"></script>
+  <script src="js/spine-data.js?v=2.0"></script>
+  <script src="js/artifacts.js?v=2.0"></script>
+  <script src="js/data.js?v=2.0"></script>
+  <script src="js/app.js?v=2.0"></script>
+  <script src="js/affection.js?v=2.0"></script>
+  <script src="js/balance.js?v=2.0"></script>
+  <script src="js/profile.js?v=2.0"></script>
+  <script src="js/boss.js?v=2.0"></script>
+  <script src="js/schedule.js?v=2.0"></script>
+  <script src="js/grass.js?v=2.0"></script>
+  <script src="js/pip.js?v=2.0"></script>
+  <script src="js/ranking.js?v=2.0"></script>
+  <script src="js/bgm.js?v=2.0"></script>
+  <script src="js/title.js?v=2.0"></script>
+  <script src="js/event.js?v=2.0"></script>
+  <script src="js/live.js?v=2.0"></script>
+  <script src="js/screensaver.js?v=2.0"></script>
 </body>
 </html>
