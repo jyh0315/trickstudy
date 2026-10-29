@@ -104,19 +104,26 @@ function openBag() {
 const card = document.createElement("div");
 card.className = "card pet-gacha";
 card.innerHTML = `<h3 class="card-title">🐾 펫 뽑기 <button class="btn white small" id="pet-bag" style="margin-left:auto">🎒 펫 가방</button></h3>
-  <div class="pet-gacha-row">
-    <div class="pet-gacha-feat"></div>
-    <div class="gacha-btns">
-      <button class="btn pink big" id="pet1"><span>1회 뽑기</span><small><i class="ic-elif"></i> ${PET_COST}</small></button>
-      <button class="btn yellow big" id="pet10"><span>10회 뽑기</span><small><i class="ic-elif"></i> ${PET_COST10}</small></button>
-    </div>
-  </div>
+  <div class="pet-gacha-feat"></div>
   <div class="pity"><span>전설 펫 확정까지</span><span class="bar"><i id="pet-pity-bar"></i></span><b id="pet-pity">${PET_PITY}회</b></div>
+  <div class="gacha-btns">
+    <button class="btn pink big" id="pet1"><span>1회 뽑기</span><small><i class="ic-elif"></i> ${PET_COST}</small></button>
+    <button class="btn yellow big" id="pet10"><span>10회 뽑기</span><small><i class="ic-elif"></i> ${PET_COST10}</small></button>
+  </div>
   <p class="hint">확률 — 전설 ${PET_GRADES.L.rate * 100}% · 희귀 ${PET_GRADES.E.rate * 100}% · 고급 ${PET_GRADES.A.rate * 100}% · 일반 ${PET_GRADES.C.rate * 100}%<br>
   ${PET_PITY}회 안에 전설 확정 · 10회 뽑기는 희귀 이상 1마리 확정 · 중복 펫은 별사탕으로 바뀌어요.</p>`;
 const gv = $("view-gacha");
 gv.insertBefore(card, gv.children[2] || null);
-card.querySelector(".pet-gacha-feat").innerHTML = PETS.filter((p) => p.grade === "L").sort(() => Math.random() - 0.5).slice(0, 5).map((p) => `<img src="${p.img}" alt="">`).join("");
+card.querySelector(".pet-gacha-feat").innerHTML = PETS.filter((p) => p.grade === "L").sort(() => Math.random() - 0.5).slice(0, 7).map((p) => `<img src="${p.img}" alt="">`).join("");
+function renderGachaCard() {
+  const left = PET_PITY - pets().pity;
+  $("pet-pity-bar").style.width = (pets().pity / PET_PITY) * 100 + "%";
+  $("pet-pity").textContent = `${left}회`;
+  $("pet1").disabled = S().elif < PET_COST;
+  $("pet10").disabled = S().elif < PET_COST10;
+}
+TS.on("refresh", renderGachaCard);
+renderGachaCard();
 $("pet1").onclick = () => pull(1);
 $("pet10").onclick = () => pull(10);
 $("pet-bag").onclick = openBag;

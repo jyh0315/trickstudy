@@ -1565,9 +1565,10 @@ html.plain .ss-quote.show { animation: ssq 1.4s ease forwards; }
 .ss-pet.flip .ss-pet-in { scale: -1 1; }
 
 .pet-gacha .card-title { display: flex; align-items: center; gap: 8px; }
-.pet-gacha-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; justify-content: space-between; }
-.pet-gacha-feat { display: flex; align-items: flex-end; gap: 2px; }
-.pet-gacha-feat img { height: 62px; max-width: 70px; object-fit: contain; animation: petIdle 2.4s ease-in-out infinite; }
+.pet-gacha .card-title { margin-bottom: 12px; }
+.pet-gacha-feat { display: flex; align-items: flex-end; justify-content: space-around; gap: 4px; padding: 12px 10px 8px; margin-bottom: 14px; border: var(--line); border-radius: 16px; background: linear-gradient(180deg, #efe1ff, #fff6e8); overflow: hidden; }
+.pet-gacha-feat img { height: 72px; max-width: 13%; min-width: 0; object-fit: contain; animation: petIdle 2.4s ease-in-out infinite; }
+@media (max-width: 600px) { .pet-gacha-feat img:nth-child(n+6) { display: none; } .pet-gacha-feat img { max-width: 19%; height: 56px; } }
 .pet-gacha-feat img:nth-child(2n) { animation-delay: -1.2s; }
 .pet-res { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin: 10px 0; }
 .pet-res.one { grid-template-columns: 180px; justify-content: center; }
