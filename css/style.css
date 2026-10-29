@@ -1501,3 +1501,27 @@ html.plain .ss-quote.show { animation: ssq 1.4s ease forwards; }
 .raid-list b { font-family: var(--font-title); font-weight: normal; text-align: right; }
 .raid-list small { color: var(--ink-soft); font-size: 12px; text-align: right; }
 @media (max-width: 600px) { .raid-list li { grid-template-columns: 30px 1fr 70px; } .raid-list .bar, .raid-list small { display: none; } }
+
+/* 🎒 아이템 보상 칩 · 가방 */
+.reward-chip.item { padding: 4px 12px 4px 4px; gap: 8px; text-align: left; }
+.reward-chip.item .it-img { width: 40px; height: 40px; object-fit: contain; border-radius: 10px; background: #fff; border: 2px solid var(--ink); }
+.reward-chip.item .it-emo { font-size: 26px; }
+.reward-chip.item > span { display: flex; flex-direction: column; line-height: 1.15; font-size: 15px; }
+.reward-chip.item small { font-size: 11px; font-family: var(--font-body); color: var(--ink-soft); }
+.reward-chip.item.r-SSR { background: linear-gradient(135deg, #fff6d0, #ffe08a); box-shadow: 0 0 12px rgba(255, 190, 40, .7); }
+.reward-chip.item.r-SSR small { color: #b07a00; font-weight: bold; }
+.reward-chip.item.r-SR { background: #f1e8ff; }
+.reward-chip.item.r-SR small { color: #7a4bc8; font-weight: bold; }
+.reward-chip.item.r-R { background: #e6f4ff; }
+.reward-row.big .reward-chip.item .it-img { width: 72px; height: 72px; }
+.reward-row.big .reward-chip.item > span { font-size: 18px; }
+.gift.have { border-color: #2f8f3c; background: #effbe9; }
+.gift.have small { color: #2f8f3c; }
+.raid-reward .rar.r-SSR { background: linear-gradient(135deg, #fff6d0, #ffe08a); }
+.raid-reward .rar.r-SR { background: #f1e8ff; }
+.box-stack { position: relative; display: inline-block; width: 64px; height: 44px; }
+.box-stack .it-img, .box-stack .it-emo { position: absolute; top: 0; width: 38px; height: 38px; object-fit: contain; border-radius: 9px; border: 2px solid var(--ink); background: #fff; }
+.box-stack > :nth-child(1) { left: 0; transform: rotate(-10deg); }
+.box-stack > :nth-child(2) { left: 13px; z-index: 1; }
+.box-stack > :nth-child(3) { left: 26px; transform: rotate(10deg); }
+.box-stack.r-SSR .it-img { box-shadow: 0 0 8px rgba(255, 190, 40, .9); }

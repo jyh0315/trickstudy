@@ -45,11 +45,11 @@ const EVENTS = [
     stamps: [   // 이벤트 기간에 접속한 날마다 1개 (연속 아니어도 됨)
       { label: "1회", reward: { elif: 300 },           text: "엘리프 300" },
       { label: "2회", reward: { charm: 20 },           text: "합격 부적 20" },
-      { label: "3회", reward: { candy: 40 },           text: "별사탕 40" },
+      { label: "3회", reward: { candy: 40, item: "R" },  text: "별사탕 40 + R 아티팩트" },
       { label: "4회", reward: { charm: 30 },           text: "합격 부적 30" },
       { label: "5회", reward: { elif: 500 },           text: "엘리프 500" },
-      { label: "6회", reward: { charm: 40 },           text: "합격 부적 40" },
-      { label: "7회", reward: { charm: 60, title: 1 }, text: "부적 60 + 칭호 「기말 개근러」" },
+      { label: "6회", reward: { charm: 40, item: "SR" }, text: "부적 40 + SR 아티팩트" },
+      { label: "7회", reward: { charm: 60, title: 1, item: "SSR" }, text: "부적 60 + SSR 아티팩트 + 칭호 「기말 개근러」" },
     ],
     shop: [
       { id: "title", icon: "🏆", name: "한정 칭호 「기말 정복자」",   cost: 120, limit: 1 },
@@ -58,6 +58,8 @@ const EVENTS = [
       { id: "badge", icon: "📝", name: "한정 뱃지 「기말 대작전」",   cost: 80,   limit: 1 },
       { id: "ssr",   icon: "🎫", name: "★★★ 사도 선택권",          cost: 300, limit: 1, desc: "아직 없는 ★★★ 사도 1명을 골라 영입" },
       { id: "yeot",  icon: "🍯", name: "합격 엿",                  cost: 40,  limit: 3, desc: "대표 사도 호감도 +100" },
+      { id: "box_ssr", icon: "art:SSR", name: "SSR 아티팩트 상자",   cost: 200, limit: 2, desc: "SSR 아티팩트 1개 (대표 사도 전용이 잘 나와요)" },
+      { id: "box_sr",  icon: "art:SR",  name: "SR 아티팩트 상자",    cost: 70,  limit: 5, desc: "SR 아티팩트 1개" },
       { id: "elif",  icon: "💎", name: "엘리프 500",               cost: 30,  limit: 5 },
       { id: "candy", icon: "🍬", name: "별사탕 50",                cost: 30,  limit: 3 },
     ],
@@ -198,12 +200,14 @@ function stampCheck() {
   if (r.elif) TS.addElif(r.elif);
   if (r.candy) TS.addCandy(r.candy);
   if (r.charm) giveCharm(r.charm);
+  const drop = r.item ? TS.randomItem(r.item, S().partner) : null;
+  if (drop) TS.addItem(drop.id);
   TS.save();
   TS.sfx("level"); TS.confetti(70);
   TS.modal(`<h2>💌 출석 도장 쾅!</h2>
     <p><b>${esc(EV.title)}</b> ${st.label} 출석!</p>
     <div class="stamp-row">${EV.stamps.map((x, i) => `<div class="stamp ${i < e.stamps.length ? "on" : ""}"><span>${i < e.stamps.length ? "합격" : i + 1}</span><small>${x.label}</small></div>`).join("")}</div>
-    <div class="reward-row"><span class="reward-chip">🎁 ${esc(st.text)}</span></div>
+    <div class="reward-row"><span class="reward-chip">🎁 ${esc(st.text)}</span>${drop ? TS.itemChip(drop.id) : ""}</div>
     <div class="modal-actions"><button class="btn white" data-close>닫기</button><button class="btn pink" data-close data-go="event">이벤트 보러 가기</button></div>`);
 }
 TS.on("start", stampCheck);
@@ -447,6 +451,16 @@ async function raidLoad(force) {
   raidLoading = false;
   if (TS.view === "event" && pane === "raid") paneRaid();
 }
+/* 기여도별 아티팩트: 1위 SSR, 2~3위 SR+R, 기여 10%↑ SR, 3%↑ R, 참여 N (못 잡으면 N 하나) */
+function raidItems(cleared, rank, share) {
+  if (!cleared) return [["N", 1]];
+  if (rank === 1) return [["SSR", 1], ["SR", 1]];
+  if (rank <= 3) return [["SR", 1], ["R", 1]];
+  if (share >= 0.1) return [["SR", 1]];
+  if (share >= 0.03) return [["R", 1], ["N", 1]];
+  return [["N", 2]];
+}
+const RAR_LABEL = { SSR: "SSR", SR: "SR", R: "R", N: "N" };
 function raidReward() {
   const { list, total, cleared } = raidTotals();
   const me = list.find((x) => x.uid === raidCache.me);
@@ -458,6 +472,7 @@ function raidReward() {
     elif: Math.round((G.base.elif + G.pool.elif * share) * k),
     candy: Math.round(G.pool.candy * share * k),
     mvp: cleared && list.indexOf(me) < 3,
+    items: raidItems(cleared, list.indexOf(me) + 1, share),
   };
 }
 function paneRaid() {
@@ -491,9 +506,10 @@ function paneRaid() {
       </div>
       <div class="raid-reward">
         <b>${cleared ? "🎁 받을 보상" : ended ? "🎁 참여 보상 (30%)" : "🎁 지금 격파하면 받을 보상 (예상)"}</b>
-        ${rw ? `<span>🧧 ${rw.charm}</span><span><i class="ic-elif"></i> ${fmtN(rw.elif)}</span><span><i class="ic-candy"></i> ${rw.candy}</span>${rw.mvp ? "<span>🏅 MVP 뱃지</span>" : ""}` : "<span>공부해서 공격하면 보상이 생겨요!</span>"}
+        ${rw ? `<span>🧧 ${rw.charm}</span><span><i class="ic-elif"></i> ${fmtN(rw.elif)}</span><span><i class="ic-candy"></i> ${rw.candy}</span>${rw.items.map(([r, n]) => `<span class="rar r-${r}">🎁 ${RAR_LABEL[r]} 아티팩트${n > 1 ? ` ×${n}` : ""}</span>`).join("")}${rw.mvp ? "<span>🏅 MVP 뱃지</span>" : ""}` : "<span>공부해서 공격하면 보상이 생겨요!</span>"}
       </div>
-      <p class="hint">기본 보상 + 공동 보상(🧧${G.pool.charm} · 💎${fmtN(G.pool.elif)} · 🍬${G.pool.candy})을 <b>데미지 비율대로</b> 나눠요. 1~3위는 MVP 뱃지!</p>
+      <p class="hint">기본 보상 + 공동 보상(🧧${G.pool.charm} · 💎${fmtN(G.pool.elif)} · 🍬${G.pool.candy})을 <b>데미지 비율대로</b> 나눠요.<br>
+      아티팩트: <b>1위 SSR+SR</b> · 2~3위 SR+R · 기여 10%↑ SR · 3%↑ R+N · 참여 N×2 · 1~3위는 MVP 뱃지!</p>
       ${canClaim ? `<button class="btn yellow big" id="rd-claim" style="width:100%">보상 받기!</button>` : e.raidClaimed ? `<p class="hint">✔ 보상을 받았어요</p>` : ""}
     </div>
     <div class="card">
@@ -512,9 +528,12 @@ function paneRaid() {
     e.raidClaimed = true; e.raidMvp = r.mvp;
     e.charm += r.charm; e.earned += r.charm;
     TS.addElif(r.elif); TS.addCandy(r.candy);
+    const got = [];
+    for (const [rar, n] of r.items) for (let i = 0; i < n; i++) { const it = TS.randomItem(rar, S().partner); if (it) { TS.addItem(it.id); got.push(it.id); } }
     TS.save(); TS.sfx("r3"); TS.confetti(120);
     TS.modal(`<h2>🔥 레이드 보상!</h2><p>${r.cleared ? `${esc(G.name)} 격파 성공!` : "참여 보상이에요."} 내 순위 <b>${r.rank}위</b> · 기여도 <b>${(r.share * 100).toFixed(1)}%</b></p>
       <div class="reward-row"><span class="reward-chip">🧧 +${r.charm}</span><span class="reward-chip"><i class="ic-elif"></i>+${r.elif.toLocaleString()}</span><span class="reward-chip"><i class="ic-candy"></i>+${r.candy}</span>${r.mvp ? '<span class="reward-chip">🏅 MVP 뱃지</span>' : ""}</div>
+      ${got.length ? `<div class="reward-row">${got.map((id) => TS.itemChip(id)).join("")}</div><p class="hint">아티팩트는 🎁 선물하기 → 🎒 가방에서 사도에게 줄 수 있어요</p>` : ""}
       <div class="modal-actions"><button class="btn yellow" data-close>좋아!</button></div>`);
     TS.refresh();
   };
@@ -530,13 +549,18 @@ function paneShop() {
     <div class="shop-grid">${EV.shop.map((it) => {
       const n = e.bought[it.id] || 0, sold = n >= it.limit;
       return `<div class="shop-item ${sold ? "sold" : ""}">
-        <span class="si-icon">${it.icon === "💎" ? '<i class="ic-elif" style="width:34px;height:34px"></i>' : it.icon}</span>
+        <span class="si-icon">${it.icon === "💎" ? '<i class="ic-elif" style="width:34px;height:34px"></i>' : it.icon.startsWith("art:") ? boxIcon(it.icon.slice(4)) : it.icon}</span>
         <b>${esc(it.name)}</b>${it.desc ? `<small>${esc(it.desc)}</small>` : ""}
         <span class="si-limit">${sold ? "품절" : `남은 수량 ${it.limit - n}`}</span>
         <button class="btn small ${sold ? "white" : "pink"}" data-buy-ev="${it.id}" ${!open || sold || e.charm < it.cost ? "disabled" : ""}>${EV.coin.icon} ${it.cost}</button>
       </div>`;
     }).join("")}</div></div>`;
   P().querySelectorAll("[data-buy-ev]").forEach((b) => (b.onclick = () => buy(EV.shop.find((x) => x.id === b.dataset.buyEv))));
+}
+/* 상자 아이콘: 그 등급 아티팩트 그림 3장을 겹쳐서 */
+function boxIcon(rar) {
+  const pick = ARTIFACTS.filter((x) => x.rarity === rar).slice(0, 3);
+  return `<span class="box-stack r-${rar}">${pick.map((x) => TS.itemIcon(x)).join("")}</span>`;
 }
 function buy(it) {
   const e = ev();
@@ -546,6 +570,15 @@ function buy(it) {
     TS.sfx("r2"); TS.toast(msg); TS.save(); TS.refresh();
   };
   if (it.id === "elif") { TS.addElif(500); return finish("💎 엘리프 +500"); }
+  if (it.id.startsWith("box_")) {
+    const got = TS.randomItem(it.id === "box_ssr" ? "SSR" : "SR", S().partner);
+    TS.addItem(got.id);
+    finish(`🎁 ${got.name} 획득!`);
+    TS.modal(`<h2>🎁 상자 열기!</h2><div class="reward-row big">${TS.itemChip(got.id)}</div>
+      <p class="hint">🎁 선물하기 → 🎒 가방에서 사도에게 줄 수 있어요</p>
+      <div class="modal-actions"><button class="btn yellow" data-close>좋아!</button></div>`);
+    return;
+  }
   if (it.id === "candy") { TS.addCandy(50); return finish("🍬 별사탕 +50"); }
   if (it.id === "yeot") {
     const p = S().partner;

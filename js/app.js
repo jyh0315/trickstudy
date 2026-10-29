@@ -199,6 +199,33 @@ function confirmModal(title, text, yes, onYes, danger = false) {
     (el, close) => { el.querySelector("#m-yes").onclick = () => { close(); onYes(); }; });
 }
 
+/* ───── 🎒 아이템 (트릭컬 아티팩트) ─────
+   보상으로 받은 아티팩트는 가방에 들어가고, 선물하기에서 공짜로 줄 수 있음 */
+const ITEM_EMOJI = { SSR: "💎", SR: "🎁", R: "🎀", N: "🍬" };
+const itemOf = (id) => (typeof ARTIFACTS !== "undefined" ? ARTIFACTS : []).find((x) => x.id === id);
+function bag() { if (!state.items) state.items = {}; return state.items; }
+function addItem(id, n = 1) {
+  if (!itemOf(id) || n <= 0) return null;
+  bag()[id] = (bag()[id] || 0) + n;
+  return id;
+}
+/* 등급별 랜덤 아티팩트 (char 를 주면 그 사도 전용 아티팩트 우선) */
+function randomItem(rarity, char) {
+  const all = (typeof ARTIFACTS !== "undefined" ? ARTIFACTS : []).filter((x) => x.rarity === rarity);
+  const own = char ? all.filter((x) => x.char === char) : [];
+  return (own.length && Math.random() < 0.5 ? rand(own) : rand(all)) || null;
+}
+function itemIcon(it, cls = "") {
+  return isPlain() ? `<span class="it-emo ${cls}">${ITEM_EMOJI[it.rarity]}</span>`
+    : `<img class="it-img ${cls}" src="assets/artifacts/${it.id}.webp" alt="">`;
+}
+/* 보상 칩: <span class="reward-chip item r-SR"><img>이름 ×1</span> */
+function itemChip(id, n = 1) {
+  const it = itemOf(id);
+  if (!it) return "";
+  return `<span class="reward-chip item r-${it.rarity}" title="${esc(it.en)}">${itemIcon(it)}<span><small>${it.rarity}</small>${esc(it.name)}${n > 1 ? ` ×${n}` : ""}</span></span>`;
+}
+
 /* ───── 재화 · 경험치 ───── */
 function bump(id) { const el = $(id).parentElement; el.classList.remove("bump"); void el.offsetWidth; el.classList.add("bump"); }
 function addElif(n) { if (!n) return; state.elif = Math.max(0, state.elif + n); bump("elif"); }
@@ -209,19 +236,21 @@ function addExp(n) {
     state.exp -= expToNext(state.level);
     state.level++;
     state.elif += CONFIG.levelUpElif;
+    const lvItem = randomItem(state.level % 5 === 0 ? "SR" : state.level % 2 === 0 ? "R" : "N", state.partner);
+    if (lvItem) addItem(lvItem.id);
     const next = BACKGROUNDS.find((b) => !state.unlockedBg.includes(b.id));
     if (next) state.unlockedBg.push(next.id);
-    levelUpModal(state.level, next);
+    levelUpModal(state.level, next, lvItem);
     emit("levelup", state.level);
   }
 }
-function levelUpModal(lv, bg) {
+function levelUpModal(lv, bg, item) {
   sfx("level"); confetti(90);
   const c = SADO_MAP[state.partner];
   modal(`<h2>LEVEL UP!</h2>
     <p style="font-family:var(--font-title);font-size:22px;margin:0">교주 레벨 <b>${lv}</b> 달성!</p>
     ${c ? `<p>${esc(c.name)}: “${esc(fmt(rand(linesOf(c, "done")), c))}”</p>` : ""}
-    <div class="reward-row"><span class="reward-chip"><i class="ic-elif"></i>+${CONFIG.levelUpElif}</span></div>
+    <div class="reward-row"><span class="reward-chip"><i class="ic-elif"></i>+${CONFIG.levelUpElif}</span>${item ? itemChip(item.id) : ""}</div>
     ${bg ? `<p style="margin:6px 0 0">🖼️ 새 배경 일러스트 해금: <b>${esc(bg.name)}</b></p><img class="unlock-bg" src="assets/bg/${bg.id}.jpg" alt="">` : ""}
     <div class="modal-actions">${bg ? '<button class="btn white" id="m-setbg">배경으로 설정</button>' : ""}<button class="btn yellow" data-close>좋아!</button></div>`,
     (el, close) => {
@@ -1015,6 +1044,7 @@ window.TS = {
   save, refresh, go, on, emit, views, lineHooks, chatterHooks, detailHooks, rewardHooks,
   modal, confirmModal, toast, confetti, sfx, say, sayKind, renderPartner,
   addElif, addExp, addCandy, esc, rand, pad, dateKey, today, weekKey, daysAgo,
+  addItem, randomItem, itemChip, itemIcon, itemOf, bag,
   SADO_MAP, linesOf, fmt, portrait, chibiSrc, emoteSrc, stars, shortName, isPlain, setPlain, applyBg,
   timer: { left: timerLeft, dur: timerDur, start: startTimer, pause: pauseTimer, mmss, get t() { return state.timer; } },
 };

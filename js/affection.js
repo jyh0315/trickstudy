@@ -103,31 +103,35 @@ function openGift(id) {
   const c = TS.SADO_MAP[id];
   if (!c || !S().owned[id]) return;
   const card = (g) => {
-    const pr = GIFT_PRICE[g.rarity], m = giftMult(g, c);
-    return `<button class="gift r-${g.rarity} ${m > 1 ? "fav" : ""}" data-buy="${g.id}" ${S().elif < pr.cost ? "disabled" : ""} title="${TS.esc(g.en)}">
-      ${TS.isPlain() ? `<span class="gi">${{ SSR: "💎", SR: "🎁", R: "🎀", N: "🍬" }[g.rarity]}</span>` : `<img class="gi" src="assets/artifacts/${g.id}.webp" alt="" loading="lazy">`}<b>${TS.esc(g.name)}</b>
-      <small><i class="ic-elif"></i>${pr.cost} · 💗+${pr.pts * m}</small>
+    const pr = GIFT_PRICE[g.rarity], m = giftMult(g, c), have = TS.bag()[g.id] || 0;
+    return `<button class="gift r-${g.rarity} ${m > 1 ? "fav" : ""} ${have ? "have" : ""}" data-buy="${g.id}" ${!have && S().elif < pr.cost ? "disabled" : ""} title="${TS.esc(g.en)}">
+      ${TS.itemIcon(g, "gi")}<b>${TS.esc(g.name)}</b>
+      <small>${have ? `🎒 보유 ${have}개 · 무료` : `<i class="ic-elif"></i>${pr.cost}`} · 💗+${pr.pts * m}</small>
       ${m === 3 ? "<em>전용!</em>" : m === 2 ? "<em>취향!</em>" : ""}</button>`;
   };
   const picks = ARTIFACTS.filter((g) => giftMult(g, c) > 1);
-  const tabs = [["pick", "💖 추천"], ["SSR", "SSR"], ["SR", "SR"], ["R", "R"], ["N", "N"]];
-  const list = () => (giftTab === "pick" ? (picks.length ? picks : ARTIFACTS.filter((g) => g.rarity === "N")) : ARTIFACTS.filter((g) => g.rarity === giftTab));
+  const owned = () => ARTIFACTS.filter((g) => TS.bag()[g.id] > 0).sort((a, b) => giftMult(b, c) - giftMult(a, c));
+  const bagN = () => Object.values(TS.bag()).reduce((a, n) => a + n, 0);
+  const tabs = [["bag", `🎒 가방 ${bagN()}`], ["pick", "💖 추천"], ["SSR", "SSR"], ["SR", "SR"], ["R", "R"], ["N", "N"]];
+  if (giftTab === "bag" && !bagN()) giftTab = "pick";
+  const list = () => (giftTab === "bag" ? owned() : giftTab === "pick" ? (picks.length ? picks : ARTIFACTS.filter((g) => g.rarity === "N")) : ARTIFACTS.filter((g) => g.rarity === giftTab));
   TS.modal(`<h2>🎁 ${TS.esc(c.name)}에게 선물</h2>
     <img class="modal-emote" src="${TS.portrait(c, true)}" alt="" style="width:110px;height:110px">
     ${heartBar(id).replace(/<div class="aff-foot">[\s\S]*?<\/div>/, "")}
     <div class="seg small gift-tabs">${tabs.map(([k, l]) => `<button data-gtab="${k}" class="${k === giftTab ? "on" : ""}">${l}</button>`).join("")}</div>
     <div class="gift-grid" id="gift-grid"></div>
-    <p class="hint">보유 엘리프 ${S().elif.toLocaleString()} · 그 사도의 <b>전용 아티팩트는 호감도 3배</b>, 성격 증표는 2배!</p>`,
+    <p class="hint">보유 엘리프 ${S().elif.toLocaleString()} · 🎒 가방에 있는 아티팩트는 <b>공짜</b>로 줄 수 있어요 · 그 사도의 <b>전용 아티팩트는 호감도 3배</b>, 성격 증표는 2배!</p>`,
     (el, close) => {
       const draw = () => {
-        el.querySelector("#gift-grid").innerHTML = list().map(card).join("");
+        el.querySelector("#gift-grid").innerHTML = list().map(card).join("") || '<p class="hint">가방이 비었어요. 보스·레이드·출석·레벨업 보상으로 아티팩트를 모아보세요!</p>';
         el.querySelectorAll("[data-gtab]").forEach((b) => b.classList.toggle("on", b.dataset.gtab === giftTab));
         el.querySelectorAll("[data-buy]").forEach((b) => (b.onclick = () => give(b.dataset.buy)));
       };
       const give = (gid) => {
         const g = ARTIFACTS.find((x) => x.id === gid), pr = GIFT_PRICE[g.rarity], m = giftMult(g, c);
-        if (S().elif < pr.cost) return;
-        S().elif -= pr.cost;
+        const bag = TS.bag();
+        if (bag[gid] > 0) { if (--bag[gid] <= 0) delete bag[gid]; } // 가방에 있으면 그걸 줌
+        else { if (S().elif < pr.cost) return; S().elif -= pr.cost; }
         close();
         TS.sfx(m > 1 ? "r3" : "coin");
         if (S().partner === id) {

@@ -61,19 +61,21 @@ function deal(n, src) {
   if (!wasHalf && b.dmg >= b.max / 2 && !b.chest.includes(50)) {
     b.chest.push(50);
     TS.addElif(300);
-    TS.toast("📦 보스 HP 50% 돌파! 엘리프 +300");
+    const it = TS.randomItem("R"); if (it) TS.addItem(it.id);
+    TS.toast(`📦 보스 HP 50% 돌파! 엘리프 +300${it ? ` · ${it.name}` : ""}`);
   }
   // 격파
   if (wasAlive && b.dmg >= b.max) {
     b.chest.push(100);
     TS.addElif(1000); TS.addCandy(60);
+    const drop = TS.randomItem("SR", S().partner); if (drop) TS.addItem(drop.id);
     setTimeout(() => {
       TS.sfx("r3"); TS.confetti(120);
       const c = TS.SADO_MAP[b.id];
       TS.modal(`<h2>👹 보스 격파!</h2>
         <img class="modal-emote boss-dead" src="${TS.chibiSrc(c)}" alt="">
         <p><b>${TS.esc(c.name)}</b>: “${TS.esc(TS.rand(BOSS_DOWN))}”</p>
-        <div class="reward-row"><span class="reward-chip"><i class="ic-elif"></i>+1000</span><span class="reward-chip"><i class="ic-candy"></i>+60</span><span class="reward-chip">⭐ EXP +300</span></div>
+        <div class="reward-row"><span class="reward-chip"><i class="ic-elif"></i>+1000</span><span class="reward-chip"><i class="ic-candy"></i>+60</span><span class="reward-chip">⭐ EXP +300</span>${drop ? TS.itemChip(drop.id) : ""}</div>
         <p class="hint">남은 기간에 주는 데미지도 랭킹 ‘보스 딜’에 그대로 쌓여요!</p>
         <div class="modal-actions"><button class="btn yellow" data-close>승리!</button></div>`);
       TS.addExp(300);
@@ -134,8 +136,8 @@ function render() {
       </div>
       <div class="phase-row">${[1, 2, 3].map((p) => `<span class="${!dead && p === ph ? "on" : ""} ${p < ph || dead ? "past" : ""}">PHASE ${p}</span>`).join("")}</div>
       <div class="boss-chests">
-        <div class="${b.chest.includes(50) ? "open" : ""}">📦 HP 50%<small>${b.chest.includes(50) ? "받음 ✔" : "엘리프 300"}</small></div>
-        <div class="${b.chest.includes(100) ? "open" : ""}">🏆 격파<small>${b.chest.includes(100) ? "받음 ✔" : "엘리프 1000 · 별사탕 60"}</small></div>
+        <div class="${b.chest.includes(50) ? "open" : ""}">📦 HP 50%<small>${b.chest.includes(50) ? "받음 ✔" : "엘리프 300 · R 아티팩트"}</small></div>
+        <div class="${b.chest.includes(100) ? "open" : ""}">🏆 격파<small>${b.chest.includes(100) ? "받음 ✔" : "엘리프 1000 · 별사탕 60 · SR 아티팩트"}</small></div>
       </div>
       ${b.weak ? `<div class="boss-weak">⚡ 약점 과목: <b>${TS.esc(b.weak)}</b> — 이 과목으로 집중하면 데미지 ${window.Balance ? window.Balance.BALANCE.weakMult : 2}배! <small>(지난주에 제일 적게 공부한 과목)</small></div>` : ""}
       <p class="hint">⚔️ 집중 1분 = 10 데미지${bonus ? ` (대표 사도 호감도 보너스 <b>+${bonus}%</b>)` : ""} · 의뢰 해결 쉬움 50 / 보통 100 / 어려움 200<br>
