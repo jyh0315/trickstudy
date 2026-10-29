@@ -45,7 +45,7 @@ function hasWebGL() {
   return webgl;
 }
 const liveOn = () => S().settings.live !== false;
-const canLive = (id) => liveOn() && !!SPINE_DATA[id] && !!window.spine && hasWebGL();
+const canLive = (id) => !TS.isPlain() && liveOn() && !!SPINE_DATA[id] && !!window.spine && hasWebGL();
 
 /* ───── 스킨 상태 ───── */
 function skinState(id) {
@@ -196,7 +196,7 @@ let stage = null, stageKey = "";
 const failedIds = new Set(); // 이번 접속에서 못 불러온 사도 (새로고침하면 다시 시도)
 function mountStage(force) {
   const id = S().partner, box = $("partner");
-  const key = id + ":" + curSkin(id || "") + ":" + liveOn();
+  const key = id + ":" + curSkin(id || "") + ":" + liveOn() + ":" + TS.isPlain();
   if (!force && key === stageKey) return;
   stageKey = key;
   if (stage) { stage.dispose(); stage = null; }
@@ -319,7 +319,15 @@ document.addEventListener("click", (e) => {
 TS.on("stats", () => {
   const box = $("s-live");
   if (box) box.checked = liveOn();
+  const pl = $("s-plain");
+  if (pl) pl.checked = TS.isPlain();
 });
+const sp = $("s-plain");
+if (sp) sp.onchange = (e) => {
+  TS.setPlain(e.target.checked);
+  TS.applyBg(); TS.renderPartner(); mountStage(true); TS.refresh();
+  TS.toast(e.target.checked ? "📘 심플 모드로 바꿨어요" : "🎀 캐릭터 모드로 바꿨어요");
+};
 const sl = $("s-live");
 if (sl) sl.onchange = (e) => { S().settings.live = e.target.checked; TS.save(); mountStage(true); };
 

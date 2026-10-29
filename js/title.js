@@ -7,10 +7,69 @@
 "use strict";
 const TS = window.TS;
 
+/* 모드 전환 스위치 (시작 화면 아래) — 누르면 시작 화면을 다시 그림 */
+function modeSwitch(root, done, cleanup) {
+  const el = document.createElement("div");
+  el.className = "ttl-mode";
+  const plain = TS.isPlain();
+  el.innerHTML = `<span>화면 모드</span>
+    <button data-mode="chara" class="${plain ? "" : "on"}">🎀 캐릭터</button>
+    <button data-mode="plain" class="${plain ? "on" : ""}">📘 심플</button>`;
+  el.querySelectorAll("[data-mode]").forEach((b) => (b.onclick = (e) => {
+    e.stopPropagation();
+    const want = b.dataset.mode === "plain";
+    if (want === TS.isPlain()) return;
+    TS.setPlain(want);
+    TS.applyBg(); TS.renderPartner(); TS.refresh();
+    cleanup();
+    root.remove();
+    window.TitleScreen.show(done);
+  }));
+  root.appendChild(el);
+}
+
+/* 심플 모드 시작 화면: 캐릭터 없이 버튼으로 시작 */
+function showPlain(done) {
+  const root = document.createElement("div");
+  root.id = "title";
+  root.className = "ttl-plain";
+  root.innerHTML = `
+    <div class="tp-card">
+      <div class="tp-logo">📘 공부 플래너</div>
+      <div class="tp-sub">오늘도 차근차근, 한 걸음씩</div>
+      <div class="tp-clock" id="tp-clock"></div>
+      <button class="btn yellow big" id="tp-start">시작하기</button>
+      <div class="tp-hint">Enter 키로도 시작할 수 있어요</div>
+    </div>
+    <div class="ttl-dday hidden" id="ttl-dday"></div>`;
+  document.body.appendChild(root);
+  document.body.classList.add("title-open");
+  const clock = () => { const n = new Date(); root.querySelector("#tp-clock").textContent = n.toLocaleString("ko-KR", { month: "long", day: "numeric", weekday: "long", hour: "2-digit", minute: "2-digit" }); };
+  clock();
+  renderDday(root.querySelector("#ttl-dday"));
+  const timer = setInterval(() => { clock(); renderDday(root.querySelector("#ttl-dday")); }, 1000);
+  let finished = false;
+  const cleanup = () => { finished = true; clearInterval(timer); document.removeEventListener("keydown", onKey); };
+  const finish = () => {
+    if (finished) return;
+    cleanup();
+    TS.sfx("click");
+    root.classList.add("bye");
+    document.body.classList.remove("title-open");
+    if (window.BGM) window.BGM.onStart();
+    setTimeout(() => { root.remove(); done(); }, 450);
+  };
+  const onKey = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); finish(); } };
+  document.addEventListener("keydown", onKey);
+  root.querySelector("#tp-start").onclick = finish;
+  modeSwitch(root, done, cleanup);
+}
+
 function show(done) {
+  if (TS.isPlain()) return showPlain(done);
   const s = TS.state;
   const c = TS.SADO_MAP[s.partner] || TS.SADO_MAP.butter;
-  const src = c.emote ? `assets/emotes/${c.id}/1.webp` : TS.chibiSrc(c);
+  const src = TS.emoteSrc(c);
   const root = document.createElement("div");
   root.id = "title";
   root.innerHTML = `
@@ -141,6 +200,7 @@ function show(done) {
     if (e.key === "Enter" || e.key === " ") { e.preventDefault(); document.removeEventListener("keydown", onKey); finish(null); }
   };
   document.addEventListener("keydown", onKey);
+  modeSwitch(root, done, () => { finished = true; clearInterval(ddTimer); document.removeEventListener("keydown", onKey); document.body.classList.remove("title-open"); });
 }
 /* 시작 화면 D-day 보드: 가장 가까운 D-day는 크게 + 실시간 카운트다운 */
 function renderDday(el) {

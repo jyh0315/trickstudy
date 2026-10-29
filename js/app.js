@@ -79,15 +79,40 @@ function fmt(text, c) {
   return text.replace(/\{name\}(는|은|가|이|를|을|와|과)?/g, (_, j) => n + (j ? J[j] : ""))
     .replace(/\{me\}/g, state.name);
 }
+/* ───── 심플 모드 (캐릭터 그림·배경 없이, 기능은 그대로) ───── */
+const isPlain = () => document.documentElement.classList.contains("plain");
+function setPlain(on) {
+  document.documentElement.classList.toggle("plain", on);
+  try { localStorage.setItem("trickstudy-mode", on ? "plain" : "chara"); } catch (e) { /* 무시 */ }
+  emit("mode", on);
+}
+const PLAIN_LINES = {
+  idle:  ["오늘도 차근차근 해봐요.", "할 일 목록부터 확인해 볼까요?", "작은 목표부터 하나씩!", "물 한 잔 마시고 시작해요."],
+  cheer: ["좋아요, 그대로 집중!", "조금만 더 버텨봐요.", "지금 페이스 좋아요.", "핸드폰은 잠깐 멀리!"],
+  done:  ["수고했어요! 잘했어요.", "목표 하나 달성!", "꾸준함이 실력이 돼요.", "오늘도 한 걸음 성장!"],
+  poke:  ["집중 집중!", "공부하러 가볼까요?", "화이팅!"],
+  fail:  ["괜찮아요, 다시 하면 돼요.", "쉬었다가 또 해봐요."],
+};
+const PLAIN_COLORS = { pure: "#7cc68a", cool: "#6aa7e0", mad: "#e07a7a", jolly: "#e8b84a", gloomy: "#a185cf", special: "#e08ab8" };
+const plainCache = {};
+function plainAvatar(c) {
+  if (plainCache[c.id]) return plainCache[c.id];
+  const col = PLAIN_COLORS[c.pers] || "#9aa7b8", ch = shortName(c).slice(0, 1);
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 140"><rect width="120" height="140" rx="22" fill="${col}"/><circle cx="60" cy="58" r="34" fill="#fff" opacity=".9"/><text x="60" y="71" font-family="sans-serif" font-size="36" font-weight="700" text-anchor="middle" fill="${col}">${ch}</text><rect x="22" y="106" width="76" height="10" rx="5" fill="#fff" opacity=".55"/></svg>`;
+  return (plainCache[c.id] = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg));
+}
+
 const baseLines = (c, kind) => (SPECIAL_LINES[c.id] && SPECIAL_LINES[c.id][kind]) || PERS[c.pers][kind];
-const linesOf = (c, kind) => [...baseLines(c, kind), ...lineHooks.flatMap((fn) => fn(c, kind) || [])];
+const linesOf = (c, kind) => (isPlain() ? PLAIN_LINES[kind] || PLAIN_LINES.idle : [...baseLines(c, kind), ...lineHooks.flatMap((fn) => fn(c, kind) || [])]);
 const titleOf = (c) => (SPECIAL_LINES[c.id] && SPECIAL_LINES[c.id].title) || `${PERS[c.pers].label} 성격의 사도`;
 const stars = (r) => "★".repeat(r);
 
 /* ───── 이미지 ───── */
-const chibiSrc = (c) => `assets/chibi/${c.id}.webp?v=2`; // ?v= : 이미지를 바꾸면 숫자를 올려서 브라우저 캐시 무시
+const chibiSrc = (c) => (isPlain() ? plainAvatar(c) : `assets/chibi/${c.id}.webp?v=2`);
+const emoteSrc = (c, i = 1) => (isPlain() ? plainAvatar(c) : c.emote ? `assets/emotes/${c.id}/${i}.webp` : chibiSrc(c)); // ?v= : 이미지를 바꾸면 숫자를 올려서 브라우저 캐시 무시
 const emoteCount = (c) => (c.emote && state.owned[c.id] ? state.owned[c.id].emo || 1 : 0);
 function portrait(c, randomEmote = false) {
+  if (isPlain()) return plainAvatar(c);
   const n = emoteCount(c);
   if (!n) return chibiSrc(c);
   return `assets/emotes/${c.id}/${randomEmote ? 1 + Math.floor(Math.random() * n) : 1}.webp`;
@@ -367,7 +392,7 @@ function renderMini() {
   $("streak").textContent = currentStreak();
 }
 function applyBg() {
-  $("bg").style.backgroundImage = `url("assets/bg/${state.bg}.jpg")`;
+  $("bg").style.backgroundImage = isPlain() ? "none" : `url("assets/bg/${state.bg}.jpg")`;
 }
 
 /* ───── 로비 ───── */
@@ -509,7 +534,8 @@ function updateClock() {
   $("mini-timer").classList.toggle("brk", t.mode === "break");
   $("mini-mode").textContent = (t.mode === "focus" ? "집중" : "휴식") + (t.running ? " 중" : " 일시정지");
   $("mini-time").textContent = txt;
-  document.title = t.running ? `${t.mode === "focus" ? "📚" : "☕"} ${txt} · 교주님, 공부하세요!` : "교주님, 공부하세요!";
+  const appName = isPlain() ? "공부 플래너" : "교주님, 공부하세요!";
+  document.title = t.running ? `${t.mode === "focus" ? "📚" : "☕"} ${txt} · ${appName}` : appName;
 }
 function startTimer() {
   const t = T();
@@ -672,7 +698,7 @@ function gachaShow(results) {
         <div class="g-card c${x.c.rarity}" data-i="${i}">
           ${x.isNew ? '<span class="new">NEW!</span>' : ""}${x.extra ? `<span class="extra">${esc(x.extra)}</span>` : ""}
           <div class="in"><div class="back">?</div>
-          <div class="face"><span class="st">${stars(x.c.rarity)}</span><img src="${x.c.emote ? `assets/emotes/${x.c.id}/1.webp` : chibiSrc(x.c)}" alt=""><span class="nm">${esc(x.c.name)}</span></div></div>
+          <div class="face"><span class="st">${stars(x.c.rarity)}</span><img src="${emoteSrc(x.c)}" alt=""><span class="nm">${esc(x.c.name)}</span></div></div>
         </div>`).join("")}</div>
         <div class="gacha-tip">카드를 눌러 뒤집어요!</div>
         <div class="gacha-actions"><button class="btn white" id="g-all">모두 열기</button><button class="btn yellow hidden" id="g-ok">확인</button></div>`;
@@ -750,7 +776,7 @@ function sadoDetail(id) {
   const c = SADO_MAP[id], o = state.owned[id];
   const cost = CONFIG.exchangeCost[c.rarity];
   const emotes = c.emote ? `<div class="emote-row">${[1, 2, 3, 4].map((i) =>
-    o && i <= o.emo ? `<div><img src="assets/emotes/${c.id}/${i}.webp" alt=""></div>` : "<div>?</div>").join("")}</div>
+    o && i <= o.emo ? `<div><img src="${emoteSrc(c, i)}" alt=""></div>` : "<div>?</div>").join("")}</div>
     <p class="hint">중복으로 영입할 때마다 표정이 하나씩 해금돼요.</p>` : "";
   modal(`<img class="detail-img" src="${o ? portrait(c) : chibiSrc(c)}" style="${o ? "" : "filter:grayscale(1) opacity(.6)"}" alt="">
     <h2 style="margin-top:12px">${esc(c.name)}</h2>
@@ -830,7 +856,7 @@ function onboarding() {
   modal(`<h2>어서 오세요, 교주님!</h2>
     <p>엘리아스에 오신 걸 환영해요.<br>함께 공부할 <b>첫 사도</b>를 골라주세요.</p>
     <div class="starter-grid">${EMOTE_SADO.map((c, i) =>
-      `<button data-pick="${c.id}" class="${i === 0 ? "on" : ""}"><img src="assets/emotes/${c.id}/1.webp" alt=""><span>${esc(c.name)}</span></button>`).join("")}</div>
+      `<button data-pick="${c.id}" class="${i === 0 ? "on" : ""}"><img src="${emoteSrc(c)}" alt=""><span>${esc(c.name)}</span></button>`).join("")}</div>
     <label style="display:flex;flex-direction:column;gap:6px;font-family:var(--font-title);text-align:left">교주님의 이름은?
       <input id="m-name" maxlength="12" placeholder="교주" value=""></label>
     <div class="modal-actions"><button class="btn yellow big" id="m-start">공부 시작!</button></div>`,
@@ -989,7 +1015,7 @@ window.TS = {
   save, refresh, go, on, emit, views, lineHooks, chatterHooks, detailHooks, rewardHooks,
   modal, confirmModal, toast, confetti, sfx, say, sayKind, renderPartner,
   addElif, addExp, addCandy, esc, rand, pad, dateKey, today, weekKey, daysAgo,
-  SADO_MAP, linesOf, fmt, portrait, chibiSrc, stars, shortName,
+  SADO_MAP, linesOf, fmt, portrait, chibiSrc, emoteSrc, stars, shortName, isPlain, setPlain, applyBg,
   timer: { left: timerLeft, dur: timerDur, start: startTimer, pause: pauseTimer, mmss, get t() { return state.timer; } },
 };
 
@@ -1007,7 +1033,7 @@ function afterTitle() {
 function boot() {
   if (!state.started) {
     $("bubble-text").textContent = "누가 왔나 봐요…?";
-    $("partner-img").src = "assets/chibi/erpin.webp?v=2";
+    $("partner-img").src = chibiSrc(SADO_MAP.erpin);
   } else renderPartner(true);
   emit("boot");
   refresh();

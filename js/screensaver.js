@@ -62,13 +62,22 @@ function swapChars() {
   const old = chars;
   old.forEach((it) => it.el.classList.add("out"));
   setTimeout(() => old.forEach((it) => { if (it.live) it.live.dispose(); it.el.remove(); }), 900);
+  if (TS.isPlain()) { chars = []; quote(); return; } // 심플 모드: 사도 대신 한 줄 문구
   const ids = pickChars(cfg().count);
   chars = ids.map((id, i) => addChar(id, i, ids.length));
+}
+const QUOTES = ["작은 진전도 진전이다.", "오늘 걷지 않으면 내일 뛰어야 한다.", "집중한 25분이 흐트러진 3시간보다 낫다.", "꾸준함은 재능을 이긴다.", "할 수 있다고 믿으면 이미 반은 온 것.", "지금 하는 공부가 미래의 나를 만든다.", "천천히 해도 괜찮아, 멈추지만 않으면.", "어제보다 한 문제 더."];
+function quote() {
+  const el = root && root.querySelector(".ss-quote");
+  if (!el) return;
+  el.classList.remove("show"); void el.offsetWidth;
+  el.textContent = rand(QUOTES);
+  el.classList.add("show");
 }
 function swapBg() {
   const layers = root.querySelectorAll(".ss-bg");
   const front = root.querySelector(".ss-bg.on"), back = [...layers].find((l) => l !== front);
-  back.style.backgroundImage = `url("assets/bg/${nextBg()}.jpg")`;
+  back.style.backgroundImage = TS.isPlain() ? "none" : `url("assets/bg/${nextBg()}.jpg")`;
   back.style.animationName = rand(["ssKb1", "ssKb2", "ssKb3"]);
   back.classList.add("on");
   if (front) front.classList.remove("on");
@@ -113,11 +122,12 @@ async function open() {
   root = document.createElement("div");
   root.id = "ss";
   root.innerHTML = `
-    <div class="ss-bg on" style="background-image:url('assets/bg/${S().bg}.jpg')"></div><div class="ss-bg"></div>
+    <div class="ss-bg on" style="${TS.isPlain() ? "" : `background-image:url('assets/bg/${S().bg}.jpg')`}"></div><div class="ss-bg"></div>
     <div class="ss-shade"></div>
     <div class="ss-clock"><div class="ss-time"></div><div class="ss-date"></div></div>
     <div class="ss-timer hidden"><span></span><b></b><div class="ss-tbar"><i></i></div></div>
     <div class="ss-chars"></div>
+    <div class="ss-quote"></div>
     <div class="ss-info"></div>
     <div class="ss-ctrl">
       <button class="btn white small" id="ss-next" title="다음 배경·사도">⏭ 다음</button>

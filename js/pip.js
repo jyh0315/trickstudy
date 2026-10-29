@@ -50,7 +50,7 @@ async function openDocPip() {
   let lastImg = "";
   const draw = () => {
     const i = info();
-    const src = i.c ? (i.c.emote ? TS.portrait(i.c) : TS.chibiSrc(i.c)) : "assets/chibi/erpin.webp?v=2";
+    const src = i.c ? (i.c.emote ? TS.portrait(i.c) : TS.chibiSrc(i.c)) : TS.chibiSrc(TS.SADO_MAP.erpin);
     if (src !== lastImg) { q("p-img").src = new URL(src, location.href).href; lastImg = src; }
     q("p-mode").textContent = i.label;
     q("p-time").textContent = i.time;
@@ -72,7 +72,7 @@ function drawCanvas() {
   const i = info(), g = canvas.getContext("2d"), W = canvas.width, H = canvas.height;
   g.fillStyle = "#fff8e6"; g.fillRect(0, 0, W, H);
   g.strokeStyle = "#3b2a20"; g.lineWidth = 8; g.strokeRect(4, 4, W - 8, H - 8);
-  const src = i.c ? TS.chibiSrc(i.c) : "assets/chibi/erpin.webp?v=2";
+  const src = i.c ? TS.chibiSrc(i.c) : TS.chibiSrc(TS.SADO_MAP.erpin);
   if (!img.src.endsWith(src)) img.src = src;
   if (img.complete && img.naturalWidth) g.drawImage(img, 24, 30, 120, 142);
   g.fillStyle = "#3b2a20";

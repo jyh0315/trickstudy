@@ -67,8 +67,7 @@ function prof() {
 }
 const avatarSrc = (id) => {
   const c = TS.SADO_MAP[id];
-  if (!c) return "assets/chibi/erpin.webp?v=2";
-  return c.emote ? `assets/emotes/${c.id}/1.webp` : TS.chibiSrc(c);
+  return TS.emoteSrc(c || TS.SADO_MAP.erpin);
 };
 
 /* 공개용 프로필 (랭킹에 올라감) — 잠긴 건 기본값으로 */

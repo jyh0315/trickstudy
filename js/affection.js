@@ -105,7 +105,7 @@ function openGift(id) {
   const card = (g) => {
     const pr = GIFT_PRICE[g.rarity], m = giftMult(g, c);
     return `<button class="gift r-${g.rarity} ${m > 1 ? "fav" : ""}" data-buy="${g.id}" ${S().elif < pr.cost ? "disabled" : ""} title="${TS.esc(g.en)}">
-      <img class="gi" src="assets/artifacts/${g.id}.webp" alt="" loading="lazy"><b>${TS.esc(g.name)}</b>
+      ${TS.isPlain() ? `<span class="gi">${{ SSR: "💎", SR: "🎁", R: "🎀", N: "🍬" }[g.rarity]}</span>` : `<img class="gi" src="assets/artifacts/${g.id}.webp" alt="" loading="lazy">`}<b>${TS.esc(g.name)}</b>
       <small><i class="ic-elif"></i>${pr.cost} · 💗+${pr.pts * m}</small>
       ${m === 3 ? "<em>전용!</em>" : m === 2 ? "<em>취향!</em>" : ""}</button>`;
   };
