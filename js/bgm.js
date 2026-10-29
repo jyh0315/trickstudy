@@ -314,5 +314,6 @@ window.BGM = {
     }
   },
   get ctx() { return ctx; },
+  get playing() { return !audio.paused; },
 };
 })();

@@ -81,7 +81,7 @@ function showScene(done, mainId) {
   root.innerHTML = `
     <div class="ttl-bg" style="background-image:url('assets/title-bg.webp')"></div>
     <div class="ttl-logo"><span class="l2">트릭스터디</span><span class="l1">~교주님 공부하세요!~</span></div>
-    <div class="ttl-ver">Ver 5.1 · 교주 전용</div>
+    <div class="ttl-ver">Ver 5.2 · 교주 전용</div>
     <div class="ttl-copy">♥ Trickcal fan-made study</div>
     <div class="ttl-cast">${cast.map((id, i) => `<div class="ttl-actor a${i}" data-id="${id}"></div>`).join("")}</div>
     <div class="ttl-sweep"></div>
@@ -102,7 +102,8 @@ function showScene(done, mainId) {
     root.classList.remove("tapwait");
     setTimeout(() => root.querySelector("#ttl-tap").remove(), 700);
   };
-  root.querySelector("#ttl-tap").addEventListener("pointerdown", (e) => { e.preventDefault(); tap(); });
+  // 크롬은 손가락을 '뗄 때'(click)만 소리 재생 허락으로 침 → pointerdown 말고 click
+  root.querySelector("#ttl-tap").addEventListener("click", tap);
   const waitT = setInterval(() => {
     if (!tapped) return;
     const n = root.querySelectorAll(".ttl-actor.live").length;
@@ -186,7 +187,7 @@ function show(done) {
   root.innerHTML = `
     <div class="ttl-bg" style="background-image:url('assets/bg/${s.bg || "trickcal"}.jpg')"></div>
     <div class="ttl-logo"><span class="l2">트릭스터디</span><span class="l1">~교주님 공부하세요!~</span></div>
-    <div class="ttl-ver">Ver 5.1 · 교주 전용</div>
+    <div class="ttl-ver">Ver 5.2 · 교주 전용</div>
     <div class="ttl-copy">♥ Trickcal fan-made study</div>
     <div class="ttl-face" id="ttl-face">
       <img id="ttl-img" src="${src}" alt="" draggable="false">
