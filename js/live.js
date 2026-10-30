@@ -82,8 +82,8 @@ function frameView(p, mode, host) {
   if (mode === "face") {
     const S = 430;
     v = { x: h.x - S / 2, y: h.y - 140, width: S, height: S };
-  } else if (mode === "story") { // 스토리: 허리 위 클로즈업 (머리 뼈가 아래에서 51% 높이, 가로:세로 = 9:10)
-    v = { x: h.x - 300, y: h.y - 340, width: 600, height: 667 };
+  } else if (mode === "story") { // 스토리: 무릎 위까지 (머리 뼈가 아래에서 63% 높이, 가로:세로 = 900:887, 무기·날개 안 잘리게 옆을 넉넉히)
+    v = { x: h.x - 450, y: h.y - 560, width: 900, height: 887 };
   } else if (mode === "bust") { // 시작 화면: 머리 위 넉넉히 ~ 허리 (가로:세로 = 4:5, 아래는 화면 밖으로)
     // 사도 칸(780×975)보다 그리는 캔버스를 양옆 40%·위 30% 크게 → 큰 이펙트·무기도 안 잘림 (배율은 그대로)
     const S = 780, Hh = S * 1.25;

@@ -1758,8 +1758,8 @@ body.story-open { overflow: hidden; }
 .sp-bg { position: absolute; inset: 0; background: center/cover no-repeat; transition: opacity .8s; }
 .sp-bg.next { opacity: 0; }
 .sp-stage { position: absolute; inset: 0; pointer-events: none; }
-/* 사도: 얼굴~가슴 클로즈업 (live.js frame "story" 와 같은 9:10 비율) */
-.sp-actor { position: absolute; bottom: -95px; width: 800px; aspect-ratio: 9 / 10; translate: -50% 0; transition: left .5s ease, filter .3s, opacity .45s, transform .45s; opacity: 0; transform: translateY(40px); }
+/* 사도: 무릎 위까지 (live.js frame "story" 와 같은 900:887 비율) */
+.sp-actor { position: absolute; bottom: -170px; width: 900px; aspect-ratio: 900 / 887; translate: -50% 0; transition: left .5s ease, filter .3s, opacity .45s, transform .45s; opacity: 0; transform: translateY(40px); }
 .sp-actor.in { opacity: 1; transform: none; }
 .sp-actor.out { opacity: 0; transform: translateY(40px); }
 .sp-actor.dim { filter: brightness(.68) saturate(.7); }
@@ -1790,9 +1790,9 @@ body.story-open { overflow: hidden; }
 .sp-box.narr .sp-pf, .sp-box.narr .sp-name { display: none; }
 .sp-box.narr .sp-text { left: 46px; display: flex; align-items: center; justify-content: center; text-align: center; color: #555; font-weight: 700; }
 /* 외침: 흔들림 + 큰 글씨 / 속마음: 보랏빛 */
-.sp-box.shout { animation: spShout .35s; }
-.sp-box.shout .sp-text { font-size: 22px; }
-@keyframes spShout { 20%, 60% { translate: calc(-50% - 6px) 0; } 40%, 80% { translate: calc(-50% + 6px) 0; } }
+.sp-box.shout { animation: spShout .3s ease-out; }
+.sp-box.shout .sp-text { font-size: 21px; }
+@keyframes spShout { 40% { transform: scale(1.03); } }
 .sp-box.think { background: rgba(70,46,96,.9); }
 .sp-box.think .sp-text { color: #f0e4ff; }
 /* 오른쪽 위 동그란 버튼 */
@@ -1822,7 +1822,8 @@ body.story-open { overflow: hidden; }
 .sp-log.hidden { display: none; }
 .sp-log-in { flex: 1; overflow-y: auto; color: #fff; font-size: 17px; } .sp-log-in p { margin: 0 0 10px; } .sp-log-in b { display: block; color: #ffd34e; font-size: 14px; }
 .sp-log .btn { align-self: center; }
-#story.shake .sp-zone > * { animation: psRumble .1s linear 5; }
+#story.shake .sp-stage, #story.shake .sp-bg { animation: spQuake .28s ease-out; }
+@keyframes spQuake { 25% { translate: 4px 0; } 50% { translate: -4px 0; } 75% { translate: 2px 0; } }
 #story.flash-w .sp-zone::after { content: ""; position: absolute; inset: 0; background: #fff; z-index: 8; pointer-events: none; animation: psFlash .6s ease-out forwards; }
 .sp-end { position: absolute; inset: 0; z-index: 9; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.55); cursor: default; }
 .sp-end-card { width: 420px; background: var(--cream); border: 4px solid var(--ink); border-radius: 24px; padding: 22px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 10px; animation: modalin .4s; }

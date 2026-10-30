@@ -63,7 +63,7 @@ function render() {
 TS.views.story = render;
 
 /* ───── 재생기 ───── */
-const SLOTS = { L: "26%", C: "50%", R: "70%" };
+const SLOTS = { L: "29%", C: "50%", R: "69%" };
 const STICKER = { "!": "❗", "?": "❓", "!?": "⁉️", "♥": "💗", "💧": "💧", "💢": "💢", "…": "💬", "✨": "✨", "💡": "💡" };
 let P = null; // 재생 중 상태
 
