@@ -63,7 +63,7 @@ function render() {
 TS.views.story = render;
 
 /* ───── 재생기 ───── */
-const SLOTS = { L: "18%", C: "50%", R: "82%" };
+const SLOTS = { L: "24%", C: "50%", R: "76%" };
 const STICKER = { "!": "❗", "?": "❓", "!?": "⁉️", "♥": "💗", "💧": "💧", "💢": "💢", "…": "💬", "✨": "✨", "💡": "💡" };
 let P = null; // 재생 중 상태
 
@@ -72,24 +72,28 @@ function play(epId) {
   if (!ep || P) return;
   const root = document.createElement("div");
   root.id = "story";
-  root.innerHTML = `
+  // 게임(트릭컬 스토리) 화면과 같은 1280×640 무대를 만들고 화면 크기에 맞춰 통째로 확대·축소
+  root.innerHTML = `<div class="sp-zone">
     <div class="sp-bg"></div><div class="sp-bg next"></div>
     <div class="sp-stage"></div>
     <div class="sp-loc hidden"></div>
     <div class="sp-titlecard hidden"><small></small><b></b></div>
     <div class="sp-choice hidden"></div>
+    <div class="sp-narr hidden"><p></p></div>
     <div class="sp-box">
-      <div class="sp-name hidden"></div>
+      <div class="sp-pf"><span class="sp-pf-in"></span></div>
+      <div class="sp-name hidden"><span></span></div>
       <div class="sp-text"></div>
-      <span class="sp-next">▼</span>
+      <span class="sp-next"></span>
     </div>
     <div class="sp-ctrl">
-      <button class="sp-btn" data-c="auto">AUTO</button>
-      <button class="sp-btn" data-c="log">LOG</button>
-      <button class="sp-btn" data-c="skip">SKIP ⏭</button>
-      <button class="sp-btn" data-c="close">✕</button>
+      <button class="sp-btn" data-c="skip" title="건너뛰기">⏭</button>
+      <button class="sp-btn" data-c="auto" title="자동 진행">AUTO</button>
+      <button class="sp-btn" data-c="log" title="지난 대사">☰</button>
+      <button class="sp-btn" data-c="close" title="나가기">✕</button>
     </div>
-    <div class="sp-log hidden"><div class="sp-log-in"></div><button class="btn white small" data-c="logclose">닫기</button></div>`;
+    <div class="sp-log hidden"><div class="sp-log-in"></div><button class="btn white small" data-c="logclose">닫기</button></div>
+  </div>`;
   document.body.appendChild(root);
   document.body.classList.add("story-open");
   P = { ep: { ...ep, lines: ep.lines.slice() }, root, i: -1, actors: {}, typing: null, auto: false, autoT: 0, log: [], wait: false, done: false };
@@ -101,7 +105,13 @@ function play(epId) {
     advance();
   });
   document.addEventListener("keydown", onKey);
+  fit(); window.addEventListener("resize", fit);
   advance();
+}
+function fit() {
+  if (!P) return;
+  const k = Math.min(window.innerWidth / 1280, window.innerHeight / 640);
+  P.root.querySelector(".sp-zone").style.transform = `translate(-50%, -50%) scale(${k})`;
 }
 function onKey(e) {
   if (!P) return;
@@ -161,10 +171,18 @@ function run(L) {
   if (L.s || L.n) {
     speak = true;
     const me = L.s === "me", who = L.s ? nameOf(L.s) : "";
-    box.className = "sp-box" + (L.st ? " " + L.st : "") + (L.n ? " narr" : "");
-    const nm = P.root.querySelector(".sp-name");
-    nm.classList.toggle("hidden", !L.s);
-    if (L.s) { nm.textContent = who; nm.style.background = colorOf(L.s); }
+    const narr = !L.s;
+    box.classList.toggle("hidden", narr);
+    P.root.querySelector(".sp-narr").classList.toggle("hidden", !narr);
+    box.className = "sp-box" + (L.st ? " " + L.st : "") + (narr ? " hidden" : "");
+    if (!narr) {
+      const nm = P.root.querySelector(".sp-name");
+      nm.classList.remove("hidden");
+      nm.querySelector("span").textContent = who;
+      const c = TS.SADO_MAP[L.s], pf = P.root.querySelector(".sp-pf");
+      pf.style.setProperty("--pc", colorOf(L.s));
+      pf.querySelector(".sp-pf-in").innerHTML = c ? `<img src="${TS.chibiSrc(c)}" alt="">` : `<b>${me ? "📖" : esc(who.slice(0, 1))}</b>`;
+    }
     // 말하는 사도는 밝게, 나머지는 살짝 어둡게
     for (const [id, a] of Object.entries(P.actors)) a.el.classList.toggle("dim", !!L.s && !me && id !== L.s);
     const a = P.actors[L.s];
@@ -185,7 +203,8 @@ const nameOf = (id) => (id === "me" ? S().name || "교주" : (TS.SADO_MAP[id] ||
 const colorOf = (id) => (id === "me" ? "#ff7fa8" : (PERS[(TS.SADO_MAP[id] || {}).pers] || {}).color || "#7d8aa0");
 
 function type(text) {
-  const el = P.root.querySelector(".sp-text");
+  const narr = !P.root.querySelector(".sp-narr").classList.contains("hidden");
+  const el = narr ? P.root.querySelector(".sp-narr p") : P.root.querySelector(".sp-text");
   el.textContent = "";
   P.root.querySelector(".sp-next").classList.remove("on");
   let k = 0;
@@ -202,7 +221,8 @@ function type(text) {
 function finishTyping() {
   if (!P.typing) return;
   clearTimeout(P.typing); P.typing = null;
-  P.root.querySelector(".sp-text").textContent = P.fullText;
+  const narr = !P.root.querySelector(".sp-narr").classList.contains("hidden");
+  (narr ? P.root.querySelector(".sp-narr p") : P.root.querySelector(".sp-text")).textContent = P.fullText;
   P.root.querySelector(".sp-next").classList.add("on");
   scheduleAuto();
 }
@@ -210,6 +230,7 @@ function setBg(src, instant) {
   const [a, b] = P.root.querySelectorAll(".sp-bg");
   const cur = a.classList.contains("next") ? b : a, nx = cur === a ? b : a;
   nx.style.backgroundImage = `url('${src}')`;
+  P.root.style.setProperty("--spbg", `url('${new URL(src, location.href).href}')`); // 무대 밖 여백은 흐린 배경으로
   nx.classList.remove("next"); cur.classList.add("next");
   if (instant) nx.style.transition = "none"; else nx.style.transition = "";
 }
@@ -298,6 +319,7 @@ function close() {
   P = null;
   document.body.classList.remove("story-open");
   document.removeEventListener("keydown", onKey);
+  window.removeEventListener("resize", fit);
   if (window.BGM && window.BGM.resumeFrom) window.BGM.resumeFrom("story");
   if (TS.view === "story") render();
 }
