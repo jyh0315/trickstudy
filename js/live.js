@@ -76,11 +76,14 @@ function frameView(p, mode, host) {
   // 불러온 직후엔 뼈 위치가 아직 계산 전이라 한 번 계산
   p.animationState.apply(p.skeleton);
   p.skeleton.updateWorldTransform();
-  const h = headPos(p.skeleton);
+  let h = headPos(p.skeleton);
+  if (!Number.isFinite(h.x) || !Number.isFinite(h.y)) h = { x: 0, y: 430 }; // 트릭컬 사도 머리 높이 평균
   let v;
   if (mode === "face") {
     const S = 430;
     v = { x: h.x - S / 2, y: h.y - 140, width: S, height: S };
+  } else if (mode === "story") { // 스토리: 허리 위 클로즈업 (머리 뼈가 아래에서 51% 높이, 가로:세로 = 9:10)
+    v = { x: h.x - 300, y: h.y - 340, width: 600, height: 667 };
   } else if (mode === "bust") { // 시작 화면: 머리 위 넉넉히 ~ 허리 (가로:세로 = 4:5, 아래는 화면 밖으로)
     // 사도 칸(780×975)보다 그리는 캔버스를 양옆 40%·위 30% 크게 → 큰 이펙트·무기도 안 잘림 (배율은 그대로)
     const S = 780, Hh = S * 1.25;
@@ -144,6 +147,10 @@ function mount(container, id, opts = {}) {
         ctrl.ready = true;
         container.classList.add("live-ready");
         opts.onReady && opts.onReady(ctrl);
+        // onReady 안에서 동작을 바꾸면 플레이어가 재생을 시작하지 않고 멈춰 있음 → 직접 재생
+        if (p.paused) p.play();
+        // 한 프레임 뒤에 화면 영역을 다시 잡음 (불러온 직후엔 뼈 위치가 덜 계산돼 영역이 NaN이 되는 사도가 있음)
+        requestAnimationFrame(() => { if (!failed && host.isConnected) frameView(p, opts.frame || "body", host); });
       },
       error: (p, msg) => {
         if (my !== attempt || failed) return;

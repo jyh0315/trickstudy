@@ -8,7 +8,7 @@
      { loc: "요정 마을 광장" }                    장소 표시
      { title: "챕터 1", sub: "최소한 잼은 발라줘" } 제목 카드
      { in: "erpin", at: "L" }                   사도 등장 (L·C·R)  · { out: "erpin" } 퇴장
-     { s: "erpin", t: "대사", f: "happy", e: "!", st: "shout" }
+     { s: "erpin", t: "대사 *강조할 말*", f: "happy", e: "!", st: "shout" }   (*…* 는 초록색 강조)
          s = 말하는 사도(id) 또는 "me"(교주) / f = 표정·동작 / e = 감정 스티커 / st = shout·think
      { n: "나레이션" }  { shake: 1 }  { flash: 1 }  { wait: 800 }
      { choice: ["보기1", "보기2"], r: ["보기1 고르면 나올 대사", "보기2 대사"] }  (r는 교주 대신 첫 사도가 반응)
@@ -63,7 +63,7 @@ function render() {
 TS.views.story = render;
 
 /* ───── 재생기 ───── */
-const SLOTS = { L: "24%", C: "50%", R: "76%" };
+const SLOTS = { L: "26%", C: "50%", R: "70%" };
 const STICKER = { "!": "❗", "?": "❓", "!?": "⁉️", "♥": "💗", "💧": "💧", "💢": "💢", "…": "💬", "✨": "✨", "💡": "💡" };
 let P = null; // 재생 중 상태
 
@@ -79,18 +79,21 @@ function play(epId) {
     <div class="sp-loc hidden"></div>
     <div class="sp-titlecard hidden"><small></small><b></b></div>
     <div class="sp-choice hidden"></div>
-    <div class="sp-narr hidden"><p></p></div>
-    <div class="sp-box">
+    <div class="sp-box narr">
       <div class="sp-pf"><span class="sp-pf-in"></span></div>
-      <div class="sp-name hidden"><span></span></div>
+      <div class="sp-name"><span></span></div>
       <div class="sp-text"></div>
       <span class="sp-next"></span>
     </div>
     <div class="sp-ctrl">
-      <button class="sp-btn" data-c="skip" title="건너뛰기">⏭</button>
-      <button class="sp-btn" data-c="auto" title="자동 진행">AUTO</button>
-      <button class="sp-btn" data-c="log" title="지난 대사">☰</button>
-      <button class="sp-btn" data-c="close" title="나가기">✕</button>
+      <button class="sp-btn" data-c="nextep" title="다 보면 다음 화 바로 재생">다음화<br>자동재생</button>
+      <button class="sp-btn" data-c="auto" title="대사 자동 넘김">대사<br><b>AUTO</b></button>
+      <button class="sp-btn menu" data-c="menu" title="메뉴"><i></i><i></i><i></i></button>
+      <div class="sp-menu hidden">
+        <button data-c="log">📜 지난 대사</button>
+        <button data-c="skip">⏭ 건너뛰기</button>
+        <button data-c="close">🚪 나가기</button>
+      </div>
     </div>
     <div class="sp-log hidden"><div class="sp-log-in"></div><button class="btn white small" data-c="logclose">닫기</button></div>
   </div>`;
@@ -106,11 +109,12 @@ function play(epId) {
   });
   document.addEventListener("keydown", onKey);
   fit(); window.addEventListener("resize", fit);
+  syncBtns();
   advance();
 }
 function fit() {
   if (!P) return;
-  const k = Math.min(window.innerWidth / 1280, window.innerHeight / 640);
+  const k = Math.min(window.innerWidth / 1280, window.innerHeight / 720);
   P.root.querySelector(".sp-zone").style.transform = `translate(-50%, -50%) scale(${k})`;
 }
 function onKey(e) {
@@ -119,8 +123,12 @@ function onKey(e) {
   if (e.key === "Enter" || e.key === " " || e.key === "ArrowRight") { e.preventDefault(); advance(); }
 }
 function ctrl(c) {
+  const menu = P.root.querySelector(".sp-menu");
+  if (c !== "menu") menu.classList.add("hidden");
+  if (c === "menu") return menu.classList.toggle("hidden");
+  if (c === "nextep") { st().nextAuto = !st().nextAuto; TS.save(); return syncBtns(); }
   if (c === "close") return close();
-  if (c === "auto") { P.auto = !P.auto; P.root.querySelector('[data-c="auto"]').classList.toggle("on", P.auto); if (P.auto && !P.typing && !P.wait) scheduleAuto(); return; }
+  if (c === "auto") { P.auto = !P.auto; syncBtns(); if (P.auto && !P.typing && !P.wait) scheduleAuto(); return; }
   if (c === "skip") { // 선택지·끝까지 건너뛰기
     while (P.i < P.ep.lines.length - 1) {
       const L = P.ep.lines[P.i + 1];
@@ -145,6 +153,10 @@ function silentApply(L) {
   if (L.in) enter(L.in, L.at || "C");
   if (L.out) leave(L.out);
   if (L.s || L.n) P.log.push({ who: L.s ? nameOf(L.s) : "", t: fmtT(L.t || L.n) });
+}
+function syncBtns() {
+  P.root.querySelector('[data-c="auto"]').classList.toggle("on", P.auto);
+  P.root.querySelector('[data-c="nextep"]').classList.toggle("on", !!st().nextAuto);
 }
 function scheduleAuto() { clearTimeout(P.autoT); if (P.auto) P.autoT = setTimeout(advance, 1400); }
 
@@ -171,17 +183,13 @@ function run(L) {
   if (L.s || L.n) {
     speak = true;
     const me = L.s === "me", who = L.s ? nameOf(L.s) : "";
-    const narr = !L.s;
-    box.classList.toggle("hidden", narr);
-    P.root.querySelector(".sp-narr").classList.toggle("hidden", !narr);
-    box.className = "sp-box" + (L.st ? " " + L.st : "") + (narr ? " hidden" : "");
-    if (!narr) {
-      const nm = P.root.querySelector(".sp-name");
-      nm.classList.remove("hidden");
-      nm.querySelector("span").textContent = who;
-      const c = TS.SADO_MAP[L.s], pf = P.root.querySelector(".sp-pf");
-      pf.style.setProperty("--pc", colorOf(L.s));
-      pf.querySelector(".sp-pf-in").innerHTML = c ? `<img src="${TS.chibiSrc(c)}" alt="">` : `<b>${me ? "📖" : esc(who.slice(0, 1))}</b>`;
+    // 나레이션은 프로필·이름표 없이 가운데 정렬
+    box.className = "sp-box" + (L.st ? " " + L.st : "") + (L.s ? "" : " narr");
+    if (L.st === "shout") { box.style.animation = "none"; void box.offsetWidth; box.style.animation = ""; }
+    if (L.s) {
+      P.root.querySelector(".sp-name span").textContent = who;
+      const c = TS.SADO_MAP[L.s];
+      P.root.querySelector(".sp-pf-in").innerHTML = c ? `<img src="${TS.chibiSrc(c)}" alt="">` : `<b>${me ? "📖" : esc(who.slice(0, 1))}</b>`;
     }
     // 말하는 사도는 밝게, 나머지는 살짝 어둡게
     for (const [id, a] of Object.entries(P.actors)) a.el.classList.toggle("dim", !!L.s && !me && id !== L.s);
@@ -192,7 +200,7 @@ function run(L) {
       if (L.e) sticker(a, L.e);
     }
     const t = fmtT(L.t || L.n);
-    P.log.push({ who, t });
+    P.log.push({ who, t: t.replace(/\*/g, "") });
     type(t);
   }
   if (L.wait) { P.wait = true; setTimeout(() => { if (!P) return; P.wait = false; advance(); }, L.wait); return; }
@@ -202,27 +210,30 @@ const fmtT = (t) => String(t || "").replace(/\{me\}/g, S().name || "교주").rep
 const nameOf = (id) => (id === "me" ? S().name || "교주" : (TS.SADO_MAP[id] || {}).name || id);
 const colorOf = (id) => (id === "me" ? "#ff7fa8" : (PERS[(TS.SADO_MAP[id] || {}).pers] || {}).color || "#7d8aa0");
 
+// *강조* → 초록 글씨. 글자마다 <span>을 미리 깔아 두고 하나씩 보이게 해서 줄바꿈·위치가 흔들리지 않음
 function type(text) {
-  const narr = !P.root.querySelector(".sp-narr").classList.contains("hidden");
-  const el = narr ? P.root.querySelector(".sp-narr p") : P.root.querySelector(".sp-text");
-  el.textContent = "";
+  const el = P.root.querySelector(".sp-text");
+  const chars = [];
+  text.split(/(\*[^*]+\*)/).forEach((part) => {
+    const hl = /^\*[^*]+\*$/.test(part);
+    [...(hl ? part.slice(1, -1) : part)].forEach((ch) => chars.push(`<span${hl ? ' class="hl"' : ""}>${esc(ch)}</span>`));
+  });
+  el.innerHTML = `<div class="sp-tx">${chars.join("")}</div>`;
+  P.spans = [...el.querySelectorAll("span")];
   P.root.querySelector(".sp-next").classList.remove("on");
   let k = 0;
   const step = () => {
     if (!P) return;
-    k += 1;
-    el.textContent = text.slice(0, k);
-    if (k >= text.length) { P.typing = null; P.root.querySelector(".sp-next").classList.add("on"); scheduleAuto(); return; }
-    P.typing = setTimeout(step, 28);
+    for (let n = 0; n < 2 && k < P.spans.length; n++) P.spans[k++].classList.add("on"); // 한 번에 2글자
+    if (k >= P.spans.length) { P.typing = null; P.root.querySelector(".sp-next").classList.add("on"); scheduleAuto(); return; }
+    P.typing = setTimeout(step, 30);
   };
-  P.typing = setTimeout(step, 28);
-  P.fullText = text;
+  P.typing = setTimeout(step, 30);
 }
 function finishTyping() {
   if (!P.typing) return;
   clearTimeout(P.typing); P.typing = null;
-  const narr = !P.root.querySelector(".sp-narr").classList.contains("hidden");
-  (narr ? P.root.querySelector(".sp-narr p") : P.root.querySelector(".sp-text")).textContent = P.fullText;
+  P.spans.forEach((x) => x.classList.add("on"));
   P.root.querySelector(".sp-next").classList.add("on");
   scheduleAuto();
 }
@@ -245,7 +256,7 @@ function enter(id, at, f) {
   P.root.querySelector(".sp-stage").appendChild(el);
   const a = { id, el, live: null };
   const fallback = () => { if (!el.querySelector(".sp-img")) el.insertAdjacentHTML("beforeend", `<img class="sp-img" src="${TS.chibiSrc(c)}" alt="">`); };
-  a.live = window.Live ? window.Live.mount(el, id, { frame: "bust", onReady: (ctrl) => { a.ctrl = ctrl; if (f) a.live.play(f); }, onFail: fallback }) : null;
+  a.live = window.Live ? window.Live.mount(el, id, { frame: "story", onReady: (ctrl) => { a.ctrl = ctrl; if (f) a.live.play(f); }, onFail: fallback }) : null;
   if (!a.live) fallback();
   P.actors[id] = a;
   requestAnimationFrame(() => el.classList.add("in"));
@@ -310,6 +321,9 @@ function end() {
       <button class="btn yellow" id="sp-endok">확인</button></div>`;
   P.root.appendChild(box);
   box.querySelector("#sp-endok").onclick = (e) => { e.stopPropagation(); close(); };
+  // 다음화 자동재생: 열린 다음 화가 있으면 이어서
+  const eps = allEps(), i = eps.findIndex((x) => x.id === ep.id), nx = eps[i + 1];
+  if (s.nextAuto && nx && i + 1 < unlockedN()) setTimeout(() => { if (P && P.ep.id === ep.id) { close(); play(nx.id); } }, 1500);
 }
 function close() {
   if (!P) return;
