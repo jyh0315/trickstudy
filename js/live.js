@@ -47,6 +47,40 @@ function hasWebGL() {
 const liveOn = () => S().settings.live !== false;
 const canLive = (id) => !TS.isPlain() && liveOn() && !!SPINE_DATA[id] && !!window.spine && hasWebGL();
 
+/* 트릭컬 텍스처는 일반 알파라서 그대로 그리면 부위(팔·어깨 등)가 겹치는 경계에 얇은 선이 생김.
+   GPU에 올릴 때 알파를 미리 곱해(premultiply) 두고 PMA 방식으로 그리면 이음새가 사라짐 */
+(function patchPMA() {
+  const T = window.spine && spine.GLTexture;
+  if (!T || T.__pma) return;
+  T.__pma = true;
+  T.DISABLE_UNPACK_PREMULTIPLIED_ALPHA_WEBGL = false;
+  const up = T.prototype.update;
+  // 부위 가장자리의 반투명 픽셀을 살짝 깎아(알파 커브) 겹치는 경계의 가는 선까지 지움
+  const LO = 70, HI = 190;
+  const trim = (img) => {
+    try {
+      const w = img.width, h = img.height;
+      if (!w || !h || img.__trimmed) return img;
+      const cv = document.createElement("canvas"); cv.width = w; cv.height = h;
+      const g = cv.getContext("2d"); g.drawImage(img, 0, 0);
+      const d = g.getImageData(0, 0, w, h), px = d.data;
+      for (let i = 3; i < px.length; i += 4) {
+        const a = px[i];
+        if (a < HI) px[i] = a <= LO ? 0 : Math.round(((a - LO) / (HI - LO)) * 255 * (a / HI));
+      }
+      g.putImageData(d, 0, 0);
+      cv.__trimmed = true;
+      return cv;
+    } catch (e) { return img; } // 다른 사이트 그림이라 읽기가 막히면 그대로
+  };
+  T.prototype.update = function (mip) {
+    if (this._image && !this._image.__trimmed) this._image = trim(this._image);
+    const gl = this.context.gl;
+    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+    try { up.call(this, mip); } finally { gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false); }
+  };
+})();
+
 /* ───── 스킨 상태 ───── */
 function skinState(id) {
   const s = S();
@@ -133,7 +167,7 @@ function mount(container, id, opts = {}) {
       skelUrl: base + ".skel.asset", atlasUrl: base + ".atlas.asset",
       showControls: false, showLoading: false, // 로딩 로고 안 보이게 (그동안 기존 그림이 보임)
       alpha: true, backgroundColor: "#00000000",
-      premultipliedAlpha: false, // 트릭컬 텍스처는 일반 알파 (true 면 관절·테두리가 하얗게 깨져 보임)
+      premultipliedAlpha: true, // 아래 patchPMA 로 텍스처를 올릴 때 미리 곱해 둠 → 부위 이음새 선이 안 보임
       viewport: { padLeft: "6%", padRight: "6%", padTop: "8%", padBottom: "3%", transitionTime: 0 },
       success: (p) => {
         if (my !== attempt || failed) return;
