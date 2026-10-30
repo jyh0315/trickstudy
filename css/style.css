@@ -1759,7 +1759,7 @@ body.story-open { overflow: hidden; }
 .sp-bg.next { opacity: 0; }
 .sp-stage { position: absolute; inset: 0; pointer-events: none; }
 /* 사도: 무릎 위까지 (live.js frame "story" 와 같은 900:887 비율) */
-.sp-actor { position: absolute; bottom: -170px; width: 900px; aspect-ratio: 900 / 887; translate: -50% 0; transition: left .5s ease, filter .3s, opacity .45s, transform .45s; opacity: 0; transform: translateY(40px); }
+.sp-actor { position: absolute; bottom: -95px; width: 760px; aspect-ratio: 900 / 887; translate: -50% 0; transition: left .5s ease, filter .3s, opacity .45s, transform .45s; opacity: 0; transform: translateY(40px); }
 .sp-actor.in { opacity: 1; transform: none; }
 .sp-actor.out { opacity: 0; transform: translateY(40px); }
 .sp-actor.dim { filter: brightness(.68) saturate(.7); }
