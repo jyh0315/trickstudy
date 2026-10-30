@@ -1708,3 +1708,99 @@ html.plain .partner img { padding: 10%; box-sizing: border-box; }
 #todo-diff button.full { opacity: .45; text-decoration: line-through; }
 .todo-limit { margin: 8px 0 0; }
 .todo-limit.full { color: var(--pink-d); font-weight: 700; }
+
+/* ───── 범위 원정 지도 ───── */
+.trek { background: linear-gradient(180deg, #e9f7ff, #eafbe5); }
+.trek-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.trek-head h3 { margin: 0; font-family: var(--font-title); font-weight: normal; font-size: 22px; }
+.trek-head h3 small { font-family: var(--font-body); font-size: 13px; color: var(--ink-soft); margin-left: 6px; }
+.trek-pct { margin-left: auto; font-family: var(--font-title); font-size: 26px; color: #3a9a4a; }
+.trek-say { margin: 6px 0 10px; font-weight: 700; }
+.trek-road { list-style: none; margin: 0; padding: 18px 8px 10px; display: flex; align-items: flex-end; gap: 6px; overflow-x: auto; scroll-behavior: smooth;
+  background: repeating-linear-gradient(90deg, transparent 0 14px, rgba(160,120,70,.25) 14px 22px) 0 78% / 100% 6px no-repeat; }
+.trek-road li { flex: none; display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 22px; }
+.trek-road small { font-size: 10px; color: var(--ink-soft); max-width: 56px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.trek-stone i { width: 30px; height: 22px; border-radius: 50%; border: 3px solid var(--ink); background: #e9e2d4; font-style: normal; font-size: 12px; display: grid; place-items: center; color: #fff; }
+.trek-stone.done i { background: #6cc56f; }
+.trek-here { margin: 0 4px; }
+.trek-party { display: flex; align-items: flex-end; }
+.trek-party img { width: 46px; height: 46px; object-fit: cover; object-position: 50% 15%; border-radius: 50%; border: 3px solid var(--ink); background: #fff; margin-left: -12px; animation: trekWalk .6s ease-in-out infinite alternate; filter: drop-shadow(0 3px 0 rgba(59,42,32,.25)); }
+.trek-party img:first-child { margin-left: 0; }
+.trek-party img:nth-child(2) { animation-delay: -.2s; } .trek-party img:nth-child(3) { animation-delay: -.4s; }
+@keyframes trekWalk { to { transform: translateY(-5px) rotate(3deg); } }
+.trek-goal { font-size: 30px !important; opacity: .6; } .trek-goal.on { opacity: 1; animation: pop .5s; }
+.trek-empty { font-size: 14px !important; color: var(--ink-soft); padding: 10px; }
+.trek.beat .trek-party img { animation: trekJump .5s ease-in-out infinite alternate; }
+@keyframes trekJump { to { transform: translateY(-12px); } }
+.trek-party.big { justify-content: center; margin: 8px 0; } .trek-party.big img { width: 84px; height: 84px; }
+
+/* ───── 📖 스토리 탭 ───── */
+.story-head p { margin: 8px 0; }
+.story-prog { display: flex; align-items: center; gap: 10px; margin: 6px 0 12px; }
+.story-prog .bar { flex: 1; } .story-prog small { color: var(--ink-soft); white-space: nowrap; }
+.story-ch .card-title small { font-family: var(--font-body); font-size: 13px; color: var(--ink-soft); margin-left: 6px; }
+.story-eps { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.story-eps button { width: 100%; display: flex; align-items: center; gap: 12px; padding: 10px 14px; border: 3px solid var(--ink); border-radius: 14px; background: var(--paper); font: inherit; color: inherit; cursor: pointer; text-align: left; box-shadow: 0 3px 0 var(--ink); }
+.story-eps button:hover:not(:disabled) { transform: translateY(-2px); }
+.story-eps b { font-family: var(--font-title); font-weight: normal; color: var(--pink-d); white-space: nowrap; }
+.story-eps span { flex: 1; }
+.story-eps em { font-style: normal; font-size: 12px; font-weight: 700; color: #fff; background: var(--pink-d); border-radius: 99px; padding: 2px 9px; white-space: nowrap; }
+.story-eps li.seen em { background: #6cc56f; }
+.story-eps li.lock button { opacity: .6; cursor: default; box-shadow: none; }
+.story-eps li.lock em { background: #9aa0ac; }
+
+/* ───── 📖 스토리 재생기 (게임 대화 장면) ───── */
+#story { position: fixed; inset: 0; z-index: 1600; background: #000; overflow: hidden; user-select: none; cursor: pointer; }
+body.story-open { overflow: hidden; }
+.sp-bg { position: absolute; inset: -2%; background: center/cover no-repeat; transition: opacity .8s; }
+.sp-bg.next { opacity: 0; }
+.sp-stage { position: absolute; inset: 0; pointer-events: none; }
+.sp-actor { position: absolute; bottom: -16vh; width: min(88vh, 46vw); aspect-ratio: 4 / 5; translate: -50% 0; transition: left .5s ease, filter .3s, opacity .45s, transform .45s; opacity: 0; transform: translateY(30px); }
+.sp-actor.in { opacity: 1; transform: none; }
+.sp-actor.out { opacity: 0; transform: translateY(30px); }
+.sp-actor.dim { filter: brightness(.62) saturate(.85); }
+.sp-actor.talk { animation: spTalk .35s ease-out; }
+@keyframes spTalk { 40% { transform: translateY(-8px); } }
+.sp-actor .ttl-live, .sp-actor .live-host { position: absolute; inset: -30% -40% 0 -40%; }
+.sp-img { position: absolute; left: 50%; bottom: 18%; translate: -50% 0; height: 70%; object-fit: contain; border-radius: 20px; }
+.sp-sticker { position: absolute; left: 62%; top: 4%; font-size: 52px; opacity: 0; z-index: 2; filter: drop-shadow(0 3px 0 rgba(0,0,0,.35)); }
+.sp-sticker.on { animation: spSticker 1.6s cubic-bezier(.3,1.6,.6,1) forwards; }
+@keyframes spSticker { 0% { opacity: 0; transform: scale(.3) rotate(-20deg); } 20% { opacity: 1; transform: scale(1.15); } 30% { transform: scale(1); } 85% { opacity: 1; } 100% { opacity: 0; transform: translateY(-14px); } }
+.sp-loc { position: absolute; top: 4vh; left: 0; padding: 8px 26px 8px 22px; background: rgba(30,22,40,.75); color: #fff; font-family: var(--font-title); font-size: 20px; border-radius: 0 99px 99px 0; transform: translateX(-110%); }
+.sp-loc.on { animation: spLoc 3.2s ease forwards; }
+@keyframes spLoc { 12%, 82% { transform: none; } 100% { transform: translateX(-110%); } }
+.sp-titlecard { position: absolute; inset: 0; z-index: 5; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; background: rgba(10,6,16,.72); color: #fff; animation: modalin .6s ease-out; }
+.sp-titlecard small { font-family: var(--font-title); font-size: clamp(20px, 2.6vw, 30px); color: #ffd34e; letter-spacing: 3px; }
+.sp-titlecard b { font-family: var(--font-title); font-weight: normal; font-size: clamp(36px, 6vw, 72px); text-shadow: 0 5px 0 rgba(0,0,0,.4); }
+/* 대사창: 아래쪽 반투명 네이비, 이름표는 왼쪽 위 (사도 성격 색) */
+.sp-box { position: absolute; left: 50%; bottom: 3.5vh; translate: -50% 0; width: min(1100px, 92vw); min-height: 132px; z-index: 4; padding: 30px 36px 22px;
+  background: linear-gradient(180deg, rgba(34,28,52,.9), rgba(24,19,38,.94)); border: 3px solid rgba(255,255,255,.85); border-radius: 22px; color: #fff; box-shadow: 0 8px 24px rgba(0,0,0,.4); }
+.sp-box.shout { border: 4px solid #ffcf5a; box-shadow: 0 0 0 4px rgba(255,120,80,.6), 0 8px 24px rgba(0,0,0,.4); }
+.sp-box.shout .sp-text { font-size: clamp(20px, 2.3vw, 27px); font-weight: 800; }
+.sp-box.think { background: linear-gradient(180deg, rgba(70,60,110,.82), rgba(50,42,86,.88)); border-style: dashed; }
+.sp-box.think .sp-text { font-style: italic; color: #e7e0ff; }
+.sp-box.narr { text-align: center; } .sp-box.narr .sp-text { color: #eee6d2; }
+.sp-name { position: absolute; top: -20px; left: 28px; padding: 5px 22px; border: 3px solid #fff; border-radius: 12px; font-family: var(--font-title); font-size: 20px; color: #fff; text-shadow: 0 2px 0 rgba(0,0,0,.3); transform: skewX(-8deg); box-shadow: 0 4px 0 rgba(0,0,0,.25); }
+.sp-text { font-size: clamp(17px, 1.9vw, 22px); line-height: 1.6; white-space: pre-wrap; min-height: 3.2em; }
+.sp-next { position: absolute; right: 22px; bottom: 12px; font-size: 16px; color: #ffd34e; opacity: 0; }
+.sp-next.on { opacity: 1; animation: spNext .8s ease-in-out infinite; }
+@keyframes spNext { 50% { transform: translateY(5px); } }
+.sp-ctrl { position: absolute; top: 2vh; right: 2vw; z-index: 6; display: flex; gap: 6px; }
+.sp-btn { border: 2px solid rgba(255,255,255,.8); background: rgba(20,14,30,.6); color: #fff; font-weight: 800; font-size: 13px; border-radius: 99px; padding: 6px 14px; cursor: pointer; }
+.sp-btn.on { background: #ffd34e; color: var(--ink); }
+.sp-choice { position: absolute; inset: 0; z-index: 5; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; background: rgba(10,6,16,.35); }
+.sp-choice button { min-width: min(520px, 80vw); padding: 14px 24px; border: 3px solid #fff; border-radius: 16px; background: rgba(40,32,64,.9); color: #fff; font: inherit; font-size: 19px; font-weight: 700; cursor: pointer; }
+.sp-choice button:hover { background: #ff7fa8; }
+.sp-log { position: absolute; inset: 6vh 8vw; z-index: 7; background: rgba(20,14,30,.94); border: 3px solid #fff; border-radius: 20px; padding: 20px; display: flex; flex-direction: column; gap: 10px; cursor: default; }
+.sp-log-in { flex: 1; overflow-y: auto; color: #fff; } .sp-log-in p { margin: 0 0 10px; } .sp-log-in b { display: block; color: #ffd34e; font-size: 13px; }
+.sp-log .btn { align-self: center; }
+#story.shake { animation: psRumble .1s linear 5; }
+#story.flash-w::after { content: ""; position: absolute; inset: 0; background: #fff; z-index: 8; pointer-events: none; animation: psFlash .6s ease-out forwards; }
+.sp-end { position: absolute; inset: 0; z-index: 9; display: flex; align-items: center; justify-content: center; background: rgba(10,6,16,.6); cursor: default; }
+.sp-end-card { width: min(460px, 90vw); background: var(--cream); border: 4px solid var(--ink); border-radius: 24px; padding: 22px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 10px; animation: modalin .4s; }
+.sp-end-card h3 { margin: 0; font-family: var(--font-title); font-weight: normal; font-size: 26px; }
+.sp-tip { display: flex; gap: 10px; align-items: center; text-align: left; background: #fff; border: 3px solid var(--ink); border-radius: 16px; padding: 10px; }
+.sp-tip img { width: 64px; height: 64px; object-fit: cover; object-position: 50% 15%; border-radius: 50%; border: 3px solid var(--ink); flex: none; }
+.sp-tip p { margin: 0; } .sp-tip b { display: block; font-size: 13px; color: var(--pink-d); }
+.sp-quiz { width: 100%; background: #fff7d6; border: 3px dashed var(--ink); border-radius: 16px; padding: 10px; } .sp-quiz p { margin: 6px 0; font-weight: 700; } .sp-ans { color: #2f8f3c; }
+@media (max-aspect-ratio: 1/1) { .sp-actor { width: 80vw; bottom: 12vh; } .sp-box { padding: 26px 18px 18px; } }

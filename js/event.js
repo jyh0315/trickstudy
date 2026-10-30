@@ -18,7 +18,8 @@ const EVENTS = [
     focusBonus: 1.5,     // 기간 중 집중 보상(엘리프·EXP·보스 데미지) 배율
     charmPerMin: 5,      // 집중 n분마다 부적 1
     cast: ["yomi", "erpin", "butter"],
-    raid: { id: "ifrit", name: "기말고사 마왕", title: "시험지를 태우는 불꽃" },
+    // 시험 범위 원정: 범위 한 칸 = 징검다리 한 칸. 다 체크하면 원정대가 시험장에 도착
+    trek: { name: "시험 범위 원정대", title: "범위를 하나씩 밟고 시험장까지!" },
     // 🔥 단체 레이드: 모두의 공부가 데미지가 되어 하나의 보스를 함께 쓰러뜨림 (Firebase /raid/<이벤트>/<uid>)
     group: {
       boss: "ner-rage", name: "기말고사 대마왕", title: "모두의 시험지를 노리는 자",
@@ -40,7 +41,7 @@ const EVENTS = [
       { id: "rangeset", title: "시험 범위 10칸 이상 적어두기",     goal: 10,  charm: 15, prog: (st) => st.ranges.length },
       { id: "focus1200", title: "이벤트 기간 집중 1200분",          goal: 1200, charm: 80, prog: (st, ev) => ev.focusTotal },
       { id: "raid10k",   title: "단체 레이드 누적 데미지 10,000",   goal: 10000, charm: 60, prog: (st, ev) => Math.floor(ev.raidDmg || 0) },
-      { id: "rangeall",  title: "시험 전에 기말고사 마왕 쓰러뜨리기 (범위 100%)", goal: 1, charm: 80, prog: (st, ev) => (ev.raidBeat ? 1 : 0) },
+      { id: "rangeall",  title: "시험 전에 범위 원정 완주하기 (범위 100%)", goal: 1, charm: 80, prog: (st, ev) => (ev.raidBeat ? 1 : 0) },
     ],
     stamps: [   // 이벤트 기간에 접속한 날마다 1개 (연속 아니어도 됨)
       { label: "1회", reward: { elif: 300 },           text: "엘리프 300" },
@@ -66,7 +67,7 @@ const EVENTS = [
     lines: {
       idle:  ["기말고사 대작전 진행 중! 오늘 미션 확인했어요?", "다 같이 기말고사 대마왕 잡으러 가요!", "시험 범위, 오늘은 어디까지 지울 거예요?"],
       cheer: ["이번 기말은 우리가 정복한다!", "합격 부적 모으는 중~ 집중 집중!", "시험장에서 웃는 건 교주님이에요!"],
-      done:  ["기말고사 마왕이 떨고 있어요!", "이 기세면 전교 1등도 꿈이 아니에요!"],
+      done:  ["원정대가 시험장에 한 걸음 더 가까워졌어요!", "이 기세면 전교 1등도 꿈이 아니에요!"],
     },
     examLines: { // 시험 기간(12/1~12/4) 응원 대사
       idle:  ["오늘 시험 잘 봐요, 교주님! 준비한 만큼 다 나올 거예요!", "시험 끝난 과목은 잊고, 다음 과목에 집중!", "긴장되면 심호흡! 후~ 하~"],
@@ -292,30 +293,41 @@ function paneStamp() {
     <p class="hint">이벤트 기간(${fmtDate(EV.start)} ~ ${fmtDate(EV.end)})에 접속한 날마다 도장이 하나씩 찍혀요. 연속이 아니어도 괜찮아요. 7개 다 모으면 한정 칭호 「기말 개근러」!</p></div>`;
 }
 
-/* ───── 시험 준비: 시험 시간표 + 범위 + 기말고사 마왕 ───── */
+/* ───── 시험 준비: 시험 시간표 + 범위 + 범위 원정 지도 ───── */
+/* 범위 원정 지도: 범위 한 칸 = 징검다리 한 칸. 체크한 만큼 원정대(이벤트 사도들)가 앞으로 걸어감 */
+function trekHTML(ri, beat) {
+  const T = EV.trek, all = study().ranges;
+  const party = `<span class="trek-party">${EV.cast.map((id) => `<img src="${TS.chibiSrc(TS.SADO_MAP[id])}" alt="">`).join("")}</span>`;
+  const done = all.filter((x) => x.done), left = all.filter((x) => !x.done);
+  // 지나온 칸 → 원정대 → 남은 칸 → 시험장
+  const stone = (x, cls) => `<li class="trek-stone ${cls}" title="${esc(x.subject)} · ${esc(x.text)}"><i>${cls === "done" ? "✔" : ""}</i><small>${esc(x.subject)}</small></li>`;
+  const road = all.length
+    ? `<li class="trek-start">🚩<small>출발</small></li>${done.map((x) => stone(x, "done")).join("")}<li class="trek-here">${party}</li>${left.map((x) => stone(x, "")).join("")}<li class="trek-goal ${beat ? "on" : ""}">🏫<small>시험장</small></li>`
+    : `<li class="trek-empty">아래 체크리스트에 시험 범위를 적으면 길이 생겨요!</li>`;
+  const say = beat ? "🏁 원정 완주! 시험장 도착했어요. 이제 실력 발휘만 남았어요!"
+    : !all.length ? "“범위를 적어줘요! 어디로 걸어가야 할지 모르겠어요~”"
+    : left.length <= 2 ? `“시험장이 눈앞이에요! ${left.length}칸만 더!”` : `“아직 ${left.length}칸 남았어요. 오늘은 어디까지 갈까요?”`;
+  return `<div class="card trek ${beat ? "beat" : ""}">
+      <div class="trek-head"><span class="tag" style="background:var(--green, #5fbf6a);color:#fff">범위 원정</span>
+        <h3>${esc(T.name)} <small>${esc(T.title)}</small></h3>
+        <b class="trek-pct">${ri.pct}%</b></div>
+      <p class="trek-say">${say}</p>
+      <ol class="trek-road">${road}</ol>
+      <p class="hint" style="margin-top:6px">시험 범위 한 칸을 체크할 때마다 원정대가 한 칸 전진해요. 범위를 전부 체크하면 시험장 도착!</p>
+    </div>`;
+}
 let rangeSubj = "";
 function raidInfo() {
   const r = study().ranges, done = r.filter((x) => x.done).length;
   return { total: r.length, done, pct: r.length ? Math.round((done / r.length) * 100) : 0 };
 }
 function paneExam() {
-  const st = study(), ri = raidInfo(), c = TS.SADO_MAP[EV.raid.id], beat = ev().raidBeat;
+  const st = study(), ri = raidInfo(), beat = ev().raidBeat;
   const exams = st.exams.slice().sort((a, b) => (a.date + a.period).localeCompare(b.date + b.period));
   if (!rangeSubj) rangeSubj = (exams[0] && exams[0].subject) || subjects()[0];
   const bySubj = (x) => st.ranges.filter((r) => r.subject === x);
   P().innerHTML = `
-    <div class="card raid ${beat ? "beat" : ""}">
-      <div class="raid-top">
-        <img class="raid-img ${beat ? "dead" : ""}" src="${TS.chibiSrc(c)}" alt="">
-        <div class="raid-info">
-          <span class="tag" style="background:var(--red);color:#fff">이벤트 보스</span>
-          <h3>${esc(EV.raid.name)} <small>${esc(EV.raid.title)}</small></h3>
-          <p>${beat ? "🏆 시험 범위를 전부 정복했어요! 마왕 격파!" : ri.total ? `“크하하! 아직 범위가 ${ri.total - ri.done}칸이나 남았다!”` : "“시험 범위를 적어봐라… 그게 내 HP다!”"}</p>
-          <div class="boss-hp"><span class="bar hp"><i style="width:${ri.total ? 100 - ri.pct : 100}%"></i></span><b>HP ${ri.total - ri.done} / ${ri.total}</b></div>
-          <p class="hint" style="margin-top:6px">시험 범위 한 칸을 체크할 때마다 마왕 HP -1. 범위를 전부 체크하면 격파!</p>
-        </div>
-      </div>
-    </div>
+    ${trekHTML(ri, beat)}
     <div class="card">
       <h3 class="card-title">🗓️ 기말 시험 시간표 <span class="hint" style="margin:0 0 0 auto">등록하면 D-day에도 떠요</span></h3>
       <form class="tt-row ev-form" id="ex-form" autocomplete="off">
@@ -348,6 +360,10 @@ function paneExam() {
         <button class="todo-check" data-rgck="${r.id}">${r.done ? "✔" : ""}</button><span>${esc(r.text)}</span>
         <button class="icon-btn" data-rgdel="${r.id}" title="삭제">✕</button></li>`).join("") || `<li class="empty">${esc(rangeSubj)} 시험 범위를 적어보세요.</li>`}</ul>
     </div>`;
+  { // 원정대가 보이게 길을 스크롤
+    const road = P().querySelector(".trek-road"), here = P().querySelector(".trek-here");
+    if (road && here) road.scrollLeft = here.offsetLeft - road.clientWidth / 2;
+  }
   $("ex-form").onsubmit = (e) => {
     e.preventDefault();
     const subject = $("ex-subj").value, date = $("ex-date").value, period = $("ex-period").value;
@@ -390,8 +406,8 @@ function paneExam() {
     if (r.done && ri2.total >= 5 && ri2.done === ri2.total && !ev().raidBeat) {
       ev().raidBeat = true;
       TS.sfx("r3"); TS.confetti(120);
-      TS.modal(`<h2>🏯 기말고사 마왕 격파!</h2><img class="modal-emote boss-dead" src="${TS.chibiSrc(TS.SADO_MAP[EV.raid.id])}" alt="">
-        <p>시험 범위 ${ri2.total}칸을 전부 정복했어요!<br>이제 시험장에서 실력을 보여줄 차례예요.</p>
+      TS.modal(`<h2>🏁 범위 원정 완주!</h2><div class="trek-party big">${EV.cast.map((id) => `<img src="${TS.chibiSrc(TS.SADO_MAP[id])}" alt="">`).join("")}</div>
+        <p>시험 범위 ${ri2.total}칸을 전부 밟고 시험장에 도착했어요!<br>이제 시험장에서 실력을 보여줄 차례예요.</p>
         <div class="reward-row"><span class="reward-chip">🏯 한정 뱃지 「범위 정복」</span><span class="reward-chip">🎯 기간 미션 달성</span></div>
         <div class="modal-actions"><button class="btn yellow" data-close>정복 완료!</button></div>`);
     }
