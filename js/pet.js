@@ -16,17 +16,17 @@ const PET_NAMES = [
   "리피트", "치즈냥", "꼬끄", "사토",
 ];
 const PET_GRADES = {
-  L: { label: "전설", color: "#b06cf0", rate: 0.04, candy: 20 },
-  E: { label: "희귀", color: "#4a8cf0", rate: 0.36, candy: 5 },
-  A: { label: "고급", color: "#7cc23a", rate: 0.30, candy: 2 },
-  C: { label: "일반", color: "#9aa0ac", rate: 0.30, candy: 1 },
+  L: { label: "전설", color: "#b06cf0", rate: 0.12, candy: 20 },
+  E: { label: "희귀", color: "#4a8cf0", rate: 0.38, candy: 5 },
+  A: { label: "고급", color: "#7cc23a", rate: 0.25, candy: 2 },
+  C: { label: "일반", color: "#9aa0ac", rate: 0.25, candy: 1 },
 };
 const PETS = PET_NAMES.map((name, i) => ({
   id: "p" + String(i).padStart(2, "0"), name, img: `assets/pets/${String(i).padStart(2, "0")}.webp`,
   grade: i < 28 ? "L" : i < 75 ? "E" : i < 77 ? "A" : "C",
 }));
 const PET_MAP = Object.fromEntries(PETS.map((p) => [p.id, p]));
-const PET_COST = 80, PET_COST10 = 720, PET_PITY = 40;
+const PET_COST = 80, PET_COST10 = 720, PET_PITY = 20;
 
 (() => {
 "use strict";
