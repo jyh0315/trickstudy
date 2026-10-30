@@ -188,8 +188,8 @@ function run(L) {
     if (L.st === "shout") { box.style.animation = "none"; void box.offsetWidth; box.style.animation = ""; }
     if (L.s) {
       P.root.querySelector(".sp-name span").textContent = who;
-      const c = TS.SADO_MAP[L.s];
-      P.root.querySelector(".sp-pf-in").innerHTML = c ? `<img src="${TS.chibiSrc(c)}" alt="">` : `<b>${me ? "📖" : esc(who.slice(0, 1))}</b>`;
+      const pic = picOf(L.s);
+      P.root.querySelector(".sp-pf-in").innerHTML = pic ? `<img src="${pic}" alt="">` : `<b>${me ? "📖" : esc(who.slice(0, 1))}</b>`;
     }
     // 말하는 사도는 밝게, 나머지는 살짝 어둡게
     for (const [id, a] of Object.entries(P.actors)) a.el.classList.toggle("dim", !!L.s && !me && id !== L.s);
@@ -207,7 +207,10 @@ function run(L) {
   if (!speak) advance(); // 대사가 없는 줄은 바로 다음
 }
 const fmtT = (t) => String(t || "").replace(/\{me\}/g, S().name || "교주").replace(/\{partner\}/g, (TS.SADO_MAP[S().partner] || {}).name || "");
-const nameOf = (id) => (id === "me" ? S().name || "교주" : (TS.SADO_MAP[id] || {}).name || id);
+// 사도 목록에 없는 등장인물(영춘 등)은 story-data.js 의 STORY_NPC 에서 이름·그림을 가져옴
+const npc = (id) => (typeof STORY_NPC !== "undefined" && STORY_NPC[id]) || null;
+const nameOf = (id) => (id === "me" ? S().name || "교주" : (TS.SADO_MAP[id] || npc(id) || {}).name || id);
+const picOf = (id) => (TS.SADO_MAP[id] ? TS.chibiSrc(TS.SADO_MAP[id]) : npc(id) ? npc(id).img : "");
 const colorOf = (id) => (id === "me" ? "#ff7fa8" : (PERS[(TS.SADO_MAP[id] || {}).pers] || {}).color || "#7d8aa0");
 
 // *강조* → 초록 글씨. 글자마다 <span>을 미리 깔아 두고 하나씩 보이게 해서 줄바꿈·위치가 흔들리지 않음
@@ -247,16 +250,16 @@ function setBg(src, instant) {
 }
 function enter(id, at, f) {
   if (P.actors[id]) { P.actors[id].el.style.left = SLOTS[at] || at; return; }
-  const c = TS.SADO_MAP[id];
-  if (!c) return;
+  const c = TS.SADO_MAP[id], N = npc(id);
+  if (!c && !N) return;
   const el = document.createElement("div");
   el.className = "sp-actor";
   el.style.left = SLOTS[at] || at;
   el.innerHTML = `<div class="sp-sticker"></div>`;
   P.root.querySelector(".sp-stage").appendChild(el);
   const a = { id, el, live: null };
-  const fallback = () => { if (!el.querySelector(".sp-img")) el.insertAdjacentHTML("beforeend", `<img class="sp-img" src="${TS.chibiSrc(c)}" alt="">`); };
-  a.live = window.Live ? window.Live.mount(el, id, { frame: "story", onReady: (ctrl) => { a.ctrl = ctrl; if (f) a.live.play(f); }, onFail: fallback }) : null;
+  const fallback = () => { if (!el.querySelector(".sp-img")) el.insertAdjacentHTML("beforeend", `<img class="sp-img" src="${picOf(id)}" alt="">`); };
+  a.live = c && window.Live ? window.Live.mount(el, id, { frame: "story", onReady: (ctrl) => { a.ctrl = ctrl; if (f) a.live.play(f); }, onFail: fallback }) : null;
   if (!a.live) fallback();
   P.actors[id] = a;
   requestAnimationFrame(() => el.classList.add("in"));
