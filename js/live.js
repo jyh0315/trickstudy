@@ -99,7 +99,10 @@ function frameView(p, mode, host) {
     const bottom = Math.min(BB, ok ? off.y - 15 : BB);
     const top = Math.max(BT, h.y + 330, ok ? off.y + size.y + 30 : 0);
     v = { x: -half, y: bottom, width: half * 2, height: top - bottom };
-    if (host) {
+    if (mode === "fit") { // 스킨 미리보기: 칸 밖으로 못 나가니 날개·무기까지 다 들어가게 여백을 두고 축소
+      const m = 70;
+      v = { x: -half - m, y: bottom - 10, width: (half + m) * 2, height: top - bottom + m };
+    } else if (host) {
       const w = (half / BH) * 100, hh = ((top - bottom) / (BT - BB)) * 100;
       Object.assign(host.style, { inset: "auto", left: `${50 - w / 2}%`, width: `${w}%`, bottom: `${((bottom - BB) / (BT - BB)) * 100}%`, height: `${hh}%` });
     }
@@ -313,7 +316,7 @@ function skinModal(id, i) {
     ${own ? "" : `<p class="hint">호감도 Lv${skinAffLv(i)}이 되면 무료로 해금돼요 (지금 Lv${affLv(id)}) · 별사탕 ${S().candy}개</p>`}`,
     (el, close) => {
       const prev = mount(el.querySelector("#skin-prev"), id, {
-        skin: i,
+        skin: i, frame: "fit",
         onReady: () => { const l = el.querySelector(".skin-loading"); if (l) l.remove(); },
         onFail: () => { const l = el.querySelector(".skin-loading"); if (l) l.textContent = "애니메이션을 불러올 수 없어요 😢"; },
       });
