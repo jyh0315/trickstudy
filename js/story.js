@@ -28,7 +28,9 @@ function st() { const s = S(); if (!s.story) s.story = { base: s.stats.totalMin,
 const allEps = () => STORY.flatMap((ch) => ch.eps.map((ep) => ({ ...ep, ch })));
 // 열린 화 수: 첫 화 + (기능을 처음 연 뒤 공부한 시간 / 60분)
 const studied = () => Math.max(0, S().stats.totalMin - st().base);
-const unlockedN = () => 1 + Math.floor(studied() / STORY_MIN_PER_EP);
+// ?preview 로 열면 시작 화면 없이 스토리 탭으로, 모든 화 열림 + 대본 보기 (구성 확인용, 보상 없음)
+const PREVIEW = new URLSearchParams(location.search).has("preview");
+const unlockedN = () => (PREVIEW ? 1e9 : 1 + Math.floor(studied() / STORY_MIN_PER_EP));
 const nextIn = () => STORY_MIN_PER_EP - (studied() % STORY_MIN_PER_EP);
 
 /* ───── 스토리 탭 ───── */
@@ -53,13 +55,38 @@ function render() {
           <button ${lock ? "disabled" : ""} data-play="${ep.id}">
             <b>${i + 1}화</b><span>${esc(ep.title)}</span>
             <em>${lock ? `🔒 공부 ${(i - open + 1) * STORY_MIN_PER_EP - (STORY_MIN_PER_EP - nextIn())}분 더` : seen.has(ep.id) ? "✔ 다시 보기" : "NEW"}</em>
-          </button></li>`;
+          </button>${PREVIEW ? `<button class="story-script" data-script="${ep.id}">📜 대본</button>` : ""}</li>`;
       }).join("")}</ol>
     </div>`).join("")}
     ${STORY.length ? "" : '<div class="card"><p class="hint">메인 스토리를 준비하고 있어요. 곧 시즌 1부터 올라와요!</p></div>'}
     <p class="hint">줄거리는 원작 메인 스토리를 바탕으로 하고, 세부 대사는 새로 쓴 팬 창작이에요.</p>`;
   el.querySelectorAll("[data-play]").forEach((b) => (b.onclick = () => play(b.dataset.play)));
+  el.querySelectorAll("[data-script]").forEach((b) => (b.onclick = () => showScript(b.dataset.script)));
+  if (PREVIEW) el.insertAdjacentHTML("afterbegin", '<div class="card story-preview-note">🔍 <b>미리보기 모드</b> — 모든 화가 열려 있고 📜 대본으로 구성을 볼 수 있어요. 여기서 본 건 기록·보상에 반영되지 않아요.</div>');
 }
+/* 대본 보기 (미리보기 모드) */
+function showScript(id) {
+  const ep = allEps().find((e) => e.id === id);
+  if (!ep) return;
+  const tag = (t) => `<span class="sc-tag">${t}</span>`;
+  const rows = ep.lines.map((L) => {
+    const meta = [];
+    if (L.bg) meta.push(tag("배경 " + L.bg.split("/").pop()));
+    if (L.loc) meta.push(tag("📍 " + esc(L.loc)));
+    if (L.title) meta.push(tag("제목 " + esc(L.title + " · " + (L.sub || ""))));
+    if (L.in) meta.push(tag(`등장 ${esc(nameOf(L.in))} (${L.at || "C"})`));
+    if (L.out) meta.push(tag(`퇴장 ${esc(nameOf(L.out))}`));
+    if (L.shake) meta.push(tag("흔들림")); if (L.flash) meta.push(tag("번쩍"));
+    let body = "";
+    if (L.s) body = `<b>${esc(nameOf(L.s))}</b>${L.f ? `<i>${esc(L.f)}</i>` : ""}${L.e ? `<i>${esc(L.e)}</i>` : ""}${L.st ? `<i>${L.st === "shout" ? "외침" : "속마음"}</i>` : ""} ${esc(fmtT(L.t).replace(/\*/g, ""))}`;
+    else if (L.n) body = `<em>${esc(fmtT(L.n))}</em>`;
+    else if (L.choice) body = `<b>선택지</b> ${L.choice.map((c, k) => `${k + 1}) ${esc(c)}`).join(" / ")}`;
+    return `<li>${meta.join("")}${body ? `<p>${body}</p>` : ""}</li>`;
+  }).join("");
+  TS.modal(`<h2>📜 ${esc(ep.title)}</h2><ol class="story-sc">${rows}</ol>
+    <div class="modal-actions"><button class="btn yellow" data-close>닫기</button></div>`);
+}
+if (PREVIEW && window.TitleScreen) window.TitleScreen.show = (done) => { done(); setTimeout(() => TS.go("story"), 0); };
 TS.views.story = render;
 
 /* ───── 재생기 ───── */
@@ -76,6 +103,7 @@ function play(epId) {
   root.innerHTML = `<div class="sp-zone">
     <div class="sp-bg"></div><div class="sp-bg next"></div>
     <div class="sp-stage"></div>
+    <div class="sp-fade"></div>
     <div class="sp-loc hidden"></div>
     <div class="sp-titlecard hidden"><small></small><b></b></div>
     <div class="sp-choice hidden"></div>
@@ -170,9 +198,22 @@ function advance() {
   run(L);
 }
 function run(L) {
+  // 장면 전환: 화면이 천천히 어두워졌다가 새 배경으로 밝아짐 (첫 배경은 바로)
+  if (L.bg && P.hadBg) {
+    const fade = P.root.querySelector(".sp-fade");
+    P.wait = true;
+    fade.classList.add("on");
+    setTimeout(() => {
+      if (!P) return;
+      setBg(L.bg, true);
+      fade.classList.remove("on");
+      setTimeout(() => { if (!P) return; P.wait = false; run({ ...L, bg: null }); }, 700);
+    }, 750);
+    return;
+  }
   const box = P.root.querySelector(".sp-box");
   let speak = false;
-  if (L.bg) setBg(L.bg);
+  if (L.bg) { setBg(L.bg, true); P.hadBg = true; }
   if (L.in) enter(L.in, L.at || "C", L.f);
   if (L.out) leave(L.out);
   if (L.loc) showLoc(L.loc);
@@ -313,7 +354,7 @@ function end() {
   if (P.done) return;
   P.done = true;
   const ep = P.ep, s = st(), first = !s.seen.includes(ep.id);
-  if (first) { s.seen.push(ep.id); TS.addElif(50); }
+  if (first && !PREVIEW) { s.seen.push(ep.id); TS.addElif(50); }
   TS.save();
   const box = document.createElement("div");
   box.className = "sp-end";
