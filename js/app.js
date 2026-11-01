@@ -130,6 +130,7 @@ const VOICES = new Set("alice amelia ashur aya bana barie barong belita beni big
 const VOICE_SKINS = { velvet: [1], amelia: [1], ashur: [1], beni: [1], bigwood: [1], butter: [1], canna: [1], carren: [1], diana: [1], erpin: [1], espi: [1], festa: [1], hilde: [1], joanne: [1, 2, 3], maestromk2: [1], meluna: [1], naia: [1], ner: [1, 2], rim: [1], rudd: [1], sist: [1], ui: [1, 2], xxionx: [1, 2]};
 let voiceEl = null;
 const voiceVol = () => (typeof state.settings.voiceVol === "number" ? state.settings.voiceVol : 40);
+// 음성을 틀고, 그 대사 글자(VOICE_TEXT)가 있으면 돌려줌 (말풍선에 같은 대사를 띄우려고)
 function voice(id, kind = "pull") {
   if (!VOICES.has(id) || !state.settings.sound) return false;
   const sk = window.Live ? window.Live.curSkin(id) : 0;
@@ -137,7 +138,7 @@ function voice(id, kind = "pull") {
   if (voiceEl) voiceEl.pause();
   voiceEl = new Audio(`assets/voice/${file}-${kind}.mp3`); voiceEl.volume = voiceVol() / 100;
   voiceEl.play().catch(() => {});
-  return true;
+  return { text: (typeof VOICE_TEXT !== "undefined" && VOICE_TEXT[`${file}-${kind}`]) || "" };
 }
 function sfx(kind) {
   if (!state.settings.sound) return;
@@ -359,8 +360,9 @@ function poke() {
   const fx = $("poke-fx");
   fx.textContent = rand(["콕!", "말랑", "뿅!", "쿡!", "볼따구!"]);
   fx.classList.remove("show"); void fx.offsetWidth; fx.classList.add("show");
-  if (!voice(state.partner, "pull")) sfx("poke");
-  sayKind("poke");
+  const v = voice(state.partner, "pull");
+  if (!v) sfx("poke");
+  if (v && v.text) say(v.text); else sayKind("poke");
   state.stats.pokes++; state.daily.poke++;
   emit("poke", state.partner);
   save(); refresh();

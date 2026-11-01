@@ -347,6 +347,36 @@ function mountStage(force) {
   stage = mount(box, id, { frame: "face", onReady: (c) => { if (stage === c || !stage) stagePull = cheekPull(c); }, onFail: () => { stage = null; failedIds.add(key); } });
 }
 function react(kind) { if (stage) return stage.play(kind); return false; }
+/* 누르고 있는 동안 계속되는 반응 (쓰다듬기·간지럽히기): 손을 뗄 때까지 반복, 떼면 끝 동작
+   너무 짧게 문질러도 최소 HOLD_MIN 초는 보여 줌 */
+const HOLD = { pat: ["Pat_Idle", "Pat_End"], tickle: ["Tickle_Idle_1", "Tickle_End", "Tickle_Idle_2"] };
+const HOLD_MIN = 2.6;
+let holding = null;
+function holdStart(kind) {
+  if (!stage || !stage.ready) return false;
+  const [loop, end, alt] = HOLD[kind], have = (n) => stage.anims.includes(n);
+  if (!have(loop)) return react(kind);
+  const st = stage.player.animationState;
+  st.setAnimation(0, loop, true);
+  if (alt && have(alt)) { st.addAnimation(0, alt, false, 0); st.addAnimation(0, loop, true, 0); }
+  stage.busyUntil = Infinity;
+  holding = { kind, t: Date.now(), end: have(end) ? end : null };
+  return true;
+}
+function holdEnd() {
+  if (!holding || !stage) { holding = null; return; }
+  const h = holding; holding = null;
+  const finish = () => {
+    if (!stage) return;
+    const st = stage.player.animationState;
+    let dur = 0;
+    if (h.end) { st.setAnimation(0, h.end, false); dur = stage.player.skeleton.data.findAnimation(h.end).duration; }
+    st.addAnimation(0, rand(stage.idles.length ? stage.idles : [stage.anims[0]]), true, 0);
+    stage.busyUntil = Date.now() + dur * 1000;
+  };
+  const wait = HOLD_MIN * 1000 - (Date.now() - h.t);
+  if (wait > 0) setTimeout(finish, wait); else finish();
+}
 
 /* 클릭 · 길게 누르기 · 문지르기 */
 let down = null, gesture = "", pokes = [];
@@ -361,17 +391,20 @@ partner.addEventListener("pointerdown", (e) => {
     gesture = "pull";
     stagePull.grab(e.clientX, e.clientY);
     partner.classList.add("pulling");
-    if (!TS.voice(S().partner, "pull")) TS.sfx("poke");
-    TS.sayKind("poke");
+    const v = TS.voice(S().partner, "pull");
+    if (!v) TS.sfx("poke");
+    if (v && v.text) TS.say(v.text, false); else TS.sayKind("poke");
     TS.emit("poke", S().partner);
     return;
   }
   down = { x: e.clientX, y: e.clientY, moved: 0, t: Date.now() };
+  // 문지르다 손가락이 사도 밖으로 살짝 나가도 간지럼이 끊기지 않게
+  try { partner.setPointerCapture(e.pointerId); } catch (_) {}
   down.timer = setTimeout(() => {
     if (!down || down.moved > 20) return;
     gesture = "pat";
-    TS.voice(S().partner, "pat");
-    react("pat"); hearts(); TS.say(TS.fmt(rand(LIVE_LINES.pat), TS.SADO_MAP[S().partner]), false);
+    const v = TS.voice(S().partner, "pat");
+    holdStart("pat"); hearts(); TS.say(v && v.text ? v.text : TS.fmt(rand(LIVE_LINES.pat), TS.SADO_MAP[S().partner]), false);
   }, 550);
 });
 partner.addEventListener("pointermove", (e) => {
@@ -381,12 +414,13 @@ partner.addEventListener("pointermove", (e) => {
   if (!gesture && down.moved > 90) {
     gesture = "tickle";
     clearTimeout(down.timer);
-    react("tickle"); TS.say(rand(LIVE_LINES.tickle), false);
+    holdStart("tickle"); TS.say(rand(LIVE_LINES.tickle), false);
   }
 });
 const up = () => {
   if (down && down.pull) { stagePull.release(() => partner.classList.remove("pulling")); down = null; return; }
   if (down) clearTimeout(down.timer); down = null;
+  holdEnd();
 };
 // 쓰다듬기·간지럽히기 뒤에 따라오는 클릭은 '콕 찌르기'로 치지 않음
 partner.addEventListener("click", (e) => { if (gesture) { e.stopImmediatePropagation(); gesture = ""; } }, true);
