@@ -121,7 +121,7 @@ function renderTT() {
       </form>
     </div>
     <div class="card">
-      <h3 class="card-title">🗓️ 내 시간표 <span class="count">${tt.length}</span>${tt.length ? '<button class="btn white small gcal-btn" data-ics="tt">📅 구글 캘린더로</button>' : ""}</h3>
+      <h3 class="card-title">🗓️ 내 시간표 <span class="count">${tt.length}</span><button class="btn yellow small gcal-btn" data-gimport="tt">📥 구글 캘린더에서 가져오기</button>${tt.length ? '<button class="btn white small" data-ics="tt">📅 내보내기</button>' : ""}</h3>
       ${tt.length ? `<div class="tt-grid" style="--h:${(h1 - h0) * HPX}px">
         <div class="tt-times">${Array.from({ length: h1 - h0 + 1 }, (_, i) => `<span style="top:${i * HPX}px">${h0 + i}:00</span>`).join("")}</div>
         ${DAY_ORDER.map((d) => `<div class="tt-col ${d === dowNow ? "today" : ""}"><div class="tt-head">${DAYS[d]}</div><div class="tt-body">
@@ -279,14 +279,24 @@ async function gToken() {
     tc.requestAccessToken();
   });
 }
-async function fetchGoogle() {
+async function fetchGoogle(kind = "dd") {
   const token = await gToken();
   const H = { Authorization: "Bearer " + token };
   const cals = (await (await fetch("https://www.googleapis.com/calendar/v3/users/me/calendarList?minAccessRole=reader", { headers: H })).json()).items || [];
   const from = new Date(), to = new Date(Date.now() + GCAL_DAYS * 864e5), out = [];
   for (const c of cals.filter((c) => c.selected !== false)) {
-    const q = new URLSearchParams({ timeMin: from.toISOString(), timeMax: to.toISOString(), singleEvents: "true", orderBy: "startTime", maxResults: "250" });
+    // 시간표: 반복 일정 원본(RRULE)을 그대로 받음 · D-day: 반복을 하나하나 펼쳐서 받음
+    const q = new URLSearchParams(kind === "tt" ? { timeMin: from.toISOString(), singleEvents: "false", maxResults: "250" } : { timeMin: from.toISOString(), timeMax: to.toISOString(), singleEvents: "true", orderBy: "startTime", maxResults: "250" });
     const j = await (await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(c.id)}/events?${q}`, { headers: H })).json();
+    if (kind === "tt") {
+      for (const e of j.items || []) {
+        const rr = (e.recurrence || []).find((r) => r.startsWith("RRULE:"));
+        if (!rr || !e.start || !e.start.dateTime) continue;
+        const w = weeklyOf(rr.slice(6), new Date(e.start.dateTime));
+        if (w) out.push({ gid: e.id, title: e.summary || "(제목 없음)", days: w, start: hhmm(new Date(e.start.dateTime)), end: hhmm(new Date(e.end.dateTime)), cal: c.summaryOverride || c.summary || "" });
+      }
+      continue;
+    }
     for (const e of j.items || []) {
       if (!e.start) continue;
       const allDay = !!e.start.date, st = allDay ? e.start.date : e.start.dateTime;
@@ -296,8 +306,18 @@ async function fetchGoogle() {
   }
   return out;
 }
+const hhmm = (d) => `${p2(d.getHours())}:${p2(d.getMinutes())}`;
+// RRULE 이 "매주"(INTERVAL 1)이고 아직 안 끝났으면 요일 목록(0=일 … 6=토), 아니면 null
+function weeklyOf(rule, start) {
+  const R = Object.fromEntries(rule.split(";").map((kv) => kv.split("=")));
+  if (R.FREQ !== "WEEKLY" || (R.INTERVAL && R.INTERVAL !== "1")) return null;
+  if (R.UNTIL) { const u = R.UNTIL.match(/^(\d{4})(\d{2})(\d{2})/); if (u && `${u[1]}-${u[2]}-${u[3]}` < TS.today()) return null; }
+  const BY = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
+  const days = R.BYDAY ? R.BYDAY.split(",").map((d) => BY.indexOf(d.slice(-2))).filter((d) => d >= 0) : [start.getDay()];
+  return days.length ? days : null;
+}
 // .ics 파일 읽기 (VEVENT 의 SUMMARY · DTSTART 만, 반복 일정은 첫 회만)
-function parseIcs(text) {
+function parseIcs(text, kind = "dd") {
   const lines = text.replace(/\r?\n[ \t]/g, "").split(/\r?\n/), out = [];
   let ev = null;
   for (const l of lines) {
@@ -307,7 +327,10 @@ function parseIcs(text) {
       const i = l.indexOf(":"), key = l.slice(0, i), val = l.slice(i + 1);
       if (key.startsWith("SUMMARY")) ev.title = val.replace(/\\([,;\\])/g, "$1").replace(/\\n/gi, " ");
       else if (key.startsWith("UID")) ev.gid = val;
+      else if (key === "RRULE") ev.rrule = val;
+      else if (key.startsWith("DTEND")) { const d = icsDate(val); if (d) ev.endD = d; }
       else if (key.startsWith("DTSTART")) {
+        const dd = icsDate(val); if (dd) ev.startD = dd;
         const m = val.match(/^(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2})(Z?))?/);
         if (!m) continue;
         let d = new Date(+m[1], +m[2] - 1, +m[3], +(m[4] || 0), +(m[5] || 0));
@@ -316,8 +339,41 @@ function parseIcs(text) {
       }
     }
   }
+  if (kind === "tt") return out.filter((e) => e.rrule && e.time && e.startD && e.endD).map((e) => {
+    const w = weeklyOf(e.rrule, e.startD);
+    return w && { gid: e.gid || `${e.title}-${e.time}`, title: e.title || "(제목 없음)", days: w, start: hhmm(e.startD), end: hhmm(e.endD) };
+  }).filter(Boolean);
   const today = TS.today(), until = TS.dateKey(new Date(Date.now() + GCAL_DAYS * 864e5));
   return out.filter((e) => e.date >= today && e.date <= until).map((e) => ({ ...e, title: e.title || "(제목 없음)", gid: e.gid || `${e.date}-${e.title}` }));
+}
+function icsDate(val) {
+  const m = val.match(/^(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2})(Z?))?/);
+  if (!m) return null;
+  return m[7] === "Z" ? new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5])) : new Date(+m[1], +m[2] - 1, +m[3], +(m[4] || 0), +(m[5] || 0));
+}
+// 반복 일정 고르기 → 시간표로
+function pickImportTT(items, from) {
+  const have = new Set(sch().tt.map((x) => x.gid).filter(Boolean));
+  if (!items.length) return TS.toast("📅 매주 반복되는 일정이 없어요 (시간표는 '매주 반복' 일정만 가져와요)");
+  items.sort((a, b) => Math.min(...a.days.map((d) => (d + 6) % 7)) - Math.min(...b.days.map((d) => (d + 6) % 7)) || a.start.localeCompare(b.start));
+  TS.modal(`<h2>📥 ${from}에서 시간표 가져오기</h2>
+    <p class="hint">구글 캘린더의 <b>매주 반복</b> 일정을 시간표로 넣어요. 넣을 것만 골라 주세요. (이미 넣은 일정은 회색)</p>
+    <div class="gimp-tools"><button class="link" id="gi-all">전체 선택</button> · <button class="link" id="gi-none">전체 해제</button></div>
+    <ul class="gimp-list">${items.map((e, i) => `<li class="${have.has(e.gid) ? "done" : ""}"><label>
+      <input type="checkbox" data-gi="${i}" ${have.has(e.gid) ? "disabled" : "checked"}>
+      <b>${e.days.slice().sort((a, b) => ((a + 6) % 7) - ((b + 6) % 7)).map((d) => DAYS[d]).join("·")} ${e.start}~${e.end}</b><span>${esc(e.title)}</span>${e.cal ? `<small>${esc(e.cal)}</small>` : ""}</label></li>`).join("")}</ul>
+    <div class="modal-actions"><button class="btn white" data-close>취소</button><button class="btn yellow" id="gi-ok">시간표에 넣기</button></div>`,
+  (el, close) => {
+    const boxes = [...el.querySelectorAll("[data-gi]:not(:disabled)")];
+    el.querySelector("#gi-all").onclick = () => boxes.forEach((b) => (b.checked = true));
+    el.querySelector("#gi-none").onclick = () => boxes.forEach((b) => (b.checked = false));
+    el.querySelector("#gi-ok").onclick = () => {
+      const picked = boxes.filter((b) => b.checked).map((b) => items[+b.dataset.gi]);
+      picked.forEach((e, i) => sch().tt.push({ id: uid(), gid: e.gid, title: e.title.slice(0, 30), days: e.days, start: e.start, end: e.end, color: COLORS[(sch().tt.length + i) % COLORS.length] }));
+      TS.save(); close(); renderTT(); TS.refresh();
+      TS.sfx("coin"); TS.toast(picked.length ? `🗓️ 시간표 ${picked.length}개 가져왔어요!` : "고른 일정이 없어요");
+    };
+  });
 }
 // 가져온 일정 고르기 → D-day 로
 function pickImport(events, from) {
@@ -348,9 +404,10 @@ function pickImport(events, from) {
   });
   if (!fresh.length) TS.toast("새로 가져올 일정이 없어요 (전부 이미 들어와 있어요)");
 }
-function openImport() {
+function openImport(kind = "dd") {
   const id = gcfg().clientId;
-  TS.modal(`<h2>📥 구글 캘린더에서 가져오기</h2>
+  TS.modal(`<h2>📥 구글 캘린더에서 ${kind === "tt" ? "시간표" : "D-day"} 가져오기</h2>
+    ${kind === "tt" ? '<p class="hint">구글 캘린더에서 <b>매주 반복</b>으로 만든 일정(학원·수업 등)이 시간표로 들어와요.</p>' : ""}
     <div class="gimp-way">
       <h3>① 자동으로 가져오기 ${id ? '<span class="tag" style="background:#c6ecae">설정됨</span>' : '<span class="tag">처음 한 번 설정 필요</span>'}</h3>
       <p class="hint">구글 로그인 한 번으로 앞으로 ${GCAL_DAYS}일 일정을 읽어 와요 (읽기만 해요).</p>
@@ -376,20 +433,23 @@ function openImport() {
       if (!/\.apps\.googleusercontent\.com$/.test(v)) return TS.toast("클라이언트 ID는 ….apps.googleusercontent.com 으로 끝나요");
       gcfg().clientId = v; TS.save();
       const b = el.querySelector("#gi-go"); b.disabled = true; b.textContent = "불러오는 중…";
-      try { const evs = await fetchGoogle(); close(); pickImport(evs, "구글 캘린더"); }
+      try { const evs = await fetchGoogle(kind); close(); kind === "tt" ? pickImportTT(evs, "구글 캘린더") : pickImport(evs, "구글 캘린더"); }
       catch (err) { b.disabled = false; b.textContent = "가져오기"; TS.toast("가져오기 실패: " + err.message); }
     };
     el.querySelector("#gi-file").onchange = async (ev) => {
       const files = [...ev.target.files];
       if (!files.length) return;
       const texts = await Promise.all(files.map((f) => f.text()));
-      close(); pickImport(texts.flatMap(parseIcs), "캘린더 파일");
+      close();
+      if (kind === "tt") pickImportTT(texts.flatMap((t) => parseIcs(t, "tt")), "캘린더 파일");
+      else pickImport(texts.flatMap((t) => parseIcs(t)), "캘린더 파일");
     };
   });
 }
 
 document.addEventListener("click", (e) => {
-  if (e.target.closest("[data-gimport]")) return openImport();
+  const gi = e.target.closest("[data-gimport]");
+  if (gi) return openImport(gi.dataset.gimport || "dd");
   const ics = e.target.closest("[data-ics]");
   if (ics) return exportIcs(ics.dataset.ics);
   const go = e.target.closest("[data-sched]");
