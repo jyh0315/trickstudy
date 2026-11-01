@@ -82,7 +82,7 @@ function showScene(done, mainId) {
   root.innerHTML = `
     <div class="ttl-bg" style="background-image:url('assets/title-bg.webp')"></div>
     <div class="ttl-logo"><span class="l2">트릭스터디</span><span class="l1">~교주님 공부하세요!~</span></div>
-    <div class="ttl-ver">Ver 8.3 · 교주 전용</div>
+    <div class="ttl-ver">Ver 8.4 · 교주 전용</div>
     <div class="ttl-copy">♥ Trickcal fan-made study</div>
     <div class="ttl-cast">${cast.map((id, i) => `<div class="ttl-actor a${i}" data-id="${id}"></div>`).join("")}</div>
     <div class="ttl-sweep"></div>
@@ -189,7 +189,7 @@ function show(done) {
   root.innerHTML = `
     <div class="ttl-bg" style="background-image:url('assets/bg/${s.bg || "trickcal"}.jpg')"></div>
     <div class="ttl-logo"><span class="l2">트릭스터디</span><span class="l1">~교주님 공부하세요!~</span></div>
-    <div class="ttl-ver">Ver 8.3 · 교주 전용</div>
+    <div class="ttl-ver">Ver 8.4 · 교주 전용</div>
     <div class="ttl-copy">♥ Trickcal fan-made study</div>
     <div class="ttl-face" id="ttl-face">
       <img id="ttl-img" src="${src}" alt="" draggable="false">
@@ -375,11 +375,21 @@ function renderTT(el) {
     if (later) el.innerHTML = `<div class="ttl-tt-head">🗓️ 오늘 시간표 없음</div><div class="ttl-tt-next">다음: <b>${Sc.DAYS[later.dow]}요일 ${TS.esc(later.item.title)}</b> ${later.item.start}</div>`;
     return;
   }
-  el.innerHTML = `<div class="ttl-tt-head">🗓️ 오늘의 시간표</div><ol>${items.map((x) => {
-    const s0 = Sc.toMin(x.start), e0 = Sc.toMin(x.end), st = n >= e0 ? "done" : n >= s0 ? "now" : "";
-    const sub = st === "now" ? `${Sc.dur(e0 - n)} 남음` : st ? "끝" : `${Sc.dur(s0 - n)} 후`;
-    return `<li class="${st}" style="--c:${x.color}"><b>${TS.esc(x.title)}</b><span>${x.start}~${x.end}</span><em>${sub}</em>${st === "now" ? `<i style="width:${((n - s0) / (e0 - s0)) * 100}%"></i>` : ""}</li>`;
-  }).join("")}</ol>`;
+  // 하루를 가로 한 줄 타임라인으로: 길이는 시간에 비례, 지금 위치에 빨간 선
+  const t0 = Math.min(...items.map((x) => Sc.toMin(x.start))), t1 = Math.max(...items.map((x) => Sc.toMin(x.end)));
+  const span = Math.max(1, t1 - t0), pos = (m) => ((m - t0) / span) * 100;
+  const cur = items.find((x) => n >= Sc.toMin(x.start) && n < Sc.toMin(x.end));
+  const nxt = items.find((x) => Sc.toMin(x.start) > n);
+  el.innerHTML = `<div class="ttl-tt-head">🗓️ 오늘의 시간표
+      <span>${cur ? `지금 <b>${TS.esc(cur.title)}</b> · ${Sc.dur(Sc.toMin(cur.end) - n)} 남음` : ""}${nxt ? `${cur ? " · " : ""}다음 <b>${TS.esc(nxt.title)}</b> ${nxt.start}` : ""}${!cur && !nxt ? "오늘 일정 끝! 🎉" : ""}</span></div>
+    <div class="ttl-tl">${items.map((x) => {
+      const s0 = Sc.toMin(x.start), e0 = Sc.toMin(x.end), st = n >= e0 ? "done" : n >= s0 ? "now" : "";
+      const w = pos(e0) - pos(s0);
+      return `<div class="ttl-seg ${st}" style="left:${pos(s0)}%;width:${w}%;--c:${x.color}" title="${TS.esc(x.title)} ${x.start}~${x.end}">${w > 3.2 ? `<b>${TS.esc(x.title)}</b>` : ""}</div>`;
+    }).join("")}
+      ${n >= t0 && n <= t1 ? `<i class="ttl-now" style="left:${pos(n)}%"></i>` : ""}
+    </div>
+    <div class="ttl-tl-axis"><span>${Sc.DAYS ? "" : ""}${String(Math.floor(t0 / 60) % 24).padStart(2, "0")}:${String(t0 % 60).padStart(2, "0")}</span><span>${String(Math.floor(t1 / 60) % 24).padStart(2, "0")}:${String(t1 % 60).padStart(2, "0")}</span></div>`;
 }
 function renderDday(el) {
   renderTT(el && el.parentElement && el.parentElement.querySelector("#ttl-tt"));
