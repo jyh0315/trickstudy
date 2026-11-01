@@ -149,7 +149,7 @@ function ev() {
 }
 function study() {
   const s = S();
-  if (!s.study) s.study = { exams: [], ranges: [], cards: [], wrongs: [], mocks: [] };
+  if (!s.study) s.study = { exams: [], ranges: [] };
   return s.study;
 }
 const subjects = () => S().settings.subjects;
