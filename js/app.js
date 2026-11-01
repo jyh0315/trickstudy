@@ -124,8 +124,8 @@ let actx;
 /* 사도 음성 — assets/voice/<id>-pull.mp3 볼 당기기 · <id>-pat.mp3 쓰다듬기
    사복(스킨)마다 대사가 다르면 <id>_s<스킨번호>-pull.mp3 (스킨 번호는 spine-data.js 의 skins 순서, 0 = 기본) */
 const VOICES = new Set(("amelia ashur aya belita beni bigwood butter canna chloe daya diana elena erpin espi festa fricle gabia ifrit jade jubee kidian kommy levi maestromk2 mago marie mayo meluna ner posher rim rohne rudd shaydi sist speaki sylla tig ui velvet xxionx" +
-  " naia lethe rollett rufo renewa risty leets").split(" "));
-const VOICE_SKINS = { naia: [1], ner: [1, 2], diana: [1], rudd: [1] };
+  " naia lethe rollett rufo renewa risty leets momo bana barong barie").split(" "));
+const VOICE_SKINS = { naia: [1], ner: [1, 2], diana: [1], rudd: [1], rim: [1], maestromk2: [1], meluna: [1], butter: [1], beni: [1] };
 let voiceEl = null;
 const voiceVol = () => (typeof state.settings.voiceVol === "number" ? state.settings.voiceVol : 40);
 function voice(id, kind = "pull") {
