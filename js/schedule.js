@@ -171,7 +171,7 @@ function renderDD() {
       </form>
     </div>
     <div class="card">
-      <h3 class="card-title">📌 D-day 목록${list.length ? '<button class="btn white small gcal-btn" data-ics="dd">📅 전부 구글 캘린더로</button>' : ""}</h3>
+      <h3 class="card-title">📌 D-day 목록<button class="btn yellow small gcal-btn" data-gimport>📥 구글 캘린더에서 가져오기</button>${list.length ? '<button class="btn white small" data-ics="dd">📅 내보내기</button>' : ""}</h3>
       <ul class="dd-list">${list.map((d) => `<li class="${d.dayDiff < 0 ? "past" : d.dayDiff <= 3 ? "soon" : ""}">
         <b class="dd-label">${d.label}</b>
         <span class="dd-title">${esc(d.x.title)}<small>${d.x.date}${d.x.time ? " " + d.x.time : ""}</small></span>
@@ -252,7 +252,144 @@ function exportIcs(kind) {
     <div class="modal-actions"><a class="btn yellow" href="https://calendar.google.com/calendar/r/settings/export" target="_blank" rel="noopener">구글 캘린더 가져오기 열기</a><button class="btn white" data-close>닫기</button></div>`);
 }
 
+/* ───── 구글 캘린더 → 사이트 (가져오기) ─────
+   ① 자동: 구글 로그인으로 앞으로 N일 일정을 읽어 옴 (구글 클라우드에서 만든 OAuth 클라이언트 ID 필요, 설정에 한 번 붙여넣기)
+   ② 파일: 구글 캘린더에서 내보낸 .ics 파일을 올리면 읽어 옴 (설정 필요 없음)
+   고른 일정은 D-day 로 들어감 (이미 들어온 일정은 gid 로 구분해서 다시 안 들어감) */
+const GCAL_DAYS = 120;
+const gcfg = () => { const s = sch(); if (!s.gcal) s.gcal = { clientId: "" }; return s.gcal; };
+let gisReady = null;
+function loadGis() {
+  if (gisReady) return gisReady;
+  gisReady = new Promise((ok, fail) => {
+    const sc = document.createElement("script");
+    sc.src = "https://accounts.google.com/gsi/client"; sc.onload = ok; sc.onerror = () => { gisReady = null; fail(new Error("구글 로그인 스크립트를 불러오지 못했어요")); };
+    document.head.appendChild(sc);
+  });
+  return gisReady;
+}
+async function gToken() {
+  await loadGis();
+  return new Promise((ok, fail) => {
+    const tc = google.accounts.oauth2.initTokenClient({
+      client_id: gcfg().clientId, scope: "https://www.googleapis.com/auth/calendar.readonly",
+      callback: (r) => (r.error ? fail(new Error(r.error)) : ok(r.access_token)),
+      error_callback: (e) => fail(new Error(e.message || e.type || "로그인 취소")),
+    });
+    tc.requestAccessToken();
+  });
+}
+async function fetchGoogle() {
+  const token = await gToken();
+  const H = { Authorization: "Bearer " + token };
+  const cals = (await (await fetch("https://www.googleapis.com/calendar/v3/users/me/calendarList?minAccessRole=reader", { headers: H })).json()).items || [];
+  const from = new Date(), to = new Date(Date.now() + GCAL_DAYS * 864e5), out = [];
+  for (const c of cals.filter((c) => c.selected !== false)) {
+    const q = new URLSearchParams({ timeMin: from.toISOString(), timeMax: to.toISOString(), singleEvents: "true", orderBy: "startTime", maxResults: "250" });
+    const j = await (await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(c.id)}/events?${q}`, { headers: H })).json();
+    for (const e of j.items || []) {
+      if (!e.start) continue;
+      const allDay = !!e.start.date, st = allDay ? e.start.date : e.start.dateTime;
+      const d = new Date(allDay ? st + "T00:00" : st);
+      out.push({ gid: e.id, title: e.summary || "(제목 없음)", date: TS.dateKey(d), time: allDay ? "" : `${p2(d.getHours())}:${p2(d.getMinutes())}`, cal: c.summaryOverride || c.summary || "" });
+    }
+  }
+  return out;
+}
+// .ics 파일 읽기 (VEVENT 의 SUMMARY · DTSTART 만, 반복 일정은 첫 회만)
+function parseIcs(text) {
+  const lines = text.replace(/\r?\n[ \t]/g, "").split(/\r?\n/), out = [];
+  let ev = null;
+  for (const l of lines) {
+    if (l === "BEGIN:VEVENT") ev = {};
+    else if (l === "END:VEVENT") { if (ev && ev.date) out.push(ev); ev = null; }
+    else if (ev) {
+      const i = l.indexOf(":"), key = l.slice(0, i), val = l.slice(i + 1);
+      if (key.startsWith("SUMMARY")) ev.title = val.replace(/\\([,;\\])/g, "$1").replace(/\\n/gi, " ");
+      else if (key.startsWith("UID")) ev.gid = val;
+      else if (key.startsWith("DTSTART")) {
+        const m = val.match(/^(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2})(Z?))?/);
+        if (!m) continue;
+        let d = new Date(+m[1], +m[2] - 1, +m[3], +(m[4] || 0), +(m[5] || 0));
+        if (m[7] === "Z") d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]));
+        ev.date = TS.dateKey(d); ev.time = m[4] ? `${p2(d.getHours())}:${p2(d.getMinutes())}` : "";
+      }
+    }
+  }
+  const today = TS.today(), until = TS.dateKey(new Date(Date.now() + GCAL_DAYS * 864e5));
+  return out.filter((e) => e.date >= today && e.date <= until).map((e) => ({ ...e, title: e.title || "(제목 없음)", gid: e.gid || `${e.date}-${e.title}` }));
+}
+// 가져온 일정 고르기 → D-day 로
+function pickImport(events, from) {
+  const have = new Set(sch().dd.map((x) => x.gid).filter(Boolean));
+  events.sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
+  const fresh = events.filter((e) => !have.has(e.gid));
+  if (!events.length) return TS.toast(`📅 앞으로 ${GCAL_DAYS}일 안에 일정이 없어요`);
+  TS.modal(`<h2>📥 ${from}에서 가져오기</h2>
+    <p class="hint">D-day 로 넣을 일정을 골라 주세요. (앞으로 ${GCAL_DAYS}일 · 이미 넣은 일정은 회색)</p>
+    <div class="gimp-tools"><button class="link" id="gi-all">전체 선택</button> · <button class="link" id="gi-none">전체 해제</button> · <label><input type="checkbox" id="gi-exam"> 시험·마감만</label></div>
+    <ul class="gimp-list">${events.map((e, i) => `<li class="${have.has(e.gid) ? "done" : ""}"><label>
+      <input type="checkbox" data-gi="${i}" ${have.has(e.gid) ? "disabled" : ""}>
+      <b>${e.date.slice(5).replace("-", "/")}${e.time ? " " + e.time : ""}</b><span>${esc(e.title)}</span>${e.cal ? `<small>${esc(e.cal)}</small>` : ""}</label></li>`).join("")}</ul>
+    <div class="modal-actions"><button class="btn white" data-close>취소</button><button class="btn yellow" id="gi-ok">D-day로 넣기</button></div>`,
+  (el, close) => {
+    const boxes = [...el.querySelectorAll("[data-gi]:not(:disabled)")];
+    const KW = /시험|고사|평가|마감|제출|모의|수능|중간|기말|퀴즈|test|exam|due/i;
+    el.querySelector("#gi-all").onclick = () => boxes.forEach((b) => (b.checked = true));
+    el.querySelector("#gi-none").onclick = () => boxes.forEach((b) => (b.checked = false));
+    el.querySelector("#gi-exam").onchange = (ev) => boxes.forEach((b) => (b.checked = ev.target.checked && KW.test(events[+b.dataset.gi].title)));
+    boxes.forEach((b) => (b.checked = KW.test(events[+b.dataset.gi].title))); // 시험·마감은 미리 체크
+    el.querySelector("#gi-ok").onclick = () => {
+      const picked = boxes.filter((b) => b.checked).map((b) => events[+b.dataset.gi]);
+      for (const e of picked) sch().dd.push({ id: uid(), gid: e.gid, title: e.title.slice(0, 30), date: e.date, time: e.time });
+      TS.save(); close(); renderDD(); TS.refresh();
+      TS.sfx("coin"); TS.toast(picked.length ? `📌 D-day ${picked.length}개 가져왔어요!` : "고른 일정이 없어요");
+    };
+  });
+  if (!fresh.length) TS.toast("새로 가져올 일정이 없어요 (전부 이미 들어와 있어요)");
+}
+function openImport() {
+  const id = gcfg().clientId;
+  TS.modal(`<h2>📥 구글 캘린더에서 가져오기</h2>
+    <div class="gimp-way">
+      <h3>① 자동으로 가져오기 ${id ? '<span class="tag" style="background:#c6ecae">설정됨</span>' : '<span class="tag">처음 한 번 설정 필요</span>'}</h3>
+      <p class="hint">구글 로그인 한 번으로 앞으로 ${GCAL_DAYS}일 일정을 읽어 와요 (읽기만 해요).</p>
+      <div class="tt-row"><input id="gi-cid" placeholder="OAuth 클라이언트 ID (….apps.googleusercontent.com)" value="${esc(id)}" style="flex:1"><button class="btn yellow" id="gi-go">가져오기</button></div>
+      <details class="gimp-help"><summary>클라이언트 ID 만드는 법 (10분, 처음 한 번만)</summary><ol>
+        <li><a href="https://console.cloud.google.com/projectcreate" target="_blank" rel="noopener">구글 클라우드 콘솔</a>에서 새 프로젝트 만들기 (이름 아무거나)</li>
+        <li><a href="https://console.cloud.google.com/apis/library/calendar-json.googleapis.com" target="_blank" rel="noopener">Google Calendar API</a> → <b>사용</b></li>
+        <li><a href="https://console.cloud.google.com/auth/branding" target="_blank" rel="noopener">OAuth 동의 화면</a> → 시작하기 → 앱 이름·이메일 입력, 대상 <b>외부</b> → 만들기</li>
+        <li>동의 화면의 <b>대상(Audience)</b> → 테스트 사용자에 <b>내 구글 이메일</b> 추가</li>
+        <li><a href="https://console.cloud.google.com/auth/clients" target="_blank" rel="noopener">클라이언트</a> → 클라이언트 만들기 → 유형 <b>웹 애플리케이션</b><br>승인된 자바스크립트 원본에 <code>https://jyh0315.github.io</code> 추가 → 만들기</li>
+        <li>나온 <b>클라이언트 ID</b>를 위 칸에 붙여넣고 가져오기</li>
+      </ol><p class="hint">로그인할 때 "확인되지 않은 앱" 경고가 나오면 <b>고급 → (앱 이름)(으)로 이동</b>을 누르면 돼요 (내가 만든 앱이라 괜찮아요).</p></details>
+    </div>
+    <div class="gimp-way">
+      <h3>② 파일로 가져오기 <span class="tag" style="background:#c6ecae">설정 필요 없음</span></h3>
+      <p class="hint"><a href="https://calendar.google.com/calendar/r/settings/export" target="_blank" rel="noopener">구글 캘린더 설정 › 내보내기</a>로 받은 zip을 풀어서 나온 <b>.ics</b> 파일을 올려 주세요.</p>
+      <input type="file" id="gi-file" accept=".ics,text/calendar" multiple>
+    </div>
+    <div class="modal-actions"><button class="btn white" data-close>닫기</button></div>`,
+  (el, close) => {
+    el.querySelector("#gi-go").onclick = async () => {
+      const v = el.querySelector("#gi-cid").value.trim();
+      if (!/\.apps\.googleusercontent\.com$/.test(v)) return TS.toast("클라이언트 ID는 ….apps.googleusercontent.com 으로 끝나요");
+      gcfg().clientId = v; TS.save();
+      const b = el.querySelector("#gi-go"); b.disabled = true; b.textContent = "불러오는 중…";
+      try { const evs = await fetchGoogle(); close(); pickImport(evs, "구글 캘린더"); }
+      catch (err) { b.disabled = false; b.textContent = "가져오기"; TS.toast("가져오기 실패: " + err.message); }
+    };
+    el.querySelector("#gi-file").onchange = async (ev) => {
+      const files = [...ev.target.files];
+      if (!files.length) return;
+      const texts = await Promise.all(files.map((f) => f.text()));
+      close(); pickImport(texts.flatMap(parseIcs), "캘린더 파일");
+    };
+  });
+}
+
 document.addEventListener("click", (e) => {
+  if (e.target.closest("[data-gimport]")) return openImport();
   const ics = e.target.closest("[data-ics]");
   if (ics) return exportIcs(ics.dataset.ics);
   const go = e.target.closest("[data-sched]");

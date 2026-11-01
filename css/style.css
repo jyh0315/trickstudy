@@ -1857,3 +1857,13 @@ a.icon-btn { text-decoration: none; display: inline-grid; place-items: center; }
 .pet-price.no { opacity: .5; }
 .emote-buy { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 4px 0 8px; }
 .emote-buy small { color: var(--ink-soft); }
+
+/* 구글 캘린더 가져오기 */
+.gimp-way { text-align: left; background: var(--paper); border: 2.5px solid var(--ink); border-radius: 16px; padding: 10px 14px; margin: 10px 0; }
+.gimp-way h3 { margin: 0 0 4px; font-size: 16px; display: flex; align-items: center; gap: 8px; }
+.gimp-help { margin-top: 8px; font-size: 13px; } .gimp-help ol { padding-left: 20px; line-height: 1.7; } .gimp-help code { background: #fff3d6; padding: 0 4px; border-radius: 4px; }
+.gimp-tools { font-size: 13px; margin: 4px 0 8px; }
+.gimp-list { list-style: none; margin: 0; padding: 0; max-height: 50vh; overflow-y: auto; text-align: left; }
+.gimp-list li label { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-bottom: 1px dashed #e3d6bd; cursor: pointer; }
+.gimp-list li b { white-space: nowrap; font-variant-numeric: tabular-nums; } .gimp-list li span { flex: 1; } .gimp-list li small { color: var(--ink-soft); font-size: 11px; }
+.gimp-list li.done { opacity: .45; }
