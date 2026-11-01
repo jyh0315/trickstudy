@@ -185,11 +185,24 @@ function open(y = Y()) {
     return `<i class="yr-pt ${k % 3 === 1 ? "tw" : ""}" style="left:${R(0, 100)}%;font-size:${R(8, k % 3 === 0 ? 22 : 14)}px;animation-duration:${R(9, 20)}s,${R(1.5, 4)}s;animation-delay:-${R(0, 20)}s,-${R(0, 4)}s;opacity:${R(.35, .9)}">${ch}</i>`;
   }).join("");
   const own = Object.keys(S().owned).sort(() => Math.random() - 0.5).slice(0, 9).map((id) => TS.SADO_MAP[id]).filter(Boolean);
-  const parade = own.map((c, k) => `<img src="${TS.chibiSrc(c)}" style="left:${(k + 0.5) * (100 / own.length)}%;animation-delay:-${R(0, 3)}s" alt="">`).join("");
+  // 움직이는 사도(Spine)가 되는 사도를 앞으로 → 최대 PARADE_LIVE명은 애니메이션, 나머지는 그림
+  const PARADE_LIVE = 5;
+  const canL = (c) => window.Live && window.Live.canLive(c.id);
+  own.sort((a, b) => canL(b) - canL(a));
+  const nLive = own.filter(canL).length;
+  const cnt = Math.min(own.length, nLive >= 3 ? Math.min(nLive, PARADE_LIVE) : own.length);
+  const parade = own.slice(0, cnt).map((c, k) => `<div class="yr-pd ${k < PARADE_LIVE && canL(c) ? "live" : ""}" data-pd="${c.id}" style="left:${(k + 0.5) * (100 / cnt)}%;animation-delay:-${R(0, 3)}s"></div>`).join("");
   ov.innerHTML = `<div class="yr-bg"><div class="yr-img"></div><div class="yr-img"></div><div class="yr-tint"></div><div class="yr-orb o1"></div><div class="yr-orb o2"></div><div class="yr-orb o3"></div></div>
     <div class="yr-parts">${parts}</div><div class="yr-parade">${parade}</div>
     <div class="yr-prog">${list.map(() => "<i></i>").join("")}</div><button class="yr-x" data-yrclose>✕</button><div class="yr-stage"></div><p class="yr-tip">화면을 눌러 넘기기</p>`;
   document.body.appendChild(ov);
+  const lives = [];
+  ov.querySelectorAll(".yr-pd").forEach((el) => {
+    const c = TS.SADO_MAP[el.dataset.pd];
+    const img = () => { el.classList.remove("live"); if (!el.querySelector("img")) el.innerHTML = `<img src="${TS.chibiSrc(c)}" alt="">`; };
+    const l = el.classList.contains("live") ? window.Live.mount(el, c.id, { frame: "story", onFail: img }) : null;
+    if (l) lives.push(l); else img();
+  });
   const PAL = [["#2a1b5e", "#c2185b"], ["#0f2a5e", "#6a3cff"], ["#5e1b3a", "#ff7a3c"], ["#123f4a", "#2bb39b"], ["#1b1446", "#3f6bff"], ["#4a1240", "#ff5fa2"], ["#3b2a0e", "#e0a400"], ["#2a1b5e", "#ff8fb1"]];
   let flip = 0;
   const show = () => {
@@ -206,7 +219,7 @@ function open(y = Y()) {
     if (i === list.length - 1) { TS.confetti && TS.confetti(80); TS.sfx("level"); } else TS.sfx("click");
   };
   ov.addEventListener("click", (e) => {
-    if (e.target.closest("[data-yrclose]")) { ov.remove(); const s = S(); s.recapSeen = s.recapSeen || {}; s.recapSeen[y] = 1; TS.save(); renderBanner(); return; }
+    if (e.target.closest("[data-yrclose]")) { lives.forEach((l) => { try { l.dispose(); } catch (_) { /* 무시 */ } }); ov.remove(); const s = S(); s.recapSeen = s.recapSeen || {}; s.recapSeen[y] = 1; TS.save(); renderBanner(); return; }
     const back = e.clientX < window.innerWidth * 0.3;
     i = Math.max(0, Math.min(list.length - 1, i + (back ? -1 : 1)));
     show();
