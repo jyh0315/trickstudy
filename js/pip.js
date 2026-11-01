@@ -50,7 +50,9 @@ async function openDocPip() {
   let lastImg = "";
   const draw = () => {
     const i = info();
-    const src = i.c ? (i.c.emote ? TS.portrait(i.c) : TS.chibiSrc(i.c)) : TS.chibiSrc(TS.SADO_MAP.erpin);
+    // 표정 사도는 대표 사도 화면과 같은 얼굴(해금한 표정 중 지금 보이는 것)을 따라감
+    const face = document.getElementById("partner-img");
+    const src = i.c ? (i.c.emote && face && face.getAttribute("src") ? face.getAttribute("src") : i.c.emote ? TS.portrait(i.c, true) : TS.chibiSrc(i.c)) : TS.chibiSrc(TS.SADO_MAP.erpin);
     if (src !== lastImg) { q("p-img").src = new URL(src, location.href).href; lastImg = src; }
     q("p-mode").textContent = i.label;
     q("p-time").textContent = i.time;
