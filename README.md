@@ -85,7 +85,10 @@
   "rules": {
     ".read": false,
     ".write": false,
-    "admins": { ".read": false, ".write": false },
+    "admins": {
+      ".read": false,
+      ".write": false
+    },
     "raid": {
       "$event": {
         ".read": true,
@@ -100,6 +103,23 @@
       "$uid": {
         ".write": "auth != null && (auth.uid === $uid || root.child('admins').child(auth.uid).val() === true)",
         ".validate": "newData.hasChild('name') && newData.child('name').isString() && newData.child('name').val().length <= 12"
+      }
+    },
+    "rooms": {
+      "$code": {
+        ".read": "auth != null",
+        "m": {
+          "$uid": {
+            ".write": "auth != null && auth.uid === $uid",
+            ".validate": "newData.hasChild('n') && newData.child('n').isString() && newData.child('n').val().length <= 12 && newData.child('t').isNumber()"
+          }
+        },
+        "ping": {
+          "$uid": {
+            ".write": "auth != null",
+            ".validate": "newData.hasChild('t') && newData.child('t').isNumber()"
+          }
+        }
       }
     }
   }

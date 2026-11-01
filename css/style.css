@@ -713,8 +713,8 @@ input:focus, select:focus { box-shadow: 0 0 0 4px rgba(255, 211, 78, .7); }
 /* =========================================================
    v1.1 추가 기능
    ========================================================= */
-.tabs { gap: 5px; }
-.tabs button { padding: 8px 12px 7px; font-size: 16px; }
+.tabs { gap: 4px; }
+.tabs button { padding: 7px 9px 6px; font-size: 15px; gap: 4px; }
 
 /* 배경음악 상황 표시 / 태그 */
 .bgm-ctx { font-size: 12.5px; color: var(--ink-soft); margin-top: 6px; font-family: var(--font-title); }
@@ -1811,3 +1811,24 @@ body.story-open { overflow: hidden; }
 .lp-subj span { background: #fff3d6; border: 2px solid var(--ink); border-radius: 99px; padding: 1px 9px; }
 .lp-sign { text-align: right; font-family: var(--font-title); font-size: 20px; margin-top: 6px; }
 @media (max-width: 600px) { .lp-stats ul { grid-template-columns: repeat(2, 1fr); } }
+
+/* ───── 👥 함께 공부방 ───── */
+.room-join { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 14px 0; }
+.room-code input { flex: 1; text-transform: uppercase; }
+.room-info { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.room-codebox { font-family: var(--font-title); font-weight: normal; font-size: 26px; letter-spacing: 4px; background: var(--ink); color: var(--yellow); border-radius: 12px; padding: 2px 12px; }
+.room-count { margin-left: auto; font-weight: 700; }
+.rank-err-msg { color: var(--red, #d9534f); font-weight: 700; margin: 8px 0 0; }
+.room-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px; }
+.room-mem { display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; background: var(--paper); border: 3px solid var(--ink); border-radius: 20px; padding: 12px 10px; box-shadow: 0 5px 0 var(--ink); }
+.room-mem.me { background: #fff7d6; }
+.room-mem.focus { border-color: #e2557f; box-shadow: 0 5px 0 #b8335b, 0 0 0 4px rgba(255,127,168,.25); }
+.room-mem.away { opacity: .55; }
+.rm-pic { position: relative; width: 92px; height: 92px; }
+.rm-pic img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 15%; border-radius: 50%; border: 3px solid var(--ink); background: #fff; }
+.room-mem.focus .rm-pic img { animation: idle 2.4s ease-in-out infinite; }
+.rm-zz { position: absolute; right: -4px; top: -4px; font-size: 24px; animation: pop 1.2s ease-in-out infinite alternate; }
+.rm-st { font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.room-mem.focus .rm-st { color: #c2185b; } .room-mem.break .rm-st { color: #2f8f3c; }
+.room-mem small { color: var(--ink-soft); }
+@media (max-width: 600px) { .room-join { grid-template-columns: 1fr; } .room-grid { grid-template-columns: repeat(2, 1fr); } }
