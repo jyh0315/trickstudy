@@ -103,7 +103,21 @@ function plainAvatar(c) {
   return (plainCache[c.id] = `assets/plain/${String(i).padStart(3, "0")}.webp`);
 }
 
-const baseLines = (c, kind) => (SPECIAL_LINES[c.id] && SPECIAL_LINES[c.id][kind]) || PERS[c.pers][kind];
+/* 대사: 「트릭컬 사도 정리」의 실제 대사(SADO_VOICE) + 그 사도 말투로 만든 공부 대사(toneLines)
+   poke·pat·partner·bday 는 실제 대사만, idle·cheer·done·fail 은 둘을 섞음 (없으면 예전 성격별 대사) */
+const REAL_ONLY = { poke: 1, pat: 1, partner: 1, bday: 1 };
+function baseLines(c, kind) {
+  const v = typeof voiceOf === "function" ? voiceOf(c.id) : null;
+  if (v) {
+    const real = v[kind] || (kind === "partner" || kind === "bday" ? v.idle : null) || [];
+    if (REAL_ONLY[kind] && real.length) return real;
+    const t = toneLines(c.id, kind === "partner" || kind === "bday" ? "idle" : kind);
+    const mix = [...real, ...t, ...t]; // 공부 대사도 충분히 나오게
+    if (mix.length) return mix;
+  }
+  const sp = SPECIAL_LINES[c.id] && SPECIAL_LINES[c.id][kind];
+  return sp || PERS[c.pers][kind] || PERS[c.pers].idle;
+}
 const linesOf = (c, kind) => (isPlain() ? PLAIN_LINES[kind] || PLAIN_LINES.idle : [...baseLines(c, kind), ...lineHooks.flatMap((fn) => fn(c, kind) || [])]);
 const titleOf = (c) => (SPECIAL_LINES[c.id] && SPECIAL_LINES[c.id].title) || `${PERS[c.pers].label} 성격의 사도`;
 const stars = (r) => "★".repeat(r);
@@ -875,7 +889,7 @@ function sadoDetail(id) {
     ${!o ? `<p class="hint">별사탕 ${state.candy} / ${cost}</p>` : ""}`,
     (el, close) => {
       const p = el.querySelector("#m-partner");
-      if (p) p.onclick = () => { state.partner = id; save(); renderPartner(); emit("partner", id); sayKind("idle"); close(); refresh(); };
+      if (p) p.onclick = () => { state.partner = id; save(); renderPartner(); emit("partner", id); sayKind("partner"); close(); refresh(); };
       el.querySelectorAll("[data-emo]").forEach((b) => (b.onclick = () => {
         const v = +b.dataset.emo;
         if (!state.emoteSel) state.emoteSel = {};
@@ -969,7 +983,7 @@ function onboarding() {
         rollover();
         save(); close();
         renderPartner(); sfx("level"); confetti(80);
-        say(`${state.name}님! 오늘부터 잘 부탁해요!`, false);
+        sayKind("partner");
         modal(`<h2>시작 선물 🎁</h2><p>모집에 쓸 수 있는 <b>엘리프 ${CONFIG.startElif}개</b>를 드려요!<br>공부하고, 의뢰를 해결하고, 임무를 깨면 엘리프가 쌓여요.<br>모은 엘리프로 <b>136명의 사도</b>를 모집해 보세요!</p>
           <div class="modal-actions"><button class="btn pink" id="m-g">바로 모집하러 가기</button><button class="btn yellow" data-close>좋아요!</button></div>`,
           (e2, c2) => { e2.querySelector("#m-g").onclick = () => { c2(); go("gacha"); }; });

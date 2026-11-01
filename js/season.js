@@ -333,7 +333,7 @@ function render() {
   document.querySelectorAll("[data-sncast]").forEach((b) => (b.onclick = () => {
     const id = b.dataset.sncast;
     if (!S().owned[id]) return TS.toast("아직 영입하지 않은 사도예요. 모집에서 만나 봐요!");
-    S().partner = id; TS.emit("partner", id); TS.renderPartner(true); TS.save(); render();
+    S().partner = id; TS.emit("partner", id); TS.renderPartner(true); TS.sayKind("partner"); TS.save(); render();
     TS.toast(`✨ ${TS.fmt("{name}를 대표 사도로! 집중 SP ×1.2", TS.SADO_MAP[id])}`);
   }));
   updateBadge();
