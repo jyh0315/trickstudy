@@ -121,15 +121,19 @@ function portrait(c, randomEmote = false) {
 
 /* ───── 효과음 (WebAudio, 파일 없이) ───── */
 let actx;
-/* 사도 음성 (assets/voice/<id>-pull.mp3 볼 당기기 · <id>-pat.mp3 쓰다듬기) — 있는 사도만 */
-const VOICES = new Set("amelia ashur aya belita beni bigwood butter canna chloe daya diana elena erpin espi festa fricle gabia ifrit jade jubee kidian kommy levi maestromk2 mago marie mayo meluna ner posher rim rohne rudd shaydi sist speaki sylla tig ui velvet xxionx".split(" "));
+/* 사도 음성 — assets/voice/<id>-pull.mp3 볼 당기기 · <id>-pat.mp3 쓰다듬기
+   사복(스킨)마다 대사가 다르면 <id>_s<스킨번호>-pull.mp3 (스킨 번호는 spine-data.js 의 skins 순서, 0 = 기본) */
+const VOICES = new Set(("amelia ashur aya belita beni bigwood butter canna chloe daya diana elena erpin espi festa fricle gabia ifrit jade jubee kidian kommy levi maestromk2 mago marie mayo meluna ner posher rim rohne rudd shaydi sist speaki sylla tig ui velvet xxionx" +
+  " naia lethe rollett rufo renewa risty leets").split(" "));
+const VOICE_SKINS = { naia: [1], ner: [1, 2], diana: [1], rudd: [1] };
 let voiceEl = null;
 const voiceVol = () => (typeof state.settings.voiceVol === "number" ? state.settings.voiceVol : 40);
 function voice(id, kind = "pull") {
   if (!VOICES.has(id) || !state.settings.sound) return false;
-  const src = `assets/voice/${id}-${kind}.mp3`;
+  const sk = window.Live ? window.Live.curSkin(id) : 0;
+  const file = sk && (VOICE_SKINS[id] || []).includes(sk) ? `${id}_s${sk}` : id;
   if (voiceEl) voiceEl.pause();
-  voiceEl = new Audio(src); voiceEl.volume = voiceVol() / 100;
+  voiceEl = new Audio(`assets/voice/${file}-${kind}.mp3`); voiceEl.volume = voiceVol() / 100;
   voiceEl.play().catch(() => {});
   return true;
 }
