@@ -812,7 +812,7 @@ function renderGacha() {
   $("pull10").disabled = state.elif < CONFIG.pull10Cost;
   $("rates").innerHTML = `확률 — ★★★ ${RARITY[3].rate * 100}% · ★★ ${RARITY[2].rate * 100}% · ★ ${RARITY[1].rate * 100}%<br>
     ${CONFIG.pity}회 안에 ★★★ 확정 · 10회 모집 시 ★★ 이상 1명 확정<br>
-    중복 사도는 별사탕으로 바뀌고(움직이는 표정 사도는 표정 먼저 해금), 별사탕은 도감에서 원하는 사도와 교환할 수 있어요.`;
+    중복 사도는 표정 해금 → 돌파(최대 ✦5) → 별사탕 순서로 바뀌고, 별사탕은 도감에서 원하는 사도와 교환할 수 있어요.`;
   $("history").innerHTML = state.history.map((id) => {
     const c = SADO_MAP[id];
     return c ? `<img class="r${c.rarity}" src="${chibiSrc(c)}" title="${esc(c.name)}" alt="">` : "";
