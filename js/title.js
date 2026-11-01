@@ -42,7 +42,8 @@ function showPlain(done) {
       <button class="btn yellow big" id="tp-start">시작하기</button>
       <div class="tp-hint">Enter 키로도 시작할 수 있어요</div>
     </div>
-    <div class="ttl-dday hidden" id="ttl-dday"></div>`;
+    <div class="ttl-dday hidden" id="ttl-dday"></div>
+    <div class="ttl-tt hidden" id="ttl-tt"></div>`;
   document.body.appendChild(root);
   document.body.classList.add("title-open");
   const clock = () => { const n = new Date(); root.querySelector("#tp-clock").textContent = n.toLocaleString("ko-KR", { month: "long", day: "numeric", weekday: "long", hour: "2-digit", minute: "2-digit" }); };
@@ -81,12 +82,13 @@ function showScene(done, mainId) {
   root.innerHTML = `
     <div class="ttl-bg" style="background-image:url('assets/title-bg.webp')"></div>
     <div class="ttl-logo"><span class="l2">트릭스터디</span><span class="l1">~교주님 공부하세요!~</span></div>
-    <div class="ttl-ver">Ver 8.2 · 교주 전용</div>
+    <div class="ttl-ver">Ver 8.3 · 교주 전용</div>
     <div class="ttl-copy">♥ Trickcal fan-made study</div>
     <div class="ttl-cast">${cast.map((id, i) => `<div class="ttl-actor a${i}" data-id="${id}"></div>`).join("")}</div>
     <div class="ttl-sweep"></div>
     <div class="ttl-hint" id="ttl-hint">볼을 잡아당겨서 시작하기!</div>
     <div class="ttl-dday hidden" id="ttl-dday"></div>
+    <div class="ttl-tt hidden" id="ttl-tt"></div>
     <div class="ttl-tap" id="ttl-tap">
       <div class="ttl-tap-msg">화면을 터치해 주세요</div>
     </div>`;
@@ -187,7 +189,7 @@ function show(done) {
   root.innerHTML = `
     <div class="ttl-bg" style="background-image:url('assets/bg/${s.bg || "trickcal"}.jpg')"></div>
     <div class="ttl-logo"><span class="l2">트릭스터디</span><span class="l1">~교주님 공부하세요!~</span></div>
-    <div class="ttl-ver">Ver 8.2 · 교주 전용</div>
+    <div class="ttl-ver">Ver 8.3 · 교주 전용</div>
     <div class="ttl-copy">♥ Trickcal fan-made study</div>
     <div class="ttl-face" id="ttl-face">
       <img id="ttl-img" src="${src}" alt="" draggable="false">
@@ -196,7 +198,8 @@ function show(done) {
       <span class="ttl-pop" id="ttl-pop">뾰옹~!</span>
     </div>
     <div class="ttl-hint" id="ttl-hint">볼을 잡아당겨서 시작하기!</div>
-    <div class="ttl-dday hidden" id="ttl-dday"></div>`;
+    <div class="ttl-dday hidden" id="ttl-dday"></div>
+    <div class="ttl-tt hidden" id="ttl-tt"></div>`;
   document.body.appendChild(root);
   document.body.classList.add("title-open");
 
@@ -361,7 +364,25 @@ function mountLive(face, id, frame = "face") {
 }
 
 /* 시작 화면 D-day 보드: 가장 가까운 D-day는 크게 + 실시간 카운트다운 */
+/* 시작 화면 위쪽 가운데: 오늘 시간표 (지난 건 흐리게, 진행 중은 강조 + 남은 시간) */
+function renderTT(el) {
+  const Sc = window.Schedule;
+  if (!el || !Sc) return;
+  const items = Sc.todayItems(), d = new Date(), n = d.getHours() * 60 + d.getMinutes();
+  const later = !items.length && Sc.upcomingLater();
+  el.classList.toggle("hidden", !items.length && !later);
+  if (!items.length) {
+    if (later) el.innerHTML = `<div class="ttl-tt-head">🗓️ 오늘 시간표 없음</div><div class="ttl-tt-next">다음: <b>${Sc.DAYS[later.dow]}요일 ${TS.esc(later.item.title)}</b> ${later.item.start}</div>`;
+    return;
+  }
+  el.innerHTML = `<div class="ttl-tt-head">🗓️ 오늘의 시간표</div><ol>${items.map((x) => {
+    const s0 = Sc.toMin(x.start), e0 = Sc.toMin(x.end), st = n >= e0 ? "done" : n >= s0 ? "now" : "";
+    const sub = st === "now" ? `${Sc.dur(e0 - n)} 남음` : st ? "끝" : `${Sc.dur(s0 - n)} 후`;
+    return `<li class="${st}" style="--c:${x.color}"><b>${TS.esc(x.title)}</b><span>${x.start}~${x.end}</span><em>${sub}</em>${st === "now" ? `<i style="width:${((n - s0) / (e0 - s0)) * 100}%"></i>` : ""}</li>`;
+  }).join("")}</ol>`;
+}
 function renderDday(el) {
+  renderTT(el && el.parentElement && el.parentElement.querySelector("#ttl-tt"));
   if (!el || !window.Schedule) return;
   const list = window.Schedule.ddSorted().filter((d) => d.dayDiff >= 0 && (d.leftMin > 0 || !d.x.time));
   el.classList.toggle("hidden", !list.length);

@@ -501,5 +501,5 @@ setInterval(() => {
 }, 20000);
 TS.on("start", checkAlerts);
 
-window.Schedule = { nowAndNext, ddSorted, dur, toMin };
+window.Schedule = { nowAndNext, ddSorted, dur, toMin, todayItems, upcomingLater, DAYS };
 })();
