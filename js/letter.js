@@ -249,37 +249,48 @@ function letterHTML(L, preview) {
   const subj = Object.entries(L.subj || {}).sort((a, b) => b[1] - a[1]);
   return `<div class="letter-paper pers-${c.pers}">
       <div class="lp-head"><img src="${TS.chibiSrc(c)}" alt=""><div><small>${preview ? "이번 주 미리보기" : `${fmtDay(L.week)} 주`}</small><b>${esc(c.name)}의 편지</b></div></div>
-      <div class="lp-body">${lines.map((t, i) => `<p class="${i === 0 ? "lp-hi" : ""}">${esc(t)}</p>`).join("")}</div>
+      <div class="lp-cols">
+      <div class="lp-body">${lines.map((t, i) => `<p class="${i === 0 ? "lp-hi" : ""}">${esc(t)}</p>`).join("")}<div class="lp-sign">— ${esc(c.name)}</div></div>
       <div class="lp-stats">
         <div class="lp-bars">${L.bars.map((m, i) => `<span title="${fmtMin(m)}"><i style="height:${(m / max) * 100}%" class="${m >= goal ? "goal" : ""}"></i><small>${DAYS[i]}</small></span>`).join("")}</div>
         <ul><li><b>${fmtMin(L.total)}</b>총 공부</li><li><b>${L.days}일</b>공부한 날</li><li><b>${L.goalDays}일</b>목표 달성</li>
           <li><b>${L.prevTotal ? `${L.total >= L.prevTotal ? "▲" : "▼"} ${fmtMin(Math.abs(L.total - L.prevTotal))}` : "-"}</b>지난주 대비</li></ul>
         ${subj.length ? `<div class="lp-subj">${subj.map(([s, m]) => `<span>${esc(s)} <b>${fmtMin(m)}</b></span>`).join("")}</div>` : ""}
       </div>
-      <div class="lp-sign">— ${esc(c.name)}</div>
+      </div>
+      <button class="lp-close" data-ltclose title="닫기">✕</button>
     </div>`;
 }
+// 모달 창 없이 편지지만 화면 가운데 (위에 편지 고르는 작은 태그, 바깥을 누르면 닫힘)
 function open() {
   const lb = box();
   const unread = lb.list.find((x) => !x.read);
   const pick = (L) => { if (L) { L.read = true; TS.save(); refreshBtn(); } };
-  let cur = unread || lb.list[0] || null;
-  pick(cur);
-  const draw = (el) => {
+  let cur = unread || lb.list[0] || "preview";
+  if (cur !== "preview") pick(cur);
+  const ov = document.createElement("div");
+  ov.className = "lt-overlay";
+  ov.innerHTML = `<div class="lt-wrap">
+      <div class="lt-tabs">${[["preview", "✏️ 이번 주 미리보기"], ...lb.list.map((L, i) => [String(i), `${L.read ? "" : "🆕 "}${fmtDay(L.week).replace(/\(.\)/, "")} 주`])].map(([k, l]) => `<button data-lt="${k}">${l}</button>`).join("")}</div>
+      <div id="lt-view"></div>
+    </div>`;
+  document.body.appendChild(ov);
+  const draw = () => {
     const isPrev = cur === "preview";
     const L = isPrev ? { ...build(TS.weekKey()), from: S().partner } : cur;
-    el.querySelector("#lt-view").innerHTML = L ? letterHTML(L, isPrev) : '<p class="hint" style="text-align:center">아직 받은 편지가 없어요. 이번 주 공부를 마치면 다음 주 월요일에 첫 편지가 와요!</p>';
-    el.querySelectorAll("[data-lt]").forEach((b) => b.classList.toggle("on", (b.dataset.lt === "preview" && isPrev) || lb.list[+b.dataset.lt] === cur));
+    ov.querySelector("#lt-view").innerHTML = letterHTML(L, isPrev);
+    ov.querySelectorAll("[data-lt]").forEach((b) => b.classList.toggle("on", (b.dataset.lt === "preview" && isPrev) || lb.list[+b.dataset.lt] === cur));
   };
-  TS.modal(`<h2>💌 사도의 편지함</h2>
-    <div class="seg small lt-tabs"><button data-lt="preview">✏️ 이번 주 미리보기</button>${lb.list.map((L, i) => `<button data-lt="${i}">${L.read ? "" : "🆕 "}${fmtDay(L.week).replace(/\(.\)/, "")} 주</button>`).join("")}</div>
-    <div id="lt-view"></div>
-    <div class="modal-actions"><button class="btn yellow" data-close>닫기</button></div>`,
-  (el) => {
-    el.querySelectorAll("[data-lt]").forEach((b) => (b.onclick = () => { cur = b.dataset.lt === "preview" ? "preview" : lb.list[+b.dataset.lt]; if (cur !== "preview") pick(cur); draw(el); }));
-    draw(el);
-    TS.sfx("coin");
+  const close = () => { ov.classList.add("bye"); document.removeEventListener("keydown", onKey); setTimeout(() => ov.remove(), 250); };
+  const onKey = (e) => { if (e.key === "Escape") close(); };
+  document.addEventListener("keydown", onKey);
+  ov.addEventListener("click", (e) => {
+    const t = e.target.closest("[data-lt]");
+    if (t) { cur = t.dataset.lt === "preview" ? "preview" : lb.list[+t.dataset.lt]; if (cur !== "preview") pick(cur); TS.sfx("click"); return draw(); }
+    if (e.target.closest("[data-ltclose]") || !e.target.closest(".letter-paper, .lt-tabs")) close();
   });
+  draw();
+  TS.sfx("coin");
 }
 
 /* 헤더 💌 버튼 (안 읽은 편지 있으면 빨간 점) */

@@ -1787,30 +1787,40 @@ body.story-open { overflow: hidden; }
 .story-sc em { color: #777; }
 .sc-tag { display: inline-block; font-size: 11px; background: #dff0e0; color: #2f6f3a; border-radius: 6px; padding: 0 6px; margin: 0 4px 2px 0; }
 
-/* ───── 💌 사도의 편지 ───── */
+/* ───── 💌 사도의 편지 ─────
+   모달 창 없이 편지지만 띄움 (가로로 넓게: 왼쪽 글, 오른쪽 기록) */
 .mail-top { position: relative; }
 .mail-top .dot { position: absolute; top: -4px; right: -4px; width: 12px; height: 12px; }
-.lt-tabs { flex-wrap: wrap; justify-content: center; margin: 6px 0 10px; }
-.letter-paper { position: relative; text-align: left; background: repeating-linear-gradient(180deg, #fffdf4 0 33px, #f1e6cf 33px 34px); border: 3px solid var(--ink); border-radius: 18px; padding: 16px 20px 18px; max-height: 62vh; overflow-y: auto; box-shadow: inset 0 0 0 6px #fff7e6; }
-.letter-paper::before { content: "💌"; display: grid; place-items: center; font-size: 24px; position: absolute; top: 10px; right: 14px; width: 44px; height: 52px; border: 3px dashed #e8a0b4; border-radius: 6px; background: #fff0f5; transform: rotate(6deg); }
-.lp-head { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
-.lp-head img { width: 64px; height: 64px; object-fit: cover; object-position: 50% 15%; border-radius: 50%; border: 3px solid var(--ink); background: #fff; }
+.lt-overlay { position: fixed; inset: 0; z-index: 1500; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(40,28,22,.45); backdrop-filter: blur(3px); animation: modalin .3s ease-out; }
+.lt-overlay.bye { opacity: 0; transition: opacity .25s; }
+.lt-wrap { width: min(900px, 100%); display: flex; flex-direction: column; gap: 8px; max-height: 100%; }
+.lt-tabs { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+.lt-tabs button { border: 2.5px solid var(--ink); background: rgba(255,250,238,.92); border-radius: 99px; padding: 4px 12px; font: 700 13px var(--font-body); cursor: pointer; box-shadow: 0 3px 0 var(--ink); }
+.lt-tabs button.on { background: var(--yellow); }
+.letter-paper { position: relative; text-align: left; background: repeating-linear-gradient(180deg, #fffdf4 0 33px, #f1e6cf 33px 34px); border: 4px solid var(--ink); border-radius: 22px; padding: 20px 28px 18px; max-height: calc(100vh - 90px); overflow-y: auto; box-shadow: inset 0 0 0 7px #fff7e6, 0 10px 0 var(--ink), 0 24px 50px rgba(0,0,0,.35); transform: rotate(-.6deg); animation: ltIn .45s cubic-bezier(.3,1.4,.5,1); }
+@keyframes ltIn { from { transform: translateY(40px) rotate(-3deg) scale(.95); opacity: 0; } }
+.letter-paper::before { content: "💌"; display: grid; place-items: center; font-size: 26px; position: absolute; top: 14px; right: 58px; width: 50px; height: 58px; border: 3px dashed #e8a0b4; border-radius: 6px; background: #fff0f5; transform: rotate(6deg); }
+.lp-close { position: absolute; top: 12px; right: 14px; width: 34px; height: 34px; border-radius: 50%; border: 3px solid var(--ink); background: #fff; font-size: 16px; font-weight: 800; cursor: pointer; }
+.lp-close:hover { background: var(--yellow); }
+.lp-head { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+.lp-head img { width: 70px; height: 70px; object-fit: cover; object-position: 50% 15%; border-radius: 50%; border: 3px solid var(--ink); background: #fff; }
 .lp-head small { display: block; color: var(--ink-soft); font-size: 12px; }
-.lp-head b { font-family: var(--font-title); font-weight: normal; font-size: 24px; }
+.lp-head b { font-family: var(--font-title); font-weight: normal; font-size: 26px; }
+.lp-cols { display: grid; grid-template-columns: 1.5fr 1fr; gap: 22px; align-items: start; }
 .lp-body p { margin: 0; line-height: 34px; font-size: 16px; }
 .lp-body .lp-hi { font-weight: 800; }
-.lp-stats { margin: 14px 0 6px; background: rgba(255,255,255,.85); border: 2px solid var(--ink); border-radius: 14px; padding: 10px 12px; }
-.lp-bars { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; height: 90px; align-items: end; }
+.lp-stats { background: rgba(255,255,255,.88); border: 2.5px solid var(--ink); border-radius: 16px; padding: 12px 14px; margin-top: 4px; }
+.lp-bars { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; height: 110px; align-items: end; }
 .lp-bars span { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; gap: 2px; }
 .lp-bars i { width: 70%; min-height: 3px; border-radius: 6px 6px 2px 2px; background: #f4b4c6; }
 .lp-bars i.goal { background: #ff6f9c; }
 .lp-bars small { font-size: 11px; color: var(--ink-soft); }
-.lp-stats ul { list-style: none; margin: 10px 0 0; padding: 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; text-align: center; font-size: 11px; color: var(--ink-soft); }
-.lp-stats ul b { display: block; font-size: 15px; color: var(--ink); }
-.lp-subj { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; font-size: 12px; }
+.lp-stats ul { list-style: none; margin: 12px 0 0; padding: 0; display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; text-align: center; font-size: 11px; color: var(--ink-soft); }
+.lp-stats ul b { display: block; font-size: 16px; color: var(--ink); }
+.lp-subj { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; font-size: 12px; }
 .lp-subj span { background: #fff3d6; border: 2px solid var(--ink); border-radius: 99px; padding: 1px 9px; }
-.lp-sign { text-align: right; font-family: var(--font-title); font-size: 20px; margin-top: 6px; }
-@media (max-width: 600px) { .lp-stats ul { grid-template-columns: repeat(2, 1fr); } }
+.lp-sign { text-align: right; font-family: var(--font-title); font-size: 22px; margin-top: 8px; }
+@media (max-width: 700px) { .lp-cols { grid-template-columns: 1fr; gap: 12px; } .letter-paper { padding: 16px 16px 14px; transform: none; } .letter-paper::before { display: none; } }
 
 /* ───── 👥 함께 공부방 ───── */
 .room-join { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 14px 0; }
