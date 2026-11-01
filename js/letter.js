@@ -242,7 +242,9 @@ function check() {
 
 /* ───── 화면 ───── */
 function letterHTML(L, preview) {
-  const c = TS.SADO_MAP[L.from] || TS.SADO_MAP.butter, lines = compose(L);
+  const c = TS.SADO_MAP[L.from] || TS.SADO_MAP.butter;
+  // 미리보기는 아직 진행 중인 이번 주라 "지난주" → "이번 주"
+  const lines = compose(L).map((t) => (preview ? t.replace(/지난주/g, "이번 주") : t));
   const max = Math.max(1, ...L.bars), goal = S().settings.goal;
   const subj = Object.entries(L.subj || {}).sort((a, b) => b[1] - a[1]);
   return `<div class="letter-paper pers-${c.pers}">
