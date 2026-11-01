@@ -730,6 +730,8 @@ function acquire(c) {
   if (!o) { state.owned[c.id] = { n: 1, emo: c.emote ? 1 : 0 }; return { isNew: true, extra: "" }; }
   o.n++;
   if (c.emote && (o.emo || 1) < 4) { o.emo = (o.emo || 1) + 1; return { isNew: false, extra: `표정 ${o.emo} 해금!` }; }
+  // 표정을 다 열었으면 돌파(최대 5단계) → 그 다음부터 별사탕
+  if ((o.bt || 0) < CONFIG.btMax) { o.bt = (o.bt || 0) + 1; return { isNew: false, extra: `돌파 ✦${o.bt}!` }; }
   const k = CONFIG.dupeShards[c.rarity];
   addCandy(k);
   return { isNew: false, extra: `별사탕 +${k}` };
@@ -834,7 +836,7 @@ function renderSado() {
     const o = state.owned[c.id];
     return `<button class="sado-card ${o ? "" : "locked"} r${c.rarity}" data-sado="${c.id}" title="${esc(c.name)}">
       <span class="st">${stars(c.rarity)}</span>
-      ${o && o.n > 1 ? `<span class="cnt">×${o.n}</span>` : ""}
+      ${o && o.bt ? `<span class="cnt bt">${"✦".repeat(o.bt)}</span>` : ""}
       ${state.partner === c.id ? '<span class="partner-mark">💛</span>' : ""}
       ${c.emote ? `<span class="emo-mark">표정 ${o ? o.emo : 0}/4</span>` : ""}
       <img src="${chibiSrc(c)}" alt="" loading="lazy">

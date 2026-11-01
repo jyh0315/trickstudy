@@ -151,16 +151,19 @@ const BACKGROUNDS = [
 
 /* 밸런스 */
 const CONFIG = {
-  pullCost: 100,          // 1회 모집 엘리프
-  pull10Cost: 900,        // 10회 모집 (1회 할인)
+  pullCost: 150,          // 1회 모집 엘리프
+  pull10Cost: 1350,        // 10회 모집 (1회 할인)
   pity: 50,               // 이 횟수 안에 ★3 확정
-  elifPerMin: 4,          // 집중 1분당 엘리프
+  elifPerMin: 3,          // 집중 1분당 엘리프
   expPerMin: 2,           // 집중 1분당 경험치
   minRewardMin: 5,        // 이 시간 미만 집중은 보상 없음
   startElif: 300,
   dupeShards: { 1: 5, 2: 15, 3: 40 },     // 중복 시 별사탕 (표정 사도는 표정 해금 먼저)
   exchangeCost: { 1: 40, 2: 100, 3: 300 }, // 별사탕 교환소에서 원하는 사도 영입
   emoteCost: 30,          // 별사탕으로 표정 1개 해금
+  btMax: 5,               // 돌파 최대 단계 (중복 영입 또는 별사탕)
+  btCost: { 1: 20, 2: 50, 3: 150 }, // 별사탕으로 돌파 1단계
+  btBonus: 0.04,          // 대표 사도 돌파 1단계당 집중 보상 +4%
   levelUpElif: 200,
 };
 const expToNext = (lv) => 100 + (lv - 1) * 60;

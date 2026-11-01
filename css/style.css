@@ -1962,3 +1962,51 @@ a.icon-btn { text-decoration: none; display: inline-grid; place-items: center; }
 .th-ss_summer { --pc-bg: linear-gradient(160deg, #e3f8ff, #9fe0f7 70%, #fff7d6); --pc-fg: #123b52; }
 .th-ss_fall   { --pc-bg: linear-gradient(160deg, #fff1d6, #ffc68a 70%, #f7e3c4); --pc-fg: #4a2a12; }
 .th-ss_winter { --pc-bg: linear-gradient(160deg, #f4f8ff, #d3defd 70%, #fff); --pc-fg: #22306e; }
+
+/* ───── ✦ 돌파 · 🔁 환생 ───── */
+.sado-card .cnt.bt { background: linear-gradient(90deg, #7c4dff, #ff5fa2); letter-spacing: -1px; font-size: 10px; }
+.bt-box { margin: 12px 0 4px; padding: 10px 12px; border: 2px solid var(--ink); border-radius: 14px; background: linear-gradient(135deg, #f3ecff, #fff0f7); text-align: center; }
+.bt-stars { display: flex; justify-content: center; gap: 6px; font-size: 24px; }
+.bt-stars span { color: #d9d0e6; text-shadow: 0 1px 0 #fff; }
+.bt-stars span.on { color: #a65cff; text-shadow: 0 0 6px rgba(166,92,255,.6), 0 1px 0 var(--ink); }
+.bt-desc { margin: 4px 0 8px; font-size: 14px; }
+.reborn-btn { margin-left: 8px; }
+.reborn-btn.ready { background: linear-gradient(90deg, #ffe08a, #ffb3cb); animation: glow 1.6s infinite; }
+.rb-modal { text-align: center; }
+.rb-icon { font-size: 54px; }
+.rb-done { animation: pop .6s cubic-bezier(.3,1.6,.6,1); }
+.rb-modal h2 small { font-size: 14px; opacity: .7; }
+.rb-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 10px 0; text-align: left; }
+@media (max-width: 520px) { .rb-grid { grid-template-columns: 1fr; } }
+.rb-modal h4 { margin: 0 0 4px; font-family: var(--font-title); }
+.rb-modal ul { margin: 0; padding-left: 18px; font-size: 13.5px; }
+.rb-lose, .rb-keep, .rb-gain { border: 2px solid var(--ink); border-radius: 12px; padding: 8px 10px; }
+.rb-lose { background: #ffe9e9; }
+.rb-keep { background: #e9f8ee; }
+.rb-gain { background: #fff6d2; text-align: left; margin-bottom: 12px; }
+.rb-need { padding: 8px; border: 2px dashed var(--ink); border-radius: 12px; background: #fffbe9; }
+
+/* 장기 프레임 */
+.fr-sakura { background: radial-gradient(circle at 30% 30%, #fff 0 8%, transparent 9%), linear-gradient(135deg, #ffd6e5, #ff9ec0); box-shadow: 0 0 0 2px var(--ink), 0 0 10px rgba(255,158,192,.7); }
+.fr-sakura::after { content: "🌸"; top: -10px; left: -6px; }
+.fr-galaxy { background: radial-gradient(#fff 1px, transparent 1.5px) 0 0 / 8px 8px, linear-gradient(135deg, #1b1446, #5b2a9c 50%, #0e5a8a); box-shadow: 0 0 0 2px var(--ink), 0 0 12px rgba(120,80,255,.8); }
+.fr-galaxy::after { content: "🌌"; top: -10px; right: -8px; }
+.fr-crystal { background: linear-gradient(120deg, #e6f7ff, #b39dff 30%, #ffffff 45%, #8fd3ff 60%, #e0c3ff); background-size: 200% 100%; box-shadow: 0 0 0 2px var(--ink), 0 0 12px rgba(166,92,255,.7); animation: goldfr 3s linear infinite; }
+.fr-crystal::after { content: "💎"; bottom: -8px; right: -8px; }
+.fr-royal { background: linear-gradient(135deg, #7a1230, #c2185b 40%, #ffd34e 50%, #c2185b 60%, #7a1230); box-shadow: 0 0 0 2px var(--ink), 0 0 10px rgba(255,211,78,.7); }
+.fr-royal::after { content: "👑"; top: -14px; left: 50%; transform: translateX(-50%); }
+.fr-paw { background: radial-gradient(circle, #a9744f 0 2px, transparent 2.5px) 0 0 / 10px 10px, #f6d7b0; box-shadow: 0 0 0 2px var(--ink); }
+.fr-paw::after { content: "🐾"; bottom: -8px; left: -6px; }
+.fr-phoenix { background: linear-gradient(0deg, #c4161c, #ff6b3d 40%, #ffd34e 80%, #fff6c4); box-shadow: 0 0 0 2px var(--ink), 0 0 16px 3px rgba(255,107,61,.8); animation: firefr 1s ease-in-out infinite; }
+.fr-phoenix::after { content: "🔥"; top: -12px; right: -8px; }
+.fr-aurora { background: linear-gradient(90deg, #6fffd2, #6cb8ff, #b07cff, #ff8fd8, #6fffd2); background-size: 300% 100%; box-shadow: 0 0 0 2px var(--ink), 0 0 16px rgba(111,255,210,.7); animation: goldfr 4s linear infinite; }
+.fr-aurora::after { content: "✨"; top: -12px; right: -8px; }
+/* 장기 카드 테마 */
+.th-forest  { --pc-bg: linear-gradient(160deg, #e3f5d8, #9fd38a 70%, #6fae5e); --pc-fg: #1f3a18; }
+.th-ocean   { --pc-bg: linear-gradient(180deg, #bfeaff, #4aa6d8 70%, #1d5f99); --pc-fg: #fff; }
+.th-rose    { --pc-bg: linear-gradient(160deg, #fff0f3, #ffb3c4 60%, #e85d84); --pc-fg: #4a1424; }
+.th-goldlux { --pc-bg: linear-gradient(120deg, #6b4a06, #d4a017 30%, #fff1a8 50%, #d4a017 70%, #6b4a06); --pc-fg: #2b1d02; }
+.th-cosmos  { --pc-bg: linear-gradient(160deg, #0b0a2a, #2b1a5e 50%, #5b2a9c); --pc-fg: #f3eaff; }
+.th-library { --pc-bg: linear-gradient(160deg, #f4e6cc, #c9a26b 70%, #8a6236); --pc-fg: #2e1d0b; }
+.th-cosmos.pcard, .th-cosmos .pod-card { background-image: radial-gradient(#fff 1px, transparent 1.5px), var(--pc-bg); background-size: 24px 24px, auto; }
+.rank-list li.th-cosmos .nm small, .rank-list li.th-cosmos .ago, .rank-list li.th-ocean .nm small, .rank-list li.th-ocean .ago { color: #dfe9ff; }

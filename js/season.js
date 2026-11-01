@@ -52,7 +52,7 @@ const Season = (() => {
   // 단계별 보상
   function reward(lv) {
     if (lv > MAX) return { candy: 15, text: "별사탕 15" };
-    const r = { elif: 300 }, t = [];
+    const r = { elif: 50 }, t = [];
     if (lv % 10 === 5) Object.assign(r, { candy: 30 });
     if (lv === 10) Object.assign(r, { candy: 20, item: ["R", "R"] });
     if (lv === 20) Object.assign(r, { item: ["SR"], title: "t20" });
@@ -294,7 +294,7 @@ function render() {
       <h3 class="card-title">🎖️ 시즌 패스 <span class="count">${Math.min(l, Season.MAX)} / ${Season.MAX}</span>
         <button class="btn ${l > ss.claimed ? "yellow" : "white"} small" id="sn-claim" ${l > ss.claimed ? "" : "disabled"} style="margin-left:auto">${l > ss.claimed ? `보상 ${l - ss.claimed}개 받기` : "받을 보상 없음"}</button></h3>
       <div class="sn-track">${shown.map(cell).join("")}</div>
-      <div class="sn-miles">${milestones.map(({ n, r }) => `<span class="${l >= n ? "on" : ""}"><b>${n}</b> ${esc(r.text.replace(/엘리프 300 · /, ""))}</span>`).join("")}</div>
+      <div class="sn-miles">${milestones.map(({ n, r }) => `<span class="${l >= n ? "on" : ""}"><b>${n}</b> ${esc(r.text.replace(/엘리프 50 · /, ""))}</span>`).join("")}</div>
       <p class="hint">50단계 뒤에도 끝없는 보너스 단계(별사탕 15)가 이어져요. 칭호·뱃지는 시즌마다 새로 생겨서 모아 둘 수 있어요.</p>
     </div>
 
