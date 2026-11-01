@@ -121,7 +121,7 @@ function renderTT() {
       </form>
     </div>
     <div class="card">
-      <h3 class="card-title">🗓️ 내 시간표 <span class="count">${tt.length}</span></h3>
+      <h3 class="card-title">🗓️ 내 시간표 <span class="count">${tt.length}</span>${tt.length ? '<button class="btn white small gcal-btn" data-ics="tt">📅 구글 캘린더로</button>' : ""}</h3>
       ${tt.length ? `<div class="tt-grid" style="--h:${(h1 - h0) * HPX}px">
         <div class="tt-times">${Array.from({ length: h1 - h0 + 1 }, (_, i) => `<span style="top:${i * HPX}px">${h0 + i}:00</span>`).join("")}</div>
         ${DAY_ORDER.map((d) => `<div class="tt-col ${d === dowNow ? "today" : ""}"><div class="tt-head">${DAYS[d]}</div><div class="tt-body">
@@ -171,11 +171,12 @@ function renderDD() {
       </form>
     </div>
     <div class="card">
-      <h3 class="card-title">📌 D-day 목록</h3>
+      <h3 class="card-title">📌 D-day 목록${list.length ? '<button class="btn white small gcal-btn" data-ics="dd">📅 전부 구글 캘린더로</button>' : ""}</h3>
       <ul class="dd-list">${list.map((d) => `<li class="${d.dayDiff < 0 ? "past" : d.dayDiff <= 3 ? "soon" : ""}">
         <b class="dd-label">${d.label}</b>
         <span class="dd-title">${esc(d.x.title)}<small>${d.x.date}${d.x.time ? " " + d.x.time : ""}</small></span>
         <span class="dd-left">${d.leftMin > 0 ? dur(d.leftMin) + " 남음" : "지남"}</span>
+        <a class="icon-btn" href="${gcalLink(d.x)}" target="_blank" rel="noopener" title="구글 캘린더에 추가">📅</a>
         <button class="icon-btn" data-dd="${d.x.id}" title="삭제">🗑️</button></li>`).join("") || '<li class="empty">시험이나 마감일을 등록해 보세요!</li>'}</ul>
     </div>`;
   $("dd-form").onsubmit = (e) => {
@@ -188,7 +189,72 @@ function renderDD() {
   };
 }
 
+/* ───── 구글 캘린더 연동 (설정 없이) ─────
+   - D-day 하나: 구글 캘린더 "일정 추가" 화면을 미리 채워서 새 탭으로 → 저장만 누르면 됨
+   - 시간표·D-day 전체: .ics 파일로 내려받기 → 구글 캘린더 설정 › 가져오기 (시간표는 매주 반복 일정으로 들어감) */
+const p2 = (n) => String(n).padStart(2, "0");
+const ymd = (date) => date.replace(/-/g, "");
+const hm = (t) => t.replace(":", "") + "00";
+function gcalLink(x) {
+  let dates;
+  if (x.time) { // 시간이 있으면 1시간짜리 일정
+    const [h, m] = x.time.split(":").map(Number), e = h * 60 + m + 60;
+    dates = `${ymd(x.date)}T${hm(x.time)}/${ymd(x.date)}T${p2(Math.min(23, Math.floor(e / 60)))}${p2(e >= 1440 ? 59 : e % 60)}00`;
+  } else { // 하루 종일
+    const d = new Date(x.date + "T00:00"); d.setDate(d.getDate() + 1);
+    dates = `${ymd(x.date)}/${TS.dateKey(d).replace(/-/g, "")}`;
+  }
+  const q = new URLSearchParams({ action: "TEMPLATE", text: `📌 ${x.title}`, dates, details: "트릭스터디 D-day", ctz: "Asia/Seoul" });
+  return "https://calendar.google.com/calendar/render?" + q.toString();
+}
+const icsEsc = (t) => String(t).replace(/[\\,;]/g, (m) => "\\" + m).replace(/\n/g, "\\n");
+function makeIcs(kind) {
+  const now = new Date(), stamp = `${now.getUTCFullYear()}${p2(now.getUTCMonth() + 1)}${p2(now.getUTCDate())}T${p2(now.getUTCHours())}${p2(now.getUTCMinutes())}00Z`;
+  const ev = [];
+  const BY = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
+  if (kind === "tt") {
+    for (const x of sch().tt) {
+      // 이번 주에서 첫 요일 날짜를 시작일로
+      const d = new Date(); d.setHours(0, 0, 0, 0);
+      const first = Math.min(...x.days.map((w) => (w - d.getDay() + 7) % 7));
+      d.setDate(d.getDate() + first);
+      const day = ymd(TS.dateKey(d));
+      ev.push(["BEGIN:VEVENT", `UID:tt-${x.id}@trickstudy`, `DTSTAMP:${stamp}`, `SUMMARY:${icsEsc(x.title)}`,
+        `DTSTART;TZID=Asia/Seoul:${day}T${hm(x.start)}`, `DTEND;TZID=Asia/Seoul:${day}T${hm(x.end)}`,
+        `RRULE:FREQ=WEEKLY;BYDAY=${x.days.map((w) => BY[w]).join(",")}`, "DESCRIPTION:트릭스터디 시간표", "END:VEVENT"].join("\r\n"));
+    }
+  } else {
+    for (const x of sch().dd) {
+      let dt;
+      if (x.time) { const [h, m] = x.time.split(":").map(Number), e = Math.min(1439, h * 60 + m + 60); dt = [`DTSTART;TZID=Asia/Seoul:${ymd(x.date)}T${hm(x.time)}`, `DTEND;TZID=Asia/Seoul:${ymd(x.date)}T${p2(Math.floor(e / 60))}${p2(e % 60)}00`]; }
+      else { const d = new Date(x.date + "T00:00"); d.setDate(d.getDate() + 1); dt = [`DTSTART;VALUE=DATE:${ymd(x.date)}`, `DTEND;VALUE=DATE:${ymd(TS.dateKey(d))}`]; }
+      ev.push(["BEGIN:VEVENT", `UID:dd-${x.id}@trickstudy`, `DTSTAMP:${stamp}`, `SUMMARY:${icsEsc("📌 " + x.title)}`, ...dt,
+        "BEGIN:VALARM", "TRIGGER:-P1D", "ACTION:DISPLAY", `DESCRIPTION:${icsEsc(x.title)} 하루 전`, "END:VALARM", "END:VEVENT"].join("\r\n"));
+    }
+  }
+  const tz = ["BEGIN:VTIMEZONE", "TZID:Asia/Seoul", "BEGIN:STANDARD", "DTSTART:19700101T000000", "TZOFFSETFROM:+0900", "TZOFFSETTO:+0900", "TZNAME:KST", "END:STANDARD", "END:VTIMEZONE"].join("\r\n");
+  return ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//trickstudy//KO", "CALSCALE:GREGORIAN", `X-WR-CALNAME:트릭스터디 ${kind === "tt" ? "시간표" : "D-day"}`, tz, ...ev, "END:VCALENDAR"].join("\r\n");
+}
+function exportIcs(kind) {
+  const blob = new Blob([makeIcs(kind)], { type: "text/calendar;charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = kind === "tt" ? "트릭스터디-시간표.ics" : "트릭스터디-Dday.ics";
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  TS.modal(`<h2>📅 구글 캘린더로 보내기</h2>
+    <p><b>${a.download}</b> 파일을 내려받았어요. 이제 구글 캘린더에 넣으면 끝!</p>
+    <ol class="gcal-steps">
+      <li>아래 버튼으로 <b>구글 캘린더 가져오기</b> 화면을 열어요</li>
+      <li><b>컴퓨터에서 파일 선택</b> → 방금 받은 파일 고르기</li>
+      <li>넣을 캘린더를 고르고 <b>가져오기</b></li>
+    </ol>
+    ${kind === "tt" ? '<p class="hint">시간표는 매주 반복 일정으로 들어가요. 시간표를 바꾸면 다시 보내 주세요 (같은 일정은 덮어써져요).</p>' : '<p class="hint">D-day 하루 전에 알림이 와요.</p>'}
+    <div class="modal-actions"><a class="btn yellow" href="https://calendar.google.com/calendar/r/settings/export" target="_blank" rel="noopener">구글 캘린더 가져오기 열기</a><button class="btn white" data-close>닫기</button></div>`);
+}
+
 document.addEventListener("click", (e) => {
+  const ics = e.target.closest("[data-ics]");
+  if (ics) return exportIcs(ics.dataset.ics);
   const go = e.target.closest("[data-sched]");
   if (go) { TS.go("todo"); setPane(go.dataset.sched); return; }
   const tb = e.target.closest("[data-tt]");

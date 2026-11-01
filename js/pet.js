@@ -16,10 +16,11 @@ const PET_NAMES = [
   "리피트", "치즈냥", "꼬끄", "사토",
 ];
 const PET_GRADES = {
-  L: { label: "전설", color: "#b06cf0", rate: 0.12, candy: 20 },
-  E: { label: "희귀", color: "#4a8cf0", rate: 0.38, candy: 5 },
-  A: { label: "고급", color: "#7cc23a", rate: 0.25, candy: 2 },
-  C: { label: "일반", color: "#9aa0ac", rate: 0.25, candy: 1 },
+  // candy: 중복일 때 받는 별사탕 · buy: 펫 가방에서 별사탕으로 데려오는 값
+  L: { label: "전설", color: "#b06cf0", rate: 0.12, candy: 20, buy: 150 },
+  E: { label: "희귀", color: "#4a8cf0", rate: 0.38, candy: 5, buy: 50 },
+  A: { label: "고급", color: "#7cc23a", rate: 0.25, candy: 2, buy: 20 },
+  C: { label: "일반", color: "#9aa0ac", rate: 0.25, candy: 1, buy: 10 },
 };
 const PETS = PET_NAMES.map((name, i) => ({
   id: "p" + String(i).padStart(2, "0"), name, img: `assets/pets/${String(i).padStart(2, "0")}.webp`,
@@ -164,16 +165,32 @@ function openBag() {
   const o = pets().owned;
   const have = PETS.filter((p) => o[p.id]).length;
   TS.modal(`<h2>🐾 펫 가방 <small>${have} / ${PETS.length}</small></h2>
-    <p class="hint">펫을 누르면 대표 사도 아래에 데리고 다녀요. 화면 보호기에서도 같이 돌아다녀요!</p>
-    <div class="pet-grid">${PETS.map((p) => `
-      <button class="pet-cell g-${p.grade} ${o[p.id] ? "" : "lock"} ${pets().cur === p.id ? "on" : ""}" data-pet="${p.id}" ${o[p.id] ? "" : "disabled"} title="${esc(p.name)}">
-        <img src="${p.img}" alt="" loading="lazy"><b>${o[p.id] ? esc(p.name) : "???"}</b><small>${PET_GRADES[p.grade].label}${o[p.id] > 1 ? ` · ${o[p.id]}마리` : ""}</small>
-      </button>`).join("")}</div>
+    <p class="hint">펫을 누르면 대표 사도 아래에 데리고 다녀요. 아직 없는 펫은 <b>별사탕</b>으로 데려올 수 있어요! (지금 🍬 ${S().candy}개)</p>
+    <div class="pet-grid">${PETS.map((p) => {
+      const price = PET_GRADES[p.grade].buy;
+      return `<button class="pet-cell g-${p.grade} ${o[p.id] ? "" : "lock"} ${pets().cur === p.id ? "on" : ""}" ${o[p.id] ? `data-pet="${p.id}"` : `data-buy="${p.id}"`} title="${esc(p.name)}">
+        <img src="${p.img}" alt="" loading="lazy"><b>${o[p.id] ? esc(p.name) : "???"}</b>
+        <small>${PET_GRADES[p.grade].label}${o[p.id] > 1 ? ` · ${o[p.id]}마리` : ""}</small>
+        ${o[p.id] ? "" : `<em class="pet-price ${S().candy < price ? "no" : ""}"><i class="ic-candy"></i>${price}</em>`}
+      </button>`;
+    }).join("")}</div>
     <div class="modal-actions">${pets().cur ? '<button class="btn white" id="pet-off">펫 쉬게 하기</button>' : ""}<button class="btn yellow" data-close>닫기</button></div>`,
   (el, close) => {
     el.querySelectorAll("[data-pet]").forEach((b) => (b.onclick = () => {
       pets().cur = b.dataset.pet; TS.save(); TS.sfx("coin"); close(); renderStage();
       TS.toast(`🐾 ${PET_MAP[b.dataset.pet].name}와(과) 함께해요!`);
+    }));
+    el.querySelectorAll("[data-buy]").forEach((b) => (b.onclick = () => {
+      const p = PET_MAP[b.dataset.buy], price = PET_GRADES[p.grade].buy;
+      if (S().candy < price) { TS.sfx("sad"); TS.toast(`별사탕이 ${price - S().candy}개 부족해요!`); return; }
+      close();
+      TS.confirmModal("🍬 별사탕으로 데려오기", `<img src="${p.img}" alt="" style="height:90px;filter:brightness(0) opacity(.3)"><br>${PET_GRADES[p.grade].label} 펫을 별사탕 <b>${price}개</b>로 데려올까요?<br><small>(지금 ${S().candy}개)</small>`, "데려오기", () => {
+        S().candy -= price;
+        pets().owned[p.id] = 1;
+        if (!pets().cur) pets().cur = p.id;
+        TS.save(); TS.refresh(); renderStage();
+        show([{ pet: p, isNew: true }]); // 알 깨기 연출 그대로
+      });
     }));
     const off = el.querySelector("#pet-off");
     if (off) off.onclick = () => { pets().cur = ""; TS.save(); close(); renderStage(); };

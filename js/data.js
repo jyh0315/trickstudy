@@ -160,6 +160,7 @@ const CONFIG = {
   startElif: 300,
   dupeShards: { 1: 5, 2: 15, 3: 40 },     // 중복 시 별사탕 (표정 사도는 표정 해금 먼저)
   exchangeCost: { 1: 40, 2: 100, 3: 300 }, // 별사탕 교환소에서 원하는 사도 영입
+  emoteCost: 30,          // 별사탕으로 표정 1개 해금
   levelUpElif: 200,
 };
 const expToNext = (lv) => 100 + (lv - 1) * 60;

@@ -362,8 +362,8 @@ function poke() {
 
 /* ───── 추천 (할 일 알려주기) ───── */
 function pendingTodos() { return state.todos.filter((x) => !x.done); }
-/* 하루 의뢰 등록 제한: 난이도별 TODO_LIMIT개 (매일 반복 의뢰도 그날 자리를 차지함, 지운 건 해결 전이면 자리 돌려줌) */
-const TODO_LIMIT = 3;
+/* 하루 의뢰 등록 제한: 난이도별 TODO_LIMIT[난이도]개 (매일 반복 의뢰도 그날 자리를 차지함, 지운 건 해결 전이면 자리 돌려줌) */
+const TODO_LIMIT = { easy: 3, normal: 2, hard: 1 };
 function todoUsed() {
   const d = state.daily;
   if (!d.reg) { // 처음엔 오늘 등록한 의뢰 + 매일 반복 의뢰로 계산
@@ -372,7 +372,7 @@ function todoUsed() {
   }
   return d.reg;
 }
-const todoLeft = (diff) => Math.max(0, TODO_LIMIT - (todoUsed()[diff] || 0));
+const todoLeft = (diff) => Math.max(0, TODO_LIMIT[diff] - (todoUsed()[diff] || 0));
 function readyQuests() {
   return [
     ...DAILY_QUESTS.filter((q) => questReady(q, "daily")),
@@ -526,10 +526,10 @@ function renderTodos() {
     const left = todoLeft(b.dataset.d);
     b.classList.toggle("on", b.dataset.d === newDiff);
     b.classList.toggle("full", !left);
-    b.innerHTML = `${DIFFICULTY[b.dataset.d].label} <small>${TODO_LIMIT - left}/${TODO_LIMIT}</small>`;
+    b.innerHTML = `${DIFFICULTY[b.dataset.d].label} <small>${TODO_LIMIT[b.dataset.d] - left}/${TODO_LIMIT[b.dataset.d]}</small>`;
   });
   const all = ["easy", "normal", "hard"].every((d) => !todoLeft(d));
-  $("todo-limit").innerHTML = all ? "오늘 의뢰를 모두 등록했어요! 내일 또 만나요 🌙" : `하루에 <b>쉬움·보통·어려움 각 ${TODO_LIMIT}개</b>까지 등록할 수 있어요. (매일 반복 의뢰도 포함)`;
+  $("todo-limit").innerHTML = all ? "오늘 의뢰를 모두 등록했어요! 내일 또 만나요 🌙" : `하루에 <b>쉬움 ${TODO_LIMIT.easy}개 · 보통 ${TODO_LIMIT.normal}개 · 어려움 ${TODO_LIMIT.hard}개</b>까지 등록할 수 있어요. (매일 반복 의뢰도 포함)`;
   $("todo-limit").classList.toggle("full", all);
 }
 function completeTodo(id) {
@@ -838,7 +838,8 @@ function sadoDetail(id) {
   const cost = CONFIG.exchangeCost[c.rarity];
   const emotes = c.emote ? `<div class="emote-row">${[1, 2, 3, 4].map((i) =>
     o && i <= o.emo ? `<div><img src="${emoteSrc(c, i)}" alt=""></div>` : "<div>?</div>").join("")}</div>
-    <p class="hint">중복으로 영입할 때마다 표정이 하나씩 해금돼요.</p>` : "";
+    <p class="hint">중복으로 영입하거나 별사탕으로 표정을 하나씩 해금할 수 있어요.</p>
+    ${o && o.emo < 4 ? `<div class="emote-buy"><button class="btn pink small" id="m-emo" ${state.candy < CONFIG.emoteCost ? "disabled" : ""}><i class="ic-candy"></i> ${CONFIG.emoteCost}개로 표정 ${o.emo + 1} 해금</button><small>별사탕 ${state.candy}개</small></div>` : ""}` : "";
   modal(`<img class="detail-img" src="${o ? portrait(c) : chibiSrc(c)}" style="${o ? "" : "filter:grayscale(1) opacity(.6)"}" alt="">
     <h2 style="margin-top:12px">${esc(c.name)}</h2>
     <div class="detail-meta">
@@ -859,6 +860,13 @@ function sadoDetail(id) {
     (el, close) => {
       const p = el.querySelector("#m-partner");
       if (p) p.onclick = () => { state.partner = id; save(); renderPartner(); emit("partner", id); sayKind("idle"); close(); refresh(); };
+      const em = el.querySelector("#m-emo");
+      if (em) em.onclick = () => {
+        if (state.candy < CONFIG.emoteCost || o.emo >= 4) return;
+        state.candy -= CONFIG.emoteCost; o.emo++; save(); close();
+        sfx("r2"); confetti(40); toast(`😊 ${c.name} 표정 ${o.emo} 해금!`);
+        refresh(); renderPartner(true); sadoDetail(id);
+      };
       const x = el.querySelector("#m-ex");
       if (x) x.onclick = () => {
         if (state.candy < cost) return;
@@ -1005,7 +1013,7 @@ $("todo-form").onsubmit = (e) => {
   e.preventDefault();
   const text = $("todo-text").value.trim();
   if (!text) return;
-  if (!todoLeft(newDiff)) { toast(`오늘 ${DIFFICULTY[newDiff].label} 의뢰는 ${TODO_LIMIT}개를 다 등록했어요! 다른 난이도를 고르거나 내일 등록해요.`); sfx("sad"); return; }
+  if (!todoLeft(newDiff)) { toast(`오늘 ${DIFFICULTY[newDiff].label} 의뢰는 ${TODO_LIMIT[newDiff]}개를 다 등록했어요! 다른 난이도를 고르거나 내일 등록해요.`); sfx("sad"); return; }
   todoUsed()[newDiff]++;
   state.todos.push({ id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), text, diff: newDiff, daily: $("todo-daily").checked, done: null, created: today() });
   $("todo-text").value = "";

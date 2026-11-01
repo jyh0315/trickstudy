@@ -1845,3 +1845,15 @@ body.story-open { overflow: hidden; }
 .room-mem.focus .rm-st { color: #c2185b; } .room-mem.break .rm-st { color: #2f8f3c; }
 .room-mem small { color: var(--ink-soft); }
 @media (max-width: 600px) { .room-join { grid-template-columns: 1fr; } .room-grid { grid-template-columns: repeat(2, 1fr); } }
+
+/* 구글 캘린더 */
+.gcal-btn { margin-left: auto; }
+a.icon-btn { text-decoration: none; display: inline-grid; place-items: center; }
+.gcal-steps { text-align: left; line-height: 1.8; margin: 6px 0; }
+
+/* 별사탕으로 펫 데려오기 · 표정 해금 */
+.pet-cell.lock { cursor: pointer; }
+.pet-price { font-style: normal; font-size: 12px; font-weight: 800; display: inline-flex; align-items: center; gap: 2px; background: #fff3d6; border: 2px solid var(--ink); border-radius: 99px; padding: 0 7px; margin-top: 2px; }
+.pet-price.no { opacity: .5; }
+.emote-buy { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 4px 0 8px; }
+.emote-buy small { color: var(--ink-soft); }
