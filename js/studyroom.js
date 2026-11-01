@@ -78,6 +78,7 @@ async function leave(quiet) {
   if (!code) return;
   R().code = ""; TS.save();
   clearInterval(pollT); clearInterval(beatT);
+  for (const u of Object.keys(pics)) { pics[u].dispose(); delete pics[u]; }
   try { await api(`rooms/${code}/m/{uid}`, { method: "DELETE" }); } catch (e) { /* 무시 */ }
   members = {};
   if (!quiet) { TS.toast("공부방에서 나왔어요"); render(); }
@@ -110,6 +111,32 @@ TS.on("refresh", () => {
   const t = S().timer, sig = `${t.running}|${t.mode}|${t.endAt}|${t.remain}`;
   if (sig !== lastSig) { lastSig = sig; beat(); }
 });
+
+/* ───── 움직이는 사도 ─────
+   화면은 1초마다 다시 그리지만, 사도 애니메이션은 한 번 만든 걸 계속 옮겨 끼워서 깜빡이지 않게 함
+   (WebGL 개수 제한이 있어서 움직이는 사도는 최대 LIVE_MAX명, 나머지는 그림) */
+const LIVE_MAX = 8;
+const pics = {}; // uid → { p, node }
+function attachPics(root) {
+  const slots = [...root.querySelectorAll("[data-pic]")], used = new Set();
+  slots.forEach((slot, i) => {
+    const u = slot.dataset.pic, p = slot.dataset.p;
+    used.add(u);
+    let c = pics[u];
+    if (c && c.p !== p) { c.dispose && c.dispose(); delete pics[u]; c = null; }
+    if (!c) {
+      const node = document.createElement("div");
+      node.className = "rm-live";
+      const img = () => { if (!node.querySelector("img")) node.innerHTML = `<img src="${TS.chibiSrc(TS.SADO_MAP[p])}" alt="">`; };
+      const live = i < LIVE_MAX && window.Live && window.Live.canLive(p) ? window.Live.mount(node, p, { frame: "face", onFail: img }) : null;
+      if (!live) img();
+      c = pics[u] = { p, node, dispose: () => live && live.dispose() };
+    }
+    slot.prepend(c.node);
+  });
+  // 방에서 나간 사람 정리
+  for (const u of Object.keys(pics)) if (!used.has(u)) { pics[u].dispose(); delete pics[u]; }
+}
 
 /* ───── 화면 ───── */
 const mmss = (ms) => { const s = Math.max(0, Math.round(ms / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
@@ -163,13 +190,14 @@ function render() {
     <div class="room-grid">${list.map(({ u, m, st }) => {
       const c = TS.SADO_MAP[m.p] || TS.SADO_MAP.butter, me = u === myUid;
       return `<div class="room-mem ${st.cls} ${me ? "me" : ""}">
-        <div class="rm-pic"><img src="${TS.chibiSrc(c)}" alt="">${st.cls === "focus" ? '<span class="rm-zz">✏️</span>' : st.cls === "away" ? '<span class="rm-zz">💤</span>' : ""}</div>
+        <div class="rm-pic" data-pic="${esc(u)}" data-p="${esc(c.id)}">${st.cls === "focus" ? '<span class="rm-zz">✏️</span>' : st.cls === "away" ? '<span class="rm-zz">💤</span>' : ""}</div>
         <b>${esc(m.n)}${me ? " <small>(나)</small>" : ""}</b>
         <span class="rm-st">${st.label}</span>
         <small>오늘 ${fmtMin(m.today || 0)}</small>
         ${me ? "" : `<button class="btn white small" data-cheer="${esc(u)}">📣 응원</button>`}
       </div>`;
     }).join("") || `<p class="hint">${lastLoad ? "아직 아무도 없어요. 방 코드를 친구에게 알려 주세요!" : "불러오는 중…"}</p>`}</div>`;
+  attachPics(el);
   $("rm-leave").onclick = () => leave();
   const cp = $("rm-copy");
   if (cp) cp.onclick = () => { navigator.clipboard && navigator.clipboard.writeText(code); TS.toast(`📋 방 코드 ${code} 복사했어요!`); };
