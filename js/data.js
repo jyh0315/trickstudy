@@ -166,7 +166,8 @@ const CONFIG = {
   btBonus: 0.04,          // 대표 사도 돌파 1단계당 집중 보상 +4%
   levelUpElif: 200,
 };
-const expToNext = (lv) => 100 + (lv - 1) * 60;
+// 25레벨부터는 1500으로 고정 → 몇 년을 써도 계속 오르는 무한 레벨
+const expToNext = (lv) => Math.min(100 + (lv - 1) * 60, 1500);
 
 /* 의뢰(할 일) 난이도 */
 const DIFFICULTY = {
