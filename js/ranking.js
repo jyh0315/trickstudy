@@ -173,7 +173,7 @@ function clean(uid, e) {
 const isAdmin = () => FIREBASE.admins.includes(meUid);
 let showSus = false;
 const fmtVal = (v, f) => f === "min" ? (v >= 60 ? `${Math.floor(v / 60)}시간 ${v % 60}분` : `${v}분`)
-  : f === "dmg" ? v.toLocaleString() : f === "lv" ? `Lv.${v}` : f === "charm" ? `🧧 ${v.toLocaleString()}` : `${v}명`;
+  : f === "dmg" ? v.toLocaleString() : f === "lv" ? `Lv.${v}` : f === "charm" ? `🧧 ${v.toLocaleString()}` : f === "sp" ? `${v.toLocaleString()} SP` : `${v}명`;
 const ago = (t) => { const m = Math.floor((Date.now() - t) / 60000); return m < 1 ? "방금" : m < 60 ? `${m}분 전` : m < 1440 ? `${Math.floor(m / 60)}시간 전` : `${Math.floor(m / 1440)}일 전`; };
 
 async function load(force) {
