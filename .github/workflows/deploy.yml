@@ -22,6 +22,16 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 5
+      # GitHub 쪽에서 이전 배포가 '진행 중'으로 멈춰 새 배포를 막는 일이 있어서, 최근 커밋들의 배포를 먼저 취소
+      - name: 멈춘 이전 배포 정리
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for sha in $(git rev-list --skip=1 --max-count=4 HEAD); do
+            gh api -X POST "repos/${{ github.repository }}/pages/deployments/$sha/cancel" >/dev/null 2>&1 && echo "취소: $sha" || true
+          done
       # 빌드 없는 정적 사이트라 저장소를 그대로 올림
       - uses: actions/upload-pages-artifact@v3
         with:
