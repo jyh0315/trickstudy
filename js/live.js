@@ -7,6 +7,7 @@
    스킨: 기본 스킨은 무료, 나머지는 호감도 Lv(2·4·6·8…) 달성 또는 별사탕으로 해금
    ========================================================= */
 const SKIN_COST = 50;
+const MIN_POSE = 1.6;                      // 반응 동작 최소 길이(초)
 const LOAD_TIMEOUT = 15000;               // 서버 하나당 기다리는 시간. 넘으면 다음 서버, 다 안 되면 그림으로 표시                     // 스킨 1개 해금 별사탕
 const skinAffLv = (idx) => idx * 2;       // idx번째 스킨 무료 해금 호감도 레벨
 const LIVE_REACT = {                      // 반응 → 애니메이션 후보 (있는 것 중에서 고름)
@@ -227,9 +228,13 @@ function mount(container, id, opts = {}) {
       else { const m = ctrl.anims.filter((n) => c.test(n)); if (m.length) { seq = [rand(m)]; break; } }
     }
     if (!seq) return false;
+    // 아주 짧은 동작(0.3초짜리 등)은 휙 지나가서 끊겨 보이니, 최소 MIN_POSE초가 될 때까지 반복
+    const D = (n) => ctrl.player.skeleton.data.findAnimation(n).duration;
+    if (seq.length === 1 && D(seq[0]) < MIN_POSE) seq = Array(Math.ceil(MIN_POSE / Math.max(0.1, D(seq[0])))).fill(seq[0]);
+    st.data.defaultMix = 0.18; // 동작 사이를 부드럽게 이어 줌
     st.setAnimation(0, seq[0], false);
-    let dur = ctrl.player.skeleton.data.findAnimation(seq[0]).duration;
-    for (const n of seq.slice(1)) { st.addAnimation(0, n, false, 0); dur += ctrl.player.skeleton.data.findAnimation(n).duration; }
+    let dur = D(seq[0]);
+    for (const n of seq.slice(1)) { st.addAnimation(0, n, false, 0); dur += D(n); }
     st.addAnimation(0, rand(ctrl.idles.length ? ctrl.idles : [ctrl.anims[0]]), true, 0);
     ctrl.busyUntil = Date.now() + dur * 1000;
     return true;
