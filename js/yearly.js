@@ -176,9 +176,31 @@ function open(y = Y()) {
   let i = 0;
   const ov = document.createElement("div");
   ov.className = "yr-overlay";
-  ov.innerHTML = `<div class="yr-prog">${list.map(() => "<i></i>").join("")}</div><button class="yr-x" data-yrclose>✕</button><div class="yr-stage"></div><p class="yr-tip">화면을 눌러 넘기기</p>`;
+  // 배경: 해금한 일러스트가 장마다 바뀌며 천천히 줌 + 색 필터 + 눈·별 파티클 + 사도 퍼레이드
+  const bgs = (S().unlockedBg || []).filter((id) => BACKGROUNDS.some((b) => b.id === id));
+  const pool = bgs.length >= 3 ? bgs : BACKGROUNDS.map((b) => b.id);
+  const R = (a, b) => a + Math.random() * (b - a);
+  const parts = Array.from({ length: 34 }, (_, k) => {
+    const ch = k % 3 === 0 ? "❄" : k % 3 === 1 ? "✦" : "•";
+    return `<i class="yr-pt ${k % 3 === 1 ? "tw" : ""}" style="left:${R(0, 100)}%;font-size:${R(8, k % 3 === 0 ? 22 : 14)}px;animation-duration:${R(9, 20)}s,${R(1.5, 4)}s;animation-delay:-${R(0, 20)}s,-${R(0, 4)}s;opacity:${R(.35, .9)}">${ch}</i>`;
+  }).join("");
+  const own = Object.keys(S().owned).sort(() => Math.random() - 0.5).slice(0, 9).map((id) => TS.SADO_MAP[id]).filter(Boolean);
+  const parade = own.map((c, k) => `<img src="${TS.chibiSrc(c)}" style="left:${(k + 0.5) * (100 / own.length)}%;animation-delay:-${R(0, 3)}s" alt="">`).join("");
+  ov.innerHTML = `<div class="yr-bg"><div class="yr-img"></div><div class="yr-img"></div><div class="yr-tint"></div><div class="yr-orb o1"></div><div class="yr-orb o2"></div><div class="yr-orb o3"></div></div>
+    <div class="yr-parts">${parts}</div><div class="yr-parade">${parade}</div>
+    <div class="yr-prog">${list.map(() => "<i></i>").join("")}</div><button class="yr-x" data-yrclose>✕</button><div class="yr-stage"></div><p class="yr-tip">화면을 눌러 넘기기</p>`;
   document.body.appendChild(ov);
+  const PAL = [["#2a1b5e", "#c2185b"], ["#0f2a5e", "#6a3cff"], ["#5e1b3a", "#ff7a3c"], ["#123f4a", "#2bb39b"], ["#1b1446", "#3f6bff"], ["#4a1240", "#ff5fa2"], ["#3b2a0e", "#e0a400"], ["#2a1b5e", "#ff8fb1"]];
+  let flip = 0;
   const show = () => {
+    const imgs = ov.querySelectorAll(".yr-img");
+    flip ^= 1;
+    imgs[flip].style.backgroundImage = `url("assets/bg/${pool[(i * 3 + y.length) % pool.length]}.jpg")`;
+    imgs[flip].classList.add("on"); imgs[flip ^ 1].classList.remove("on");
+    imgs[flip].style.animation = "none"; void imgs[flip].offsetWidth; imgs[flip].style.animation = "";
+    const [a, b] = PAL[i % PAL.length];
+    ov.style.setProperty("--ya", a); ov.style.setProperty("--yb", b);
+    ov.classList.toggle("yr-last", i === list.length - 1);
     ov.querySelector(".yr-stage").innerHTML = list[i];
     ov.querySelectorAll(".yr-prog i").forEach((b, k) => b.classList.toggle("on", k <= i));
     if (i === list.length - 1) { TS.confetti && TS.confetti(80); TS.sfx("level"); } else TS.sfx("click");
