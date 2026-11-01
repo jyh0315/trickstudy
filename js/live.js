@@ -251,8 +251,83 @@ function mount(container, id, opts = {}) {
   return ctrl;
 }
 
+/* ───── 볼 당기기 (공용) ─────
+   트릭컬 스켈레톤엔 볼 뼈(Character_Ball_Move = 한쪽 볼, *_Ball_L = 반대쪽 볼)가 있어서
+   그 뼈를 끌면 볼 살이 늘어남. 잡는 동안 Touch_Idle(꼬집힌 얼굴), 놓으면 띠용 돌아오고 Touch_End
+   ctrl 이 준비된 뒤(onReady) 불러야 함. 볼 뼈가 없는 사도면 null */
+function cheekPull(ctrl) {
+  const sk = ctrl.player.skeleton;
+  const ball = sk.findBone("Character_Ball_Move");
+  const left = sk.bones.find((b) => /^(S\d+_)?(F_)?Ball_L$/.test(b.data.name));
+  const bones = [ball, left].filter(Boolean);
+  if (!bones.length || !ctrl.anims.includes("Touch_Idle")) return null;
+  const pull = { bone: null, wx: 0, wy: 0, start: null, on: false };
+  const orig = sk.updateWorldTransform.bind(sk);
+  sk.updateWorldTransform = function (...a) {
+    // 꼬집힌 얼굴의 붉은 기운(glow·Shy) 효과는 회색 얼룩으로 보여서 숨김
+    if (pull.on) for (const sl of sk.slots) if (sl.attachment && /glow|shy|blush/i.test(sl.attachment.name)) sl.attachment = null;
+    orig(...a);
+    if (!pull.bone || (!pull.wx && !pull.wy)) return;
+    // 화면(월드) 기준으로 끈 만큼 → 부모 뼈 기준 이동량으로 바꿔서 적용
+    const par = pull.bone.parent;
+    const o = { x: par.worldX, y: par.worldY }, t = { x: par.worldX + pull.wx, y: par.worldY + pull.wy };
+    par.worldToLocal(o); par.worldToLocal(t);
+    const dx = t.x - o.x, dy = t.y - o.y;
+    pull.bone.x += dx; pull.bone.y += dy;
+    orig(...a);
+    pull.bone.x -= dx; pull.bone.y -= dy;
+  };
+  const toWorld = (cx, cy) => {
+    const p = ctrl.player, r = p.canvas.getBoundingClientRect();
+    const v = p.sceneRenderer.camera.screenToWorld(new spine.Vector3(cx - r.left, cy - r.top, 0), r.width, r.height);
+    return { x: v.x, y: v.y };
+  };
+  const st = () => ctrl.player.animationState;
+  let springT = 0, offT = 0;
+  return {
+    // 누른 곳 ↔ 가장 가까운 볼 뼈 거리 (화면 px)
+    near(cx, cy) {
+      const w = toWorld(cx, cy), r = ctrl.player.canvas.getBoundingClientRect();
+      const k = r.width / ctrl.player.config.viewport.width;
+      return Math.min(...bones.map((b) => Math.hypot(b.worldX - w.x, b.worldY - w.y))) * k;
+    },
+    grab(cx, cy) {
+      cancelAnimationFrame(springT); clearTimeout(offT);
+      const w = toWorld(cx, cy);
+      pull.bone = bones.reduce((a, b) => (Math.hypot(b.worldX - w.x, b.worldY - w.y) < Math.hypot(a.worldX - w.x, a.worldY - w.y) ? b : a));
+      pull.start = w; pull.wx = pull.wy = 0; pull.on = true;
+      ctrl.busyUntil = Infinity;
+      st().setAnimation(0, "Touch_Idle", true);
+    },
+    move(cx, cy) {
+      const w = toWorld(cx, cy);
+      let dx = w.x - pull.start.x, dy = w.y - pull.start.y;
+      // 너무 늘리면 얼굴이 찢어져 보여서 살짝만 (끝으로 갈수록 뻣뻣하게)
+      const len = Math.hypot(dx, dy), max = 85;
+      if (len > 0) { const k = (max * Math.tanh(len / (max * 1.6))) / len; dx *= k; dy *= k; }
+      pull.wx = dx; pull.wy = dy;
+    },
+    release(cb) {
+      const x0 = pull.wx, y0 = pull.wy, t0 = performance.now();
+      const step = (now) => {
+        const t = (now - t0) / 1000, a = Math.exp(-6 * t) * Math.cos(22 * t);
+        pull.wx = x0 * a; pull.wy = y0 * a;
+        if (t < 0.7) { springT = requestAnimationFrame(step); return; }
+        pull.wx = pull.wy = 0;
+        if (ctrl.anims.includes("Touch_End")) st().setAnimation(0, "Touch_End", false);
+        st().addAnimation(0, ctrl.idles[0] || ctrl.anims[0], true, 0);
+        ctrl.busyUntil = Date.now() + 3000;
+        offT = setTimeout(() => (pull.on = false), 3000);
+        cb && cb();
+      };
+      springT = requestAnimationFrame(step);
+    },
+    stop() { cancelAnimationFrame(springT); clearTimeout(offT); },
+  };
+}
+
 /* ───── 대표 사도 무대 ───── */
-let stage = null, stageKey = "";
+let stage = null, stageKey = "", stagePull = null;
 const failedIds = new Set(); // 이번 접속에서 못 불러온 사도 (새로고침하면 다시 시도)
 function mountStage(force) {
   const id = S().partner, box = $("partner");
@@ -263,7 +338,8 @@ function mountStage(force) {
   box.classList.remove("live-ready");
   if (!id || !S().started) return;
   if (failedIds.has(key)) return;
-  stage = mount(box, id, { frame: "face", onFail: () => { stage = null; failedIds.add(key); } });
+  stagePull = null;
+  stage = mount(box, id, { frame: "face", onReady: (c) => { if (stage === c || !stage) stagePull = cheekPull(c); }, onFail: () => { stage = null; failedIds.add(key); } });
 }
 function react(kind) { if (stage) return stage.play(kind); return false; }
 
@@ -272,6 +348,19 @@ let down = null, gesture = "", pokes = [];
 const partner = $("partner");
 partner.addEventListener("pointerdown", (e) => {
   gesture = "";
+  // 볼 근처를 누르면 볼 당기기 (시작 화면처럼)
+  if (stagePull && stage && stage.ready && stagePull.near(e.clientX, e.clientY) < partner.clientWidth * 0.22) {
+    e.preventDefault();
+    partner.setPointerCapture(e.pointerId);
+    down = { x: e.clientX, y: e.clientY, moved: 0, t: Date.now(), pull: true };
+    gesture = "pull";
+    stagePull.grab(e.clientX, e.clientY);
+    partner.classList.add("pulling");
+    if (!TS.voice(S().partner, "pull")) TS.sfx("poke");
+    TS.sayKind("poke");
+    TS.emit("poke", S().partner);
+    return;
+  }
   down = { x: e.clientX, y: e.clientY, moved: 0, t: Date.now() };
   down.timer = setTimeout(() => {
     if (!down || down.moved > 20) return;
@@ -282,6 +371,7 @@ partner.addEventListener("pointerdown", (e) => {
 });
 partner.addEventListener("pointermove", (e) => {
   if (!down) return;
+  if (down.pull) { stagePull.move(e.clientX, e.clientY); return; }
   down.moved += Math.hypot(e.movementX || 0, e.movementY || 0);
   if (!gesture && down.moved > 90) {
     gesture = "tickle";
@@ -289,13 +379,17 @@ partner.addEventListener("pointermove", (e) => {
     react("tickle"); TS.say(rand(LIVE_LINES.tickle), false);
   }
 });
-const up = () => { if (down) clearTimeout(down.timer); down = null; };
+const up = () => {
+  if (down && down.pull) { stagePull.release(() => partner.classList.remove("pulling")); down = null; return; }
+  if (down) clearTimeout(down.timer); down = null;
+};
 // 쓰다듬기·간지럽히기 뒤에 따라오는 클릭은 '콕 찌르기'로 치지 않음
 partner.addEventListener("click", (e) => { if (gesture) { e.stopImmediatePropagation(); gesture = ""; } }, true);
 partner.addEventListener("pointerup", up);
-partner.addEventListener("pointerleave", up);
+partner.addEventListener("pointerleave", (e) => { if (!(down && down.pull)) up(); });
+partner.addEventListener("pointercancel", up);
 TS.on("poke", () => {
-  if (gesture) return; // 쓰다듬기·간지럽히기 중이면 콕 반응은 생략
+  if (gesture) return; // 볼 당기기·쓰다듬기·간지럽히기 중이면 콕 반응은 생략
   const now = Date.now();
   pokes = pokes.filter((t) => now - t < 2000).concat(now);
   if (pokes.length >= 4) { pokes = []; if (react("dizzy")) setTimeout(() => TS.say(rand(LIVE_LINES.dizzy), false), 50); }
@@ -392,5 +486,5 @@ if (sp) sp.onchange = (e) => {
 const sl = $("s-live");
 if (sl) sl.onchange = (e) => { S().settings.live = e.target.checked; TS.save(); mountStage(true); };
 
-window.Live = { mount, react, canLive, curSkin, skinState };
+window.Live = { mount, react, canLive, curSkin, skinState, cheekPull };
 })();

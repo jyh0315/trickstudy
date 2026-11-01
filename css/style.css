@@ -1867,3 +1867,12 @@ a.icon-btn { text-decoration: none; display: inline-grid; place-items: center; }
 .gimp-list li label { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-bottom: 1px dashed #e3d6bd; cursor: pointer; }
 .gimp-list li b { white-space: nowrap; font-variant-numeric: tabular-nums; } .gimp-list li span { flex: 1; } .gimp-list li small { color: var(--ink-soft); font-size: 11px; }
 .gimp-list li.done { opacity: .45; }
+
+/* 대표 사도 볼 당기기 */
+.partner { touch-action: none; }
+.partner.pulling { animation: none; cursor: grabbing; }
+/* 표정 고르기 */
+.emote-row .emo-pick { cursor: pointer; position: relative; }
+.emote-row .emo-pick.on { outline: 4px solid var(--yellow); outline-offset: 2px; border-radius: 14px; }
+.emote-row .emo-pick.on::after { content: "✔"; position: absolute; right: -6px; top: -8px; background: var(--yellow); border: 2px solid var(--ink); border-radius: 50%; width: 20px; height: 20px; font-size: 12px; display: grid; place-items: center; }
+.emo-modes { display: flex; justify-content: center; gap: 6px; margin: 4px 0; }

@@ -116,7 +116,10 @@ function portrait(c, randomEmote = false) {
   if (isPlain()) return plainAvatar(c);
   const n = emoteCount(c);
   if (!n) return chibiSrc(c);
-  return `assets/emotes/${c.id}/${randomEmote ? 1 + Math.floor(Math.random() * n) : 1}.webp`;
+  // 고른 표정이 있으면 그것만, 아니면(랜덤) 해금한 표정 중 하나
+  const pick = (state.emoteSel || {})[c.id];
+  const i = pick && pick <= n ? pick : randomEmote ? 1 + Math.floor(Math.random() * n) : 1;
+  return `assets/emotes/${c.id}/${i}.webp`;
 }
 
 /* ───── 효과음 (WebAudio, 파일 없이) ───── */
@@ -840,8 +843,10 @@ function renderSado() {
 function sadoDetail(id) {
   const c = SADO_MAP[id], o = state.owned[id];
   const cost = CONFIG.exchangeCost[c.rarity];
+  const sel = (state.emoteSel || {})[id] || 0;
   const emotes = c.emote ? `<div class="emote-row">${[1, 2, 3, 4].map((i) =>
-    o && i <= o.emo ? `<div><img src="${emoteSrc(c, i)}" alt=""></div>` : "<div>?</div>").join("")}</div>
+    o && i <= o.emo ? `<div class="emo-pick ${sel === i ? "on" : ""}" data-emo="${i}" title="이 표정만 보기"><img src="${emoteSrc(c, i)}" alt=""></div>` : "<div>?</div>").join("")}</div>
+    ${o && o.emo > 1 ? `<div class="emo-modes"><button class="btn small ${sel ? "white" : "yellow"}" data-emo="0">🔀 랜덤 표정</button><span class="hint" style="margin:0;align-self:center">해금한 표정을 누르면 그 표정만 보여요</span></div>` : ""}
     <p class="hint">중복으로 영입하거나 별사탕으로 표정을 하나씩 해금할 수 있어요.</p>
     ${o && o.emo < 4 ? `<div class="emote-buy"><button class="btn pink small" id="m-emo" ${state.candy < CONFIG.emoteCost ? "disabled" : ""}><i class="ic-candy"></i> ${CONFIG.emoteCost}개로 표정 ${o.emo + 1} 해금</button><small>별사탕 ${state.candy}개</small></div>` : ""}` : "";
   modal(`<img class="detail-img" src="${o ? portrait(c) : chibiSrc(c)}" style="${o ? "" : "filter:grayscale(1) opacity(.6)"}" alt="">
@@ -864,6 +869,15 @@ function sadoDetail(id) {
     (el, close) => {
       const p = el.querySelector("#m-partner");
       if (p) p.onclick = () => { state.partner = id; save(); renderPartner(); emit("partner", id); sayKind("idle"); close(); refresh(); };
+      el.querySelectorAll("[data-emo]").forEach((b) => (b.onclick = () => {
+        const v = +b.dataset.emo;
+        if (!state.emoteSel) state.emoteSel = {};
+        if (v) state.emoteSel[id] = v; else delete state.emoteSel[id];
+        save(); sfx("click"); close();
+        if (state.partner === id) renderPartner();
+        toast(v ? `😊 ${c.name} 표정 ${v}번으로 고정!` : `🔀 ${c.name} 표정을 랜덤으로`);
+        sadoDetail(id);
+      }));
       const em = el.querySelector("#m-emo");
       if (em) em.onclick = () => {
         if (state.candy < CONFIG.emoteCost || o.emo >= 4) return;

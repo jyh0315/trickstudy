@@ -81,7 +81,7 @@ function showScene(done, mainId) {
   root.innerHTML = `
     <div class="ttl-bg" style="background-image:url('assets/title-bg.webp')"></div>
     <div class="ttl-logo"><span class="l2">트릭스터디</span><span class="l1">~교주님 공부하세요!~</span></div>
-    <div class="ttl-ver">Ver 7.8 · 교주 전용</div>
+    <div class="ttl-ver">Ver 7.9 · 교주 전용</div>
     <div class="ttl-copy">♥ Trickcal fan-made study</div>
     <div class="ttl-cast">${cast.map((id, i) => `<div class="ttl-actor a${i}" data-id="${id}"></div>`).join("")}</div>
     <div class="ttl-sweep"></div>
@@ -187,7 +187,7 @@ function show(done) {
   root.innerHTML = `
     <div class="ttl-bg" style="background-image:url('assets/bg/${s.bg || "trickcal"}.jpg')"></div>
     <div class="ttl-logo"><span class="l2">트릭스터디</span><span class="l1">~교주님 공부하세요!~</span></div>
-    <div class="ttl-ver">Ver 7.8 · 교주 전용</div>
+    <div class="ttl-ver">Ver 7.9 · 교주 전용</div>
     <div class="ttl-copy">♥ Trickcal fan-made study</div>
     <div class="ttl-face" id="ttl-face">
       <img id="ttl-img" src="${src}" alt="" draggable="false">
@@ -344,83 +344,19 @@ function mountLive(face, id, frame = "face") {
   const box = document.createElement("div");
   box.className = "ttl-live";
   face.appendChild(box);
-  let ctrl = null, ok = false, bones = [];
-  const pull = { bone: null, wx: 0, wy: 0, start: null, on: false };
-  ctrl = window.Live.mount(box, id, {
+  let pull = null;
+  const ctrl = window.Live.mount(box, id, {
     frame,
-    onReady: (c) => {
-      const sk = c.player.skeleton;
-      const ball = sk.findBone("Character_Ball_Move");
-      const left = sk.bones.find((b) => /^(S\d+_)?(F_)?Ball_L$/.test(b.data.name));
-      bones = [ball, left].filter(Boolean);
-      if (!bones.length || !c.anims.includes("Touch_Idle")) return; // 볼 뼈가 없으면 기존 방식
-      const orig = sk.updateWorldTransform.bind(sk);
-      sk.updateWorldTransform = function (...a) {
-        // 꼬집힌 얼굴의 붉은 기운(glow·Shy) 효과는 여기선 회색 얼룩으로 보여서 숨김
-        if (pull.on) for (const sl of sk.slots) if (sl.attachment && /glow|shy|blush/i.test(sl.attachment.name)) sl.attachment = null;
-        orig(...a);
-        if (!pull.bone || (!pull.wx && !pull.wy)) return;
-        // 화면(월드) 기준으로 끈 만큼 → 부모 뼈 기준 이동량으로 바꿔서 적용
-        const par = pull.bone.parent;
-        const o = { x: par.worldX, y: par.worldY }, t = { x: par.worldX + pull.wx, y: par.worldY + pull.wy };
-        par.worldToLocal(o); par.worldToLocal(t);
-        const dx = t.x - o.x, dy = t.y - o.y;
-        pull.bone.x += dx; pull.bone.y += dy;
-        orig(...a);
-        pull.bone.x -= dx; pull.bone.y -= dy;
-      };
-      ok = true;
-      face.classList.add("live");
-    },
+    onReady: (c) => { pull = window.Live.cheekPull(c); if (pull) face.classList.add("live"); }, // 볼 뼈가 없으면 기존 방식
   });
   if (!ctrl) { box.remove(); return none; }
-  const toWorld = (cx, cy) => {
-    const p = ctrl.player, cvs = p.canvas, r = cvs.getBoundingClientRect();
-    const v = p.sceneRenderer.camera.screenToWorld(new spine.Vector3(cx - r.left, cy - r.top, 0), r.width, r.height);
-    return { x: v.x, y: v.y };
-  };
-  const st = () => ctrl.player.animationState;
-  let springT = 0;
   return {
-    ready: () => ok,
-    // 누른 곳 ↔ 가장 가까운 볼 뼈 거리 (화면 px)
-    near(cx, cy) {
-      const w = toWorld(cx, cy), r = ctrl.player.canvas.getBoundingClientRect();
-      const k = r.width / ctrl.player.config.viewport.width;
-      return Math.min(...bones.map((b) => Math.hypot(b.worldX - w.x, b.worldY - w.y))) * k;
-    },
-    grab(cx, cy) {
-      cancelAnimationFrame(springT);
-      const w = toWorld(cx, cy);
-      pull.bone = bones.reduce((a, b) => (Math.hypot(b.worldX - w.x, b.worldY - w.y) < Math.hypot(a.worldX - w.x, a.worldY - w.y) ? b : a));
-      pull.start = w; pull.wx = pull.wy = 0; pull.on = true;
-      ctrl.busyUntil = Infinity;
-      st().setAnimation(0, "Touch_Idle", true);
-    },
-    move(cx, cy) {
-      const w = toWorld(cx, cy);
-      let dx = w.x - pull.start.x, dy = w.y - pull.start.y;
-      // 너무 늘리면 얼굴이 찢어져 보여서 살짝만 (끝으로 갈수록 뻣뻣하게)
-      const len = Math.hypot(dx, dy), max = 85;
-      if (len > 0) { const k = (max * Math.tanh(len / (max * 1.6))) / len; dx *= k; dy *= k; }
-      pull.wx = dx; pull.wy = dy;
-    },
-    release(cb) {
-      const x0 = pull.wx, y0 = pull.wy, t0 = performance.now();
-      const step = (now) => {
-        const t = (now - t0) / 1000, a = Math.exp(-6 * t) * Math.cos(22 * t);
-        pull.wx = x0 * a; pull.wy = y0 * a;
-        if (t < 0.7) { springT = requestAnimationFrame(step); return; }
-        pull.wx = pull.wy = 0;
-        if (ctrl.anims.includes("Touch_End")) st().setAnimation(0, "Touch_End", false);
-        st().addAnimation(0, ctrl.idles[0] || ctrl.anims[0], true, 0);
-        ctrl.busyUntil = Date.now() + 3000;
-        setTimeout(() => (pull.on = false), 3000);
-        cb && cb();
-      };
-      springT = requestAnimationFrame(step);
-    },
-    dispose() { cancelAnimationFrame(springT); ctrl.dispose(); },
+    ready: () => !!pull,
+    near: (x, y) => (pull ? pull.near(x, y) : Infinity),
+    grab: (x, y) => pull && pull.grab(x, y),
+    move: (x, y) => pull && pull.move(x, y),
+    release: (cb) => (pull ? pull.release(cb) : cb && cb()),
+    dispose() { if (pull) pull.stop(); ctrl.dispose(); },
   };
 }
 
