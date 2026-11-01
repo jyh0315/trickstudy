@@ -1883,7 +1883,7 @@ a.icon-btn { text-decoration: none; display: inline-grid; place-items: center; }
 .ttl-tt-head { display: flex; align-items: baseline; gap: 10px; font-family: var(--font-title); font-size: 15px; margin-bottom: 5px; white-space: nowrap; overflow: hidden; }
 .ttl-tt-head span { font-family: var(--font-body); font-size: 13px; color: var(--ink-soft); overflow: hidden; text-overflow: ellipsis; }
 .ttl-tt-head span b { color: var(--pink-d); }
-.ttl-tl { position: relative; height: 30px; background: #fff; border: 2.5px solid var(--ink); border-radius: 10px; overflow: hidden; }
+.ttl-tl { position: relative; height: 30px; background: repeating-linear-gradient(135deg, #f3e8d4 0 6px, #ece0c8 6px 12px); border: 2.5px solid var(--ink); border-radius: 10px; overflow: hidden; }
 .ttl-seg { position: absolute; top: 0; bottom: 0; background: var(--c); border-right: 1.5px solid rgba(59,42,32,.35); display: flex; align-items: center; justify-content: center; overflow: hidden; }
 .ttl-seg b { font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 3px; }
 .ttl-seg.done { filter: grayscale(.7) opacity(.45); }

@@ -82,7 +82,7 @@ function showScene(done, mainId) {
   root.innerHTML = `
     <div class="ttl-bg" style="background-image:url('assets/title-bg.webp')"></div>
     <div class="ttl-logo"><span class="l2">트릭스터디</span><span class="l1">~교주님 공부하세요!~</span></div>
-    <div class="ttl-ver">Ver 8.4 · 교주 전용</div>
+    <div class="ttl-ver">Ver 8.5 · 교주 전용</div>
     <div class="ttl-copy">♥ Trickcal fan-made study</div>
     <div class="ttl-cast">${cast.map((id, i) => `<div class="ttl-actor a${i}" data-id="${id}"></div>`).join("")}</div>
     <div class="ttl-sweep"></div>
@@ -189,7 +189,7 @@ function show(done) {
   root.innerHTML = `
     <div class="ttl-bg" style="background-image:url('assets/bg/${s.bg || "trickcal"}.jpg')"></div>
     <div class="ttl-logo"><span class="l2">트릭스터디</span><span class="l1">~교주님 공부하세요!~</span></div>
-    <div class="ttl-ver">Ver 8.4 · 교주 전용</div>
+    <div class="ttl-ver">Ver 8.5 · 교주 전용</div>
     <div class="ttl-copy">♥ Trickcal fan-made study</div>
     <div class="ttl-face" id="ttl-face">
       <img id="ttl-img" src="${src}" alt="" draggable="false">
@@ -368,7 +368,8 @@ function mountLive(face, id, frame = "face") {
 function renderTT(el) {
   const Sc = window.Schedule;
   if (!el || !Sc) return;
-  const items = Sc.todayItems(), d = new Date(), n = d.getHours() * 60 + d.getMinutes();
+  let items = Sc.todayItems();
+  const d = new Date(), n = d.getHours() * 60 + d.getMinutes();
   const later = !items.length && Sc.upcomingLater();
   el.classList.toggle("hidden", !items.length && !later);
   if (!items.length) {
@@ -376,6 +377,9 @@ function renderTT(el) {
     return;
   }
   // 하루를 가로 한 줄 타임라인으로: 길이는 시간에 비례, 지금 위치에 빨간 선
+  // 새벽(4시 전) 일정은 '어젯밤 취침' 같은 것이라 막대 맨 앞을 비워 버림 → 낮 일정이 있으면 빼고 그림
+  const day = items.filter((x) => Sc.toMin(x.start) >= 240);
+  if (day.length) items = day;
   const t0 = Math.min(...items.map((x) => Sc.toMin(x.start))), t1 = Math.max(...items.map((x) => Sc.toMin(x.end)));
   const span = Math.max(1, t1 - t0), pos = (m) => ((m - t0) / span) * 100;
   const cur = items.find((x) => n >= Sc.toMin(x.start) && n < Sc.toMin(x.end));
