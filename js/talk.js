@@ -12,7 +12,10 @@ const S = () => TS.state;
 const esc = TS.esc;
 const ALL = typeof SADO_TALKS !== "undefined" ? SADO_TALKS : [];
 
-const seen = () => { if (!S().talkSeen) S().talkSeen = []; return S().talkSeen; };
+// 본 대화는 첫 줄로 기억 (대화 목록이 바뀌어도 유지)
+const keyOf = (i) => ALL[i] ? ALL[i][0][0] + ":" + ALL[i][0][1] : "";
+const seen = () => { if (!S().talkSeen || S().talkSeen.some((x) => typeof x === "number")) S().talkSeen = []; return S().talkSeen; };
+const isSeen = (i) => seen().includes(keyOf(i));
 const who = (t) => [...new Set(t.map((x) => x[0]))];
 const opened = (t) => who(t).every((id) => S().owned[id]);
 const withId = (id) => ALL.map((t, i) => ({ t, i })).filter(({ t }) => who(t).includes(id));
@@ -46,7 +49,7 @@ function play(i) {
   };
   card.querySelector(".tk-x").onclick = (e) => { e.stopPropagation(); close(); };
   card.onclick = () => { clearTimeout(timer); next(); }; // 누르면 다음 줄 바로
-  if (!seen().includes(i)) { seen().push(i); TS.save(); }
+  if (!isSeen(i)) { seen().push(keyOf(i)); TS.save(); }
   next();
 }
 
@@ -56,7 +59,7 @@ function pick(any) {
   let list = withId(p).filter(({ t }) => opened(t));
   if (!list.length && any) list = ALL.map((t, i) => ({ t, i })).filter(({ t }) => opened(t));
   if (!list.length) return -1;
-  const fresh = list.filter(({ i }) => !seen().includes(i));
+  const fresh = list.filter(({ i }) => !isSeen(i));
   return TS.rand(fresh.length ? fresh : list).i;
 }
 
@@ -85,12 +88,12 @@ setInterval(() => {
 /* 사도 상세: 이 사도의 대화 목록 */
 TS.detailHooks.push((c) => {
   const list = withId(c.id); if (!list.length) return "";
-  const n = list.filter(({ i }) => seen().includes(i)).length;
+  const n = list.filter(({ i }) => isSeen(i)).length;
   return `<details class="tk-book"><summary>💬 사도끼리 대화 <b>${n} / ${list.length}</b></summary><div>${list.map(({ t, i }) => {
     const others = who(t).filter((id) => id !== c.id).map((id) => TS.SADO_MAP[id]);
     const names = others.map((o) => esc(TS.shortName(o))).join(", ");
     return opened(t)
-      ? `<button class="btn ${seen().includes(i) ? "white" : "yellow"} small" data-talk="${i}">${seen().includes(i) ? "" : "NEW "}${names} · “${esc(t[0][1].length > 12 ? t[0][1].slice(0, 12) + "…" : t[0][1])}”</button>`
+      ? `<button class="btn ${isSeen(i) ? "white" : "yellow"} small" data-talk="${i}">${isSeen(i) ? "" : "NEW "}${names} · “${esc(t[0][1].length > 12 ? t[0][1].slice(0, 12) + "…" : t[0][1])}”</button>`
       : `<span class="tk-lock">🔒 ${names} 영입 필요</span>`;
   }).join("")}</div></details>`;
 });
