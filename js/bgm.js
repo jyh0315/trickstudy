@@ -293,8 +293,15 @@ window.BGM = {
     if (!st.onStart) return;
     ready.then(() => {
       ctx = currentCtx();
-      if (titleOn && !audio.paused) return; // 시작 화면 메인 테마가 나오는 중이면 그대로 이어서
-      if (tracks.length) playCtx();
+      titleOn = false;
+      if (!tracks.length) return;
+      // 메인 화면으로 넘어가면 시작 화면 테마(Main Title) 말고 다른 곡으로 — 천천히 줄였다가 바꿈
+      const pool = poolFor(ctx).filter((t) => !/Main Title/i.test(t.title));
+      const pick = pool.length ? pool[Math.floor(Math.random() * pool.length)] : null;
+      const go = () => (pick ? playTrack(pick) : playCtx());
+      if (audio.paused) return go();
+      const v0 = audio.volume; let n = 0;
+      const t = setInterval(() => { audio.volume = Math.max(0, v0 * (1 - ++n / 12)); if (n >= 12) { clearInterval(t); go(); audio.volume = v0; } }, 60);
     });
   },
   // 시작 화면이 뜨자마자 메인 테마. 브라우저가 막으면 화면을 처음 누르는 순간 재생

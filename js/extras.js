@@ -2,7 +2,7 @@
    🎭 대사 연출 모음 — 「트릭컬 사도 정리」 대사 활용
    - 📝 반성문: 집중을 중간에 그만두면 대표 사도가 반성문 (PVP 패배 반성문)
    - 💔 관심 사도 해제: 대표 사도를 바꾸면 이전 사도가 한마디
-   - ⏳ 로딩 화면: 시작 화면 아래에 사도 한마디 + 로딩 화면 제목
+   - ⏳ 로딩 화면: 시작 화면에서 넘어갈 때 가운데에 크게 사도 한마디 + 로딩 화면 제목
    - 💢 꿀밤 반응: 움직이는 사도도 같이 움찔 (꿀밤 자체는 app.js knock)
    ========================================================= */
 (() => {
@@ -55,19 +55,22 @@ function loadingLine() {
   const [text, title] = TS.rand(V(id).load);
   return { c, text, title };
 }
+// 시작 화면 → 메인 화면으로 넘어갈 때 가운데에 크게 (로딩 화면처럼)
 function showLoading() {
-  const root = document.getElementById("title"); if (!root || root.querySelector(".ttl-load")) return;
   const L = loadingLine(); if (!L.c) return;
-  const el = document.createElement("div");
-  el.className = "ttl-load";
-  el.innerHTML = `<img src="${TS.chibiSrc(L.c)}" alt=""><div><small>「${esc(L.title)}」</small><p>${esc(L.text)}</p><b>— ${esc(TS.shortName(L.c))}</b></div>`;
-  root.appendChild(el);
+  const ov = document.createElement("div");
+  ov.className = "ld-overlay";
+  ov.innerHTML = `<div class="ld-card">
+      <img class="ld-pic" src="${TS.portrait(L.c, true)}" alt="">
+      <div class="ld-text"><small>「${esc(L.title)}」</small><p>${esc(L.text)}</p><b>— ${esc(L.c.name)}</b></div>
+    </div>
+    <div class="ld-bar"><i></i></div><span class="ld-skip">눌러서 넘기기</span>`;
+  document.body.appendChild(ov);
+  const close = () => { if (!ov.isConnected) return; ov.classList.add("bye"); setTimeout(() => ov.remove(), 450); };
+  ov.onclick = close;
+  setTimeout(close, 2800);
 }
-// 시작 화면이 그려진 뒤에 붙이기 (title.js가 #title 을 만듦)
-const mo = new MutationObserver(() => { if (document.getElementById("title")) showLoading(); });
-mo.observe(document.body, { childList: true });
-if (document.getElementById("title")) showLoading();
-TS.on("start", () => mo.disconnect());
+TS.on("start", () => { if (S().started) showLoading(); });
 })();
 
 /* ───── 🎁 선물(장비 장착) · ✦ 돌파(승급·스킬 강화) 반응 ───── */

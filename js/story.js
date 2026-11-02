@@ -298,7 +298,6 @@ const colorOf = (id) => (id === "me" ? "#ff7fa8" : (PERS[(TS.SADO_MAP[id] || {})
 
 // *강조* → 초록 글씨. 글자마다 <span>을 미리 깔아 두고 하나씩 보이게 해서 줄바꿈·위치가 흔들리지 않음
 /* ───── 소리: 사도 음성 + 말소리 톡톡 ─────
-   - 사도가 처음 등장할 때 그 사도의 실제 음성(쓰다듬기)을 한 번
    - 대사가 받아 둔 음성 대사와 같으면 그 음성을 그대로
    - 그 밖의 대사는 글자가 나올 때 사도마다 다른 높이의 '톡톡' 말소리 */
 let actx = null;
@@ -438,8 +437,7 @@ function enter(id, at, f, flip) {
   if (!a.live) fallback();
   P.actors[id] = a;
   requestAnimationFrame(() => el.classList.add("in"));
-  P.greeted = P.greeted || {};
-  if (c && !P.greeted[id] && !P.skipping && soundOn()) { P.greeted[id] = 1; setTimeout(() => { if (P && TS.voice(id, "pat")) P.voiceUntil = Date.now() + 2200; }, 350); }
+
 }
 function leave(id) {
   const a = P.actors[id];
