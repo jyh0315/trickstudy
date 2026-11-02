@@ -12,6 +12,7 @@
      { s: "erpin", t: "대사 *강조할 말*", f: "happy", e: "!", st: "shout" }   (*…* 는 초록색 강조)
          s = 말하는 사도(id) 또는 "me"(교주) / f = 표정·동작 / e = 감정 스티커 / st = shout·think
      { n: "나레이션" }  { shake: 1 }  { flash: 1 }  { wait: 800 }
+     { sfx: "gun" }  효과음 (gun boom pop magic crowd run knock door pull bonk drop eat gulp ominous)
      { music: "02. Day Life.mp3" }  배경음악 바꾸기 (assets/bgm, 천천히 넘어감) · music: "" 은 끄기 / 화에 bgm: 을 적으면 첫 곡
      { choice: ["보기1", "보기2"], r: ["보기1 고르면 나올 대사", "보기2 대사"] }  (r는 교주 대신 첫 사도가 반응)
    f(표정): happy angry sad surprise shy dizzy proud talk eat dance touch pat tickle
@@ -37,8 +38,9 @@ const studied = () => Math.max(0, S().stats.totalMin - st().base2);
 // 화마다 need(분)를 채우면 열림. need 가 없으면 화 순서 × STORY_MIN_PER_EP
 const needOf = (ep, i) => (ep.need != null ? ep.need : i * STORY_MIN_PER_EP);
 const isOpen = (ep, i) => PREVIEW || studied() >= needOf(ep, i);
-const unlockedN = () => { const e = allEps(); let n = 0; while (n < e.length && isOpen(e[n], n)) n++; return n; };
-const nextEp = () => { const e = allEps(), n = unlockedN(); return n < e.length ? { ep: e[n], need: needOf(e[n], n) } : null; };
+const unlockedN = () => allEps().filter((e, i) => isOpen(e, i)).length;
+// 아직 안 열린 화 중 가장 먼저 열릴 화
+const nextEp = () => { const L = allEps().map((ep, i) => ({ ep, need: needOf(ep, i) })).filter((x) => x.need > studied()).sort((a, b) => a.need - b.need); return L[0] || null; };
 const nextIn = () => { const x = nextEp(); return x ? Math.max(0, x.need - studied()) : 0; };
 const hm = (m) => (m >= 60 ? `${Math.floor(m / 60)}시간${m % 60 ? ` ${m % 60}분` : ""}` : `${m}분`);
 
@@ -46,29 +48,29 @@ const hm = (m) => (m >= 60 ? `${Math.floor(m / 60)}시간${m % 60 ? ` ${m % 60}�
 function render() {
   const el = $("view-story");
   const eps = allEps(), open = unlockedN(), seen = new Set(st().seen);
-  const firstNew = eps.findIndex((e, i) => i < open && !seen.has(e.id));
+  const firstNew = eps.findIndex((e, i) => isOpen(e, i) && !seen.has(e.id));
   el.innerHTML = `
     <div class="card story-head">
       <h2 class="ribbon">사도 이야기</h2>
       <p>공부할수록 다음 이야기가 열려요.
         ${open < eps.length ? `다음 화까지 공부 <b>${hm(nextIn())}</b> 남았어요.` : "지금 있는 이야기는 모두 열렸어요!"}</p>
-      <div class="story-prog"><span class="bar"><i style="width:${(() => { const x = nextEp(); if (!x) return 100; const prevNeed = open ? needOf(eps[open - 1], open - 1) : 0; return Math.min(100, ((studied() - prevNeed) / Math.max(1, x.need - prevNeed)) * 100).toFixed(1); })()}%"></i></span>
+      <div class="story-prog"><span class="bar"><i style="width:${(() => { const x = nextEp(); if (!x) return 100; const prevNeed = Math.max(0, ...eps.map((e, k) => needOf(e, k)).filter((n) => n <= studied())); return Math.min(100, ((studied() - prevNeed) / Math.max(1, x.need - prevNeed)) * 100).toFixed(1); })()}%"></i></span>
         <small>${Math.min(open, eps.length)} / ${eps.length}화 열림 · 본 화 ${seen.size}</small></div>
       ${firstNew >= 0 ? `<button class="btn yellow" data-play="${eps[firstNew].id}">▶ 이어 보기 — ${esc(eps[firstNew].title)}</button>` : ""}
     </div>
     ${chapters().map((ch) => `<div class="card story-ch">
       <h3 class="card-title">${esc(ch.season)} · ${esc(ch.name)} <small>${esc(ch.title)}</small></h3>
       <ol class="story-eps">${ch.eps.map((ep) => {
-        const i = eps.findIndex((x) => x.id === ep.id), lock = i >= open;
+        const i = eps.findIndex((x) => x.id === ep.id), lock = !isOpen(eps[i], i);
         return `<li class="${lock ? "lock" : ""} ${seen.has(ep.id) ? "seen" : ""}">
           <button ${lock ? "disabled" : ""} data-play="${ep.id}">
-            <b>${i + 1}화</b><span>${esc(ep.title)}</span>
+            <b>${ch.eps.indexOf(ep) + 1}화</b><span>${esc(ep.title)}</span>
             <em>${lock ? `🔒 공부 ${hm(Math.max(0, needOf(ep, i) - studied()))} 더` : seen.has(ep.id) ? "✔ 다시 보기" : "NEW"}</em>
           </button>${PREVIEW ? `<button class="story-script" data-script="${ep.id}">📜 대본</button>` : ""}</li>`;
       }).join("")}</ol>
     </div>`).join("")}
     ${chapters().length ? "" : '<div class="card"><p class="hint">이야기를 준비하고 있어요!</p></div>'}
-    <p class="hint">「트릭컬 사도 정리」의 실제 대사와 말투를 바탕으로 새로 쓴 팬 창작 이야기예요.</p>`;
+    <p class="hint">시즌 1은 원작 메인 스토리 줄거리(「트릭컬 스토리 정리」)를, 사도 이야기는 「트릭컬 사도 정리」의 대사·말투를 바탕으로 새로 쓴 팬 창작이에요.</p>`;
   el.querySelectorAll("[data-play]").forEach((b) => (b.onclick = () => play(b.dataset.play)));
   el.querySelectorAll("[data-script]").forEach((b) => (b.onclick = () => showScript(b.dataset.script)));
   if (PREVIEW) el.insertAdjacentHTML("afterbegin", '<div class="card story-preview-note">🔍 <b>미리보기 모드</b> — 모든 화가 열려 있고 📜 대본으로 구성을 볼 수 있어요. 여기서 본 건 기록·보상에 반영되지 않아요.</div>');
@@ -245,6 +247,7 @@ function run(L) {
   let speak = false;
   if (L.bg) { setBg(L.bg, true); P.hadBg = true; }
   if (L.music != null && S().settings.sound !== false) setMusic(L.music);
+  if (L.sfx) sfxPlay(L.sfx);
   if (L.in) enter(L.in, L.at || "C", L.f, L.flip);
   else if (L.flip != null && L.s && P.actors[L.s]) P.actors[L.s].el.classList.toggle("flip", !!L.flip); // 말하면서 돌아보기
   if (L.out) leave(L.out);
@@ -328,6 +331,38 @@ function blip(b) {
     const v = 0.05 * vVol() * (b.w === "square" || b.w === "sawtooth" ? 0.5 : 1);
     g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.055);
     o.connect(g).connect(actx.destination); o.start(t); o.stop(t + 0.06);
+  } catch (e) { /* 소리 못 냄 */ }
+}
+
+/* 효과음 (대본에 { sfx: "gun" }) — 파일 없이 소리를 만들어 냄
+   gun 총소리 · boom 폭발 · pop 뿅 · magic 반짝 · crowd 웅성웅성 · run 다다닥 · knock 똑똑
+   pull 쑤욱 · bonk 꽁 · drop 휘잉~ · eat 냠냠 · gulp 꿀꺽 · ominous 불길함 · door 쾅 */
+function sfxPlay(kind) {
+  if (!soundOn()) return;
+  try {
+    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+    const A = actx, t0 = A.currentTime, V = 0.6 * Math.max(0.15, vVol());
+    const out = A.createGain(); out.gain.value = V; out.connect(A.destination);
+    const noise = (dur) => { const b = A.createBuffer(1, Math.max(1, A.sampleRate * dur), A.sampleRate), d = b.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; const s = A.createBufferSource(); s.buffer = b; return s; };
+    const env = (node, t, a, peak, d) => { const g = A.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(peak, t + a); g.gain.exponentialRampToValueAtTime(0.0001, t + a + d); node.connect(g).connect(out); return g; };
+    const tone = (type, f1, f2, t, dur, peak = 0.3) => { const o = A.createOscillator(); o.type = type; o.frequency.setValueAtTime(f1, t); if (f2) o.frequency.exponentialRampToValueAtTime(f2, t + dur); env(o, t, 0.005, peak, dur); o.start(t); o.stop(t + dur + 0.05); };
+    const burst = (t, dur, freq, type = "lowpass", peak = 0.5, q = 0.7) => { const n = noise(dur + 0.05), f = A.createBiquadFilter(); f.type = type; f.frequency.value = freq; f.Q.value = q; n.connect(f); env(f, t, 0.003, peak, dur); n.start(t); n.stop(t + dur + 0.05); };
+    ({
+      gun: () => { burst(t0, 0.18, 2500, "highpass", 0.9); tone("sine", 140, 40, t0, 0.25, 0.8); burst(t0 + 0.05, 0.6, 800, "lowpass", 0.15); },
+      boom: () => { burst(t0, 1.4, 400, "lowpass", 1); tone("sine", 90, 25, t0, 1.2, 0.9); burst(t0, 0.25, 3000, "highpass", 0.5); },
+      pop: () => tone("sine", 500, 1300, t0, 0.12, 0.4),
+      magic: () => [0, 1, 2, 3, 4].forEach((i) => tone("triangle", 880 * Math.pow(1.26, i), 0, t0 + i * 0.07, 0.25, 0.18)),
+      crowd: () => { for (let i = 0; i < 6; i++) burst(t0 + i * 0.18, 0.35, 500 + Math.random() * 600, "bandpass", 0.25, 3); },
+      run: () => { for (let i = 0; i < 7; i++) tone("sine", 120, 60, t0 + i * 0.11, 0.07, 0.5); },
+      knock: () => { for (let i = 0; i < 3; i++) { tone("square", 180, 90, t0 + i * 0.18, 0.06, 0.25); burst(t0 + i * 0.18, 0.05, 1500, "bandpass", 0.3, 2); } },
+      door: () => { burst(t0, 0.3, 300, "lowpass", 0.9); tone("sine", 70, 40, t0, 0.3, 0.7); },
+      pull: () => tone("sine", 180, 1000, t0, 0.45, 0.35),
+      bonk: () => { tone("square", 260, 130, t0, 0.12, 0.3); tone("sine", 520, 260, t0, 0.15, 0.25); },
+      drop: () => tone("triangle", 1100, 140, t0, 0.6, 0.3),
+      eat: () => [0, 1, 2].forEach((i) => burst(t0 + i * 0.16, 0.06, 1200, "bandpass", 0.5, 4)),
+      gulp: () => { tone("sine", 300, 120, t0, 0.15, 0.4); tone("sine", 260, 100, t0 + 0.2, 0.15, 0.35); },
+      ominous: () => { const o = A.createOscillator(), l = A.createOscillator(), lg = A.createGain(); o.type = "sawtooth"; o.frequency.value = 55; l.frequency.value = 3; lg.gain.value = 8; l.connect(lg).connect(o.frequency); const f = A.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = 300; o.connect(f); env(f, t0, 0.4, 0.35, 2.2); o.start(t0); l.start(t0); o.stop(t0 + 2.8); l.stop(t0 + 2.8); },
+    }[kind] || (() => TS.sfx(kind)))();
   } catch (e) { /* 소리 못 냄 */ }
 }
 
@@ -451,7 +486,7 @@ function end() {
   box.querySelector("#sp-endok").onclick = (e) => { e.stopPropagation(); close(); };
   // 다음화 자동재생: 열린 다음 화가 있으면 이어서
   const eps = allEps(), i = eps.findIndex((x) => x.id === ep.id), nx = eps[i + 1];
-  if (s.nextAuto && nx && i + 1 < unlockedN()) setTimeout(() => { if (P && P.ep.id === ep.id) { close(); play(nx.id); } }, 1500);
+  if (s.nextAuto && nx && isOpen(nx, i + 1)) setTimeout(() => { if (P && P.ep.id === ep.id) { close(); play(nx.id); } }, 1500);
 }
 function close() {
   if (!P) return;
