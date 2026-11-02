@@ -12,6 +12,7 @@
      { s: "erpin", t: "대사 *강조할 말*", f: "happy", e: "!", st: "shout" }   (*…* 는 초록색 강조)
          s = 말하는 사도(id) 또는 "me"(교주) / f = 표정·동작 / e = 감정 스티커 / st = shout·think
      { n: "나레이션" }  { shake: 1 }  { flash: 1 }  { wait: 800 }
+     { music: "02. Day Life.mp3" }  배경음악 바꾸기 (assets/bgm, 천천히 넘어감) · music: "" 은 끄기 / 화에 bgm: 을 적으면 첫 곡
      { choice: ["보기1", "보기2"], r: ["보기1 고르면 나올 대사", "보기2 대사"] }  (r는 교주 대신 첫 사도가 반응)
    f(표정): happy angry sad surprise shy dizzy proud talk eat dance touch pat tickle
    e(스티커): ! ? !? ♥ 💧 💢 … ✨ 💡
@@ -102,6 +103,24 @@ const SLOTS = { L: "29%", C: "50%", R: "69%" };
 const STICKER = { "!": "❗", "?": "❓", "!?": "⁉️", "♥": "💗", "💧": "💧", "💢": "💢", "…": "💬", "✨": "✨", "💡": "💡" };
 let P = null; // 재생 중 상태
 
+/* ───── 이야기 배경음악 (로비 음악은 잠깐 멈춤) ───── */
+const music = new Audio(); music.loop = true;
+let fadeT = 0;
+const mVol = () => (window.BGM && window.BGM.vol != null ? window.BGM.vol : 0.4);
+function setMusic(file) {
+  clearInterval(fadeT);
+  const to = file ? "assets/bgm/" + encodeURIComponent(file) : "";
+  if (to && music.src.endsWith(encodeURIComponent(file)) && !music.paused) return;
+  const swap = () => {
+    if (!to) { music.pause(); return; }
+    music.src = to; music.volume = 0; music.play().catch(() => {});
+    fadeT = setInterval(() => { music.volume = Math.min(mVol(), music.volume + mVol() / 15); if (music.volume >= mVol()) clearInterval(fadeT); }, 60);
+  };
+  if (music.paused || !music.src) return swap();
+  fadeT = setInterval(() => { music.volume = Math.max(0, music.volume - mVol() / 10); if (music.volume <= 0.01) { clearInterval(fadeT); swap(); } }, 50); // 지금 곡을 줄이고 다음 곡
+}
+function stopMusic() { clearInterval(fadeT); fadeT = setInterval(() => { music.volume = Math.max(0, music.volume - 0.04); if (music.volume <= 0.01) { clearInterval(fadeT); music.pause(); } }, 40); }
+
 function play(epId) {
   const ep = allEps().find((e) => e.id === epId);
   if (!ep || P) return;
@@ -137,6 +156,7 @@ function play(epId) {
   document.body.classList.add("story-open");
   P = { ep: { ...ep, lines: ep.lines.slice() }, root, i: -1, actors: {}, typing: null, auto: false, autoT: 0, log: [], wait: false, done: false };
   if (window.BGM && window.BGM.pauseFor) window.BGM.pauseFor("story");
+  if (ep.bgm && S().settings.sound !== false) setMusic(ep.bgm);
   root.addEventListener("click", (e) => {
     const c = e.target.closest("[data-c]");
     if (c) return ctrl(c.dataset.c);
@@ -222,6 +242,7 @@ function run(L) {
   const box = P.root.querySelector(".sp-box");
   let speak = false;
   if (L.bg) { setBg(L.bg, true); P.hadBg = true; }
+  if (L.music != null && S().settings.sound !== false) setMusic(L.music);
   if (L.in) enter(L.in, L.at || "C", L.f, L.flip);
   else if (L.flip != null && L.s && P.actors[L.s]) P.actors[L.s].el.classList.toggle("flip", !!L.flip); // 말하면서 돌아보기
   if (L.out) leave(L.out);
@@ -389,6 +410,7 @@ function close() {
   document.body.classList.remove("story-open");
   document.removeEventListener("keydown", onKey);
   window.removeEventListener("resize", fit);
+  stopMusic();
   if (window.BGM && window.BGM.resumeFrom) window.BGM.resumeFrom("story");
   if (TS.view === "story") render();
 }

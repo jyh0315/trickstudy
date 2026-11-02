@@ -315,5 +315,9 @@ window.BGM = {
   },
   get ctx() { return ctx; },
   get playing() { return !audio.paused; },
+  get vol() { return st.vol; },
+  // 이야기 등 다른 음악이 나올 때 잠깐 멈췄다가 다시
+  pauseFor() { this._was = !audio.paused; audio.pause(); },
+  resumeFrom() { if (this._was) play(); this._was = false; },
 };
 })();
