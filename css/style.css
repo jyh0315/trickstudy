@@ -2164,3 +2164,5 @@ a.icon-btn { text-decoration: none; display: inline-grid; place-items: center; }
 .as-text h3 { margin: 2px 0 8px; font-family: var(--font-title); font-size: 22px; }
 .as-text p { min-height: 4.5em; font-size: 16px; line-height: 1.7; margin: 0 0 12px; word-break: keep-all; }
 @media (max-width: 560px) { .as-card { flex-direction: column; align-items: center; } .as-pic { width: 55vw; } .as-text { margin: -20px 0 0; padding: 18px; } }
+/* 스토리: 왼쪽에 선 사도는 좌우 반전 (가운데를 보게) */
+.sp-actor.flip .live-host, .sp-actor.flip .sp-img { transform: scaleX(-1); }

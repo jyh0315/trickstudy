@@ -8,6 +8,7 @@
      { loc: "요정 마을 광장" }                    장소 표시
      { title: "챕터 1", sub: "최소한 잼은 발라줘" } 제목 카드
      { in: "erpin", at: "L" }                   사도 등장 (L·C·R)  · { out: "erpin" } 퇴장
+         왼쪽(L)에 선 사도는 자동으로 좌우 반전(오른쪽을 봄). flip: 1/0 으로 직접 지정, 대사 줄에 flip 을 주면 돌아봄
      { s: "erpin", t: "대사 *강조할 말*", f: "happy", e: "!", st: "shout" }   (*…* 는 초록색 강조)
          s = 말하는 사도(id) 또는 "me"(교주) / f = 표정·동작 / e = 감정 스티커 / st = shout·think
      { n: "나레이션" }  { shake: 1 }  { flash: 1 }  { wait: 800 }
@@ -185,7 +186,7 @@ function ctrl(c) {
 // 건너뛸 때 배경·등장인물만 맞춰 둠
 function silentApply(L) {
   if (L.bg) setBg(L.bg, true);
-  if (L.in) enter(L.in, L.at || "C");
+  if (L.in) enter(L.in, L.at || "C", null, L.flip);
   if (L.out) leave(L.out);
   if (L.s || L.n) P.log.push({ who: L.s ? nameOf(L.s) : "", t: fmtT(L.t || L.n) });
 }
@@ -221,7 +222,8 @@ function run(L) {
   const box = P.root.querySelector(".sp-box");
   let speak = false;
   if (L.bg) { setBg(L.bg, true); P.hadBg = true; }
-  if (L.in) enter(L.in, L.at || "C", L.f);
+  if (L.in) enter(L.in, L.at || "C", L.f, L.flip);
+  else if (L.flip != null && L.s && P.actors[L.s]) P.actors[L.s].el.classList.toggle("flip", !!L.flip); // 말하면서 돌아보기
   if (L.out) leave(L.out);
   if (L.loc) showLoc(L.loc);
   if (L.shake) { P.root.classList.remove("shake"); void P.root.offsetWidth; P.root.classList.add("shake"); TS.sfx("poke"); }
@@ -296,12 +298,14 @@ function setBg(src, instant) {
   nx.classList.remove("next"); cur.classList.add("next");
   if (instant) nx.style.transition = "none"; else nx.style.transition = "";
 }
-function enter(id, at, f) {
-  if (P.actors[id]) { P.actors[id].el.style.left = SLOTS[at] || at; return; }
+// 사도 그림은 기본이 왼쪽을 봄 → 왼쪽(L) 자리면 좌우 반전해서 가운데(상대)를 보게. 대본에서 flip: 1/0 으로 직접 정할 수도 있음
+const faceFlip = (at, flip) => (flip != null ? !!flip : at === "L");
+function enter(id, at, f, flip) {
+  if (P.actors[id]) { P.actors[id].el.style.left = SLOTS[at] || at; P.actors[id].el.classList.toggle("flip", faceFlip(at, flip)); return; }
   const c = TS.SADO_MAP[id], N = npc(id);
   if (!c && !N) return;
   const el = document.createElement("div");
-  el.className = "sp-actor";
+  el.className = "sp-actor" + (faceFlip(at, flip) ? " flip" : "");
   el.style.left = SLOTS[at] || at;
   el.innerHTML = `<div class="sp-sticker"></div>`;
   P.root.querySelector(".sp-stage").appendChild(el);
