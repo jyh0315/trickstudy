@@ -12,6 +12,7 @@
      { s: "erpin", t: "대사 *강조할 말*", f: "happy", e: "!", st: "shout" }   (*…* 는 초록색 강조)
          s = 말하는 사도(id) 또는 "me"(교주) / f = 표정·동작 / e = 감정 스티커 / st = shout·think
      { n: "나레이션" }  { shake: 1 }  { flash: 1 }  { wait: 800 }
+     { cg: "assets/story/cg/s1c1/003.webp" }  CG 보이기 · { cg: "" } 닫기 · { clear: 1 } 무대의 사도 모두 퇴장
      { sfx: "gun" }  효과음 (gun boom pop magic crowd run knock door pull bonk drop eat gulp ominous)
      { music: "02. Day Life.mp3" }  배경음악 바꾸기 (assets/bgm, 천천히 넘어감) · music: "" 은 끄기 / 화에 bgm: 을 적으면 첫 곡
      { choice: ["보기1", "보기2"], r: ["보기1 고르면 나올 대사", "보기2 대사"] }  (r는 교주 대신 첫 사도가 반응)
@@ -160,6 +161,8 @@ function play(epId) {
   if (window.BGM && window.BGM.pauseFor) window.BGM.pauseFor("story");
   if (ep.bgm && S().settings.sound !== false) setMusic(ep.bgm);
   root.addEventListener("click", (e) => {
+    // 크롬은 클릭 안에서 깨운 오디오만 소리가 남 → 누를 때마다 깨워 둠 (말소리·효과음)
+    try { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); if (actx.state === "suspended") actx.resume(); } catch (_) { /* 무시 */ }
     const c = e.target.closest("[data-c]");
     if (c) return ctrl(c.dataset.c);
     if (e.target.closest(".sp-choice, .sp-log")) return;
@@ -209,6 +212,8 @@ function ctrl(c) {
 function silentApply(L) {
   if (L.bg) setBg(L.bg, true);
   P.skipping = 1;
+  if (L.clear) Object.keys(P.actors).forEach(leave);
+  if (L.cg != null) showCg(L.cg);
   if (L.in) enter(L.in, L.at || "C", null, L.flip);
   P.skipping = 0;
   if (L.out) leave(L.out);
@@ -248,6 +253,8 @@ function run(L) {
   if (L.bg) { setBg(L.bg, true); P.hadBg = true; }
   if (L.music != null && S().settings.sound !== false) setMusic(L.music);
   if (L.sfx) sfxPlay(L.sfx);
+  if (L.clear) Object.keys(P.actors).forEach(leave); // 무대 비우기
+  if (L.cg != null) showCg(L.cg);
   if (L.in) enter(L.in, L.at || "C", L.f, L.flip);
   else if (L.flip != null && L.s && P.actors[L.s]) P.actors[L.s].el.classList.toggle("flip", !!L.flip); // 말하면서 돌아보기
   if (L.out) leave(L.out);
@@ -328,8 +335,8 @@ function blip(b) {
     actx = actx || new (window.AudioContext || window.webkitAudioContext)();
     const o = actx.createOscillator(), g = actx.createGain(), t = actx.currentTime;
     o.type = b.w; o.frequency.setValueAtTime(b.f * (0.94 + Math.random() * 0.12), t);
-    const v = 0.05 * vVol() * (b.w === "square" || b.w === "sawtooth" ? 0.5 : 1);
-    g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.055);
+    const v = 0.22 * Math.max(0.2, vVol()) * (b.w === "square" || b.w === "sawtooth" ? 0.45 : 1);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.06);
     o.connect(g).connect(actx.destination); o.start(t); o.stop(t + 0.06);
   } catch (e) { /* 소리 못 냄 */ }
 }
@@ -395,6 +402,16 @@ function finishTyping() {
   P.spans.forEach((x) => x.classList.add("on"));
   P.root.querySelector(".sp-next").classList.add("on");
   scheduleAuto();
+}
+/* CG: 무대 위를 덮는 일러스트 (대사창은 그 위에). { cg: "경로" } 보이기 · { cg: "" } 닫기 */
+function showCg(src) {
+  let el = P.root.querySelector(".sp-cg");
+  if (!el) { el = document.createElement("div"); el.className = "sp-cg"; el.innerHTML = '<img alt="">'; P.root.querySelector(".sp-stage").after(el); }
+  if (!src) { el.classList.remove("on"); return; }
+  const img = el.querySelector("img");
+  if (el.classList.contains("on") && !img.src.endsWith(src)) { el.classList.add("swap"); setTimeout(() => { img.src = src; el.classList.remove("swap"); }, 250); }
+  else img.src = src;
+  el.classList.add("on");
 }
 function setBg(src, instant) {
   const [a, b] = P.root.querySelectorAll(".sp-bg");
