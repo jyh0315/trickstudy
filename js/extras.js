@@ -24,7 +24,7 @@ TS.on("giveup", (min) => {
       <h2>반 성 문</h2>
       <p class="sorry-sub">집중 ${min}분 만에 멈춘 일에 대하여</p>
       <img class="sorry-chibi" src="${TS.chibiSrc(c)}" alt="">
-      <p class="sorry-text">${esc(line)}</p>
+      ${/^\(.*\)$/.test(line.trim()) ? `<div class="sorry-act">${/발바닥|도장/.test(line) ? '<span class="sorry-paw">🐾</span>' : ""}<p>${esc(line)}</p></div>` : `<p class="sorry-text">${esc(line)}</p>`}
       <p class="sorry-sign">${date}<br><b>${esc(c.name)}</b> <span class="sorry-stamp">반성</span></p>
     </div>
     <p class="hint" style="text-align:center">교주님 대신 ${esc(TS.fmt("{name}가", c))} 반성문을 썼어요… 다음엔 끝까지 해 봐요!</p>

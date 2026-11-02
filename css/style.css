@@ -2148,3 +2148,6 @@ a.icon-btn { text-decoration: none; display: inline-grid; place-items: center; }
 .ttl-load small { color: #ffd34e; font-size: 11px; }
 .ttl-load p { margin: 1px 0; font-size: 14px; line-height: 1.3; }
 .ttl-load b { font-size: 11px; opacity: .8; font-weight: normal; }
+.sorry-act { margin: 10px 0; }
+.sorry-act p { margin: 4px 0 0; font-size: 13px; color: var(--ink-soft); font-style: italic; }
+.sorry-paw { display: inline-block; font-size: 64px; filter: sepia(1) saturate(4) hue-rotate(-30deg) brightness(.75); transform: rotate(-12deg); animation: stampIn .5s .2s cubic-bezier(.3,1.6,.6,1) both; }
