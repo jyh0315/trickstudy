@@ -206,7 +206,9 @@ function ctrl(c) {
 // 건너뛸 때 배경·등장인물만 맞춰 둠
 function silentApply(L) {
   if (L.bg) setBg(L.bg, true);
+  P.skipping = 1;
   if (L.in) enter(L.in, L.at || "C", null, L.flip);
+  P.skipping = 0;
   if (L.out) leave(L.out);
   if (L.s || L.n) P.log.push({ who: L.s ? nameOf(L.s) : "", t: fmtT(L.t || L.n) });
 }
@@ -272,7 +274,7 @@ function run(L) {
     }
     const t = fmtT(L.t || L.n);
     P.log.push({ who, t: t.replace(/\*/g, "") });
-    type(t);
+    type(t, L.s);
   }
   if (L.wait) { P.wait = true; setTimeout(() => { if (!P) return; P.wait = false; advance(); }, L.wait); return; }
   if (!speak) advance(); // 대사가 없는 줄은 바로 다음
@@ -285,7 +287,54 @@ const picOf = (id) => (TS.SADO_MAP[id] ? TS.chibiSrc(TS.SADO_MAP[id]) : npc(id) 
 const colorOf = (id) => (id === "me" ? "#ff7fa8" : (PERS[(TS.SADO_MAP[id] || {}).pers] || {}).color || "#7d8aa0");
 
 // *강조* → 초록 글씨. 글자마다 <span>을 미리 깔아 두고 하나씩 보이게 해서 줄바꿈·위치가 흔들리지 않음
-function type(text) {
+/* ───── 소리: 사도 음성 + 말소리 톡톡 ─────
+   - 사도가 처음 등장할 때 그 사도의 실제 음성(쓰다듬기)을 한 번
+   - 대사가 받아 둔 음성 대사와 같으면 그 음성을 그대로
+   - 그 밖의 대사는 글자가 나올 때 사도마다 다른 높이의 '톡톡' 말소리 */
+let actx = null;
+const vVol = () => (typeof S().settings.voiceVol === "number" ? S().settings.voiceVol : 40) / 100;
+const soundOn = () => S().settings.sound !== false;
+const norm = (t) => String(t || "").replace(/[^가-힣a-zA-Z0-9]/g, "");
+let VT_IDX = null;
+function voiceFileFor(id, text) {
+  if (typeof VOICE_TEXT === "undefined") return null;
+  if (!VT_IDX) { VT_IDX = {}; for (const [k, v] of Object.entries(VOICE_TEXT)) { const sid = k.replace(/(_s\d+)?-(pull|pat)$/, ""); (VT_IDX[sid] = VT_IDX[sid] || []).push([k, norm(v)]); } }
+  const t = norm(text); if (t.length < 4) return null;
+  const hit = (VT_IDX[id] || []).find(([, v]) => v && (v === t || (v.length >= 6 && t.includes(v)) || (t.length >= 6 && v.includes(t))));
+  return hit ? hit[0] : null;
+}
+function playFile(key) {
+  if (!soundOn()) return 0;
+  const a = new Audio(`assets/voice/${key}.mp3`); a.volume = vVol(); a.play().catch(() => {});
+  if (P) P.voiceUntil = Date.now() + 2500;
+  return 1;
+}
+// 사도마다 정해진 말소리 높이·음색 (성격 따라 음색)
+function blipOf(id) {
+  if (!id) return null;
+  if (id === "me") return { f: 300, w: "sine" };
+  let h = 0; for (const ch of id) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  const c = TS.SADO_MAP[id], pers = c ? c.pers : "";
+  const w = { pure: "triangle", jolly: "square", mad: "sawtooth", cool: "sine", gloomy: "sine", special: "triangle" }[pers] || "triangle";
+  const base = { pure: 620, jolly: 680, mad: 560, cool: 430, gloomy: 380, special: 520 }[pers] || 520;
+  return { f: base + (h % 9) * 18 - 70, w };
+}
+function blip(b) {
+  if (!b || !soundOn() || (P && P.voiceUntil > Date.now())) return;
+  try {
+    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+    const o = actx.createOscillator(), g = actx.createGain(), t = actx.currentTime;
+    o.type = b.w; o.frequency.setValueAtTime(b.f * (0.94 + Math.random() * 0.12), t);
+    const v = 0.05 * vVol() * (b.w === "square" || b.w === "sawtooth" ? 0.5 : 1);
+    g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.055);
+    o.connect(g).connect(actx.destination); o.start(t); o.stop(t + 0.06);
+  } catch (e) { /* 소리 못 냄 */ }
+}
+
+function type(text, who) {
+  // 받아 둔 음성과 같은 대사면 진짜 음성
+  if (who && who !== "me") { const key = voiceFileFor(who, text); if (key) playFile(key); }
+  const bl = blipOf(who);
   const el = P.root.querySelector(".sp-text");
   const chars = [];
   text.split(/(\*[^*]+\*)/).forEach((part) => {
@@ -299,6 +348,7 @@ function type(text) {
   const step = () => {
     if (!P) return;
     for (let n = 0; n < 2 && k < P.spans.length; n++) P.spans[k++].classList.add("on"); // 한 번에 2글자
+    if (bl && (k % 4 === 2 || k % 4 === 3) && /[가-힣a-zA-Z0-9]/.test(P.spans[k - 1].textContent)) blip(bl);
     if (k >= P.spans.length) { P.typing = null; P.root.querySelector(".sp-next").classList.add("on"); scheduleAuto(); return; }
     P.typing = setTimeout(step, 30);
   };
@@ -336,6 +386,8 @@ function enter(id, at, f, flip) {
   if (!a.live) fallback();
   P.actors[id] = a;
   requestAnimationFrame(() => el.classList.add("in"));
+  P.greeted = P.greeted || {};
+  if (c && !P.greeted[id] && !P.skipping && soundOn()) { P.greeted[id] = 1; setTimeout(() => { if (P && TS.voice(id, "pat")) P.voiceUntil = Date.now() + 2200; }, 350); }
 }
 function leave(id) {
   const a = P.actors[id];
