@@ -371,8 +371,13 @@ function chatter() {
   if (Math.random() < 0.45) return say(recommend().say);
   sayKind("idle");
 }
+let lastPoke = 0;
 function poke() {
   if (!state.started) return;
+  // 빠르게 두 번 = 꿀밤
+  const now = Date.now();
+  if (now - lastPoke < 380) { lastPoke = 0; return knock(); }
+  lastPoke = now;
   const p = $("partner");
   p.classList.remove("squish"); void p.offsetWidth; p.classList.add("squish");
   const fx = $("poke-fx");
@@ -667,6 +672,7 @@ function stopTimer() {
       timerEvent(false);
       if (partial) grantFocus(elapsedMin, false);
       else { T().tag = ""; sfx("sad"); sayKind("fail"); }
+      emit("giveup", elapsedMin); // 반성문 (extras.js)
       save(); refresh();
     }, true);
 }
@@ -1131,6 +1137,24 @@ $("s-reset").onclick = () => confirmModal("처음부터 다시?", "레벨, 사�
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") { const x = document.querySelector(".modal .x"); if (x) x.click(); }
 });
+
+/* 꿀밤: 대표 사도 머리를 빠르게 두 번 톡톡 */
+function knock() {
+  const c = SADO_MAP[state.partner]; if (!c) return;
+  if (voiceEl) voiceEl.pause();
+  const p = $("partner");
+  p.classList.remove("squish", "knock"); void p.offsetWidth; p.classList.add("knock");
+  const fx = $("poke-fx");
+  fx.textContent = rand(["꿀밤!", "딱!", "콩!", "💢"]);
+  fx.classList.remove("show"); void fx.offsetWidth; fx.classList.add("show");
+  sfx("poke");
+  const v = typeof voiceOf === "function" ? voiceOf(c.id) : null;
+  const L = (v && (v.knock || v.poke)) || linesOf(c, "poke");
+  say(fmt(rand(L), c));
+  state.stats.knocks = (state.stats.knocks || 0) + 1;
+  emit("knock", state.partner);
+  save();
+}
 
 /* ───── 모듈 공개 API ───── */
 window.TS = {

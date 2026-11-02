@@ -2131,3 +2131,20 @@ a.icon-btn { text-decoration: none; display: inline-grid; place-items: center; }
 .aff-book li.on { background: #ffeef4; }
 .aff-book li em { font-style: normal; font-size: 11px; font-weight: bold; color: #ff5f8f; }
 .aff-book .lock { color: var(--ink-soft); }
+
+/* ───── 💢 꿀밤 · 📝 반성문 · ⏳ 로딩 화면 한마디 ───── */
+.partner.knock { animation: knock .5s cubic-bezier(.3,1.6,.6,1); }
+@keyframes knock { 0% { transform: translateY(0) scale(1); } 20% { transform: translateY(8px) scale(1.04, .9); } 40% { transform: translateX(-6px) rotate(-4deg); } 60% { transform: translateX(6px) rotate(3deg); } 80% { transform: translateX(-3px); } 100% { transform: none; } }
+.sorry-paper { position: relative; text-align: center; padding: 18px 20px 16px; background: repeating-linear-gradient(180deg, #fffdf4 0 29px, #e8dcc4 29px 30px); border: 3px solid var(--ink); border-radius: 12px; box-shadow: inset 0 0 0 6px #fff7e6; transform: rotate(-.8deg); }
+.sorry-paper h2 { font-family: var(--font-title); letter-spacing: 10px; margin: 0; font-size: 28px; }
+.sorry-sub { margin: 2px 0 8px; font-size: 12px; color: var(--ink-soft); }
+.sorry-chibi { width: 76px; height: 76px; object-fit: contain; border-radius: 14px; border: 2px solid var(--ink); background: #fff; }
+.sorry-text { font-size: 16px; line-height: 1.9; margin: 10px 4px; word-break: keep-all; }
+.sorry-sign { text-align: right; font-size: 13px; margin: 6px 0 0; line-height: 1.5; position: relative; padding-right: 54px; }
+.sorry-stamp { position: absolute; right: 0; bottom: -2px; width: 46px; height: 46px; border: 3px solid #d8253e; border-radius: 50%; color: #d8253e; display: grid; place-items: center; font-family: var(--font-title); font-size: 13px; transform: rotate(-14deg); opacity: .85; animation: stampIn .5s .3s cubic-bezier(.3,1.6,.6,1) both; }
+@keyframes stampIn { from { transform: scale(2.2) rotate(-14deg); opacity: 0; } }
+.ttl-load { position: absolute; left: 16px; bottom: 16px; z-index: 5; display: flex; align-items: center; gap: 10px; width: min(360px, calc(100% - 32px)); padding: 8px 14px 8px 8px; background: rgba(30, 20, 14, .62); color: #fff; border: 2px solid rgba(255,255,255,.5); border-radius: 16px; backdrop-filter: blur(4px); pointer-events: none; animation: tkIn .6s .4s both; }
+.ttl-load img { width: 46px; height: 46px; object-fit: contain; flex: none; border-radius: 10px; background: rgba(255,255,255,.2); }
+.ttl-load small { color: #ffd34e; font-size: 11px; }
+.ttl-load p { margin: 1px 0; font-size: 14px; line-height: 1.3; }
+.ttl-load b { font-size: 11px; opacity: .8; font-weight: normal; }
