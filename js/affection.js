@@ -30,6 +30,7 @@ const S = () => TS.state;
 
 function aff() { if (!S().aff) S().aff = {}; return S().aff; }
 const pts = (id) => aff()[id] || 0;
+const affDoc = (id) => { const v = typeof voiceOf === "function" ? voiceOf(id) : null; return v && v.aff ? v.aff : null; };
 function levelOf(p) { let lv = 1; for (let i = 0; i < AFF_LEVELS.length; i++) if (p >= AFF_LEVELS[i]) lv = i + 1; return lv; }
 const level = (id) => levelOf(pts(id));
 function progress(id) {
@@ -48,7 +49,9 @@ function gain(id, n) {
     const c = TS.SADO_MAP[id];
     const reward = 50 * after;
     TS.addElif(reward);
-    const lines = AFF_LINES[c.pers][after];
+    // 「트릭컬 사도 정리」 친밀도 대사가 있으면 그걸로 (Lv1~7), 없으면 성격별 대사
+    const doc = affDoc(id);
+    const lines = doc && after <= doc.length && doc[after - 1].length ? doc[after - 1] : AFF_LINES[c.pers][after];
     // 집중 보상 모달 뒤에 나오도록 한 박자 늦게
     setTimeout(() => {
     TS.sfx("level"); TS.confetti(50);
@@ -77,7 +80,9 @@ TS.on("poke", (id) => {
 });
 TS.lineHooks.push((c, kind) => {
   if (kind !== "idle" || !S().owned[c.id]) return [];
-  const lv = level(c.id), table = AFF_LINES[c.pers];
+  const lv = level(c.id), doc = affDoc(c.id);
+  if (doc) return doc.slice(0, Math.min(lv, doc.length)).flat();
+  const table = AFF_LINES[c.pers];
   return Object.keys(table).filter((k) => lv >= +k).flatMap((k) => table[k]);
 });
 
@@ -90,7 +95,14 @@ function heartBar(id) {
     <div class="aff-foot">보스 데미지 +${bonusPct(id)}% · <button class="link" data-gift="${id}">🎁 선물하기</button></div>
   </div>`;
 }
-TS.detailHooks.push((c) => heartBar(c.id));
+TS.detailHooks.push((c) => heartBar(c.id) + affBook(c));
+/* 💌 친밀도 대사 도감: 호감도 Lv1~7마다 하나씩 열림 */
+function affBook(c) {
+  const doc = affDoc(c.id); if (!doc) return "";
+  const lv = level(c.id), open = Math.min(lv, doc.length);
+  return `<details class="aff-book"><summary>💌 친밀도 대사 <b>${open} / ${doc.length}</b></summary><ol>${doc.map((L, i) =>
+    i < lv ? `<li class="on"><em>Lv.${i + 1}</em>${L.map((t) => `<span>“${TS.esc(t)}”</span>`).join("")}</li>` : `<li><em>Lv.${i + 1}</em><span class="lock">🔒 호감도 Lv.${i + 1}에 열려요</span></li>`).join("")}</ol></details>`;
+}
 
 TS.on("refresh", () => {
   const id = S().partner;

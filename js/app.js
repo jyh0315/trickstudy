@@ -569,7 +569,10 @@ function completeTodo(id) {
   sfx("coin");
   toast(`📜 의뢰 해결! 엘리프 +${d.elif} · EXP +${d.exp}`);
   emit("todo", x);
-  sayKind("done");
+  // 해결: 어려움이면 대성공, 아니면 성공 대사 (아르바이트)
+  const jv = typeof voiceOf === "function" && voiceOf(state.partner), job = jv && jv.job;
+  const jd = job && (x.diff === "hard" ? job.great || job.ok : job.ok || job.great);
+  if (jd) say(rand(jd)); else sayKind("done");
   save(); refresh();
 }
 
@@ -1010,6 +1013,8 @@ document.addEventListener("click", (e) => {
     const x = state.todos.find((t) => t.id === del.dataset.del);
     return confirmModal("의뢰 삭제", `“${esc(x.text)}” 의뢰를 지울까요?`, "삭제", () => {
       state.todos = state.todos.filter((t) => t !== x);
+      const jf = !x.done && typeof voiceOf === "function" && voiceOf(state.partner) && voiceOf(state.partner).job;
+      if (jf && jf.fail) say(rand(jf.fail), false); // 해결 못 하고 지우면 아르바이트 실패 대사
       if (!x.done && (x.created === today() || x.daily) && todoUsed()[x.diff] > 0) todoUsed()[x.diff]--; // 해결 전에 지우면 자리 돌려줌
       if (state.timer.todoId === x.id) state.timer.todoId = "";
       save(); refresh();
@@ -1058,7 +1063,11 @@ $("todo-form").onsubmit = (e) => {
   $("todo-text").value = "";
   sfx("click");
   const c = SADO_MAP[state.partner];
-  if (c) say(`“${text}” 의뢰 접수! ${rand(["같이 해치워요!", "할 수 있어요!", "기대할게요!"])}`, false);
+  // 의뢰 접수: 그 사도의 아르바이트 대사 (쉬움 = 성공률 높음, 보통 = 보통, 어려움 = 낮음)
+  const job = c && typeof voiceOf === "function" && voiceOf(c.id) && voiceOf(c.id).job;
+  const jl = job && (job[{ easy: "hi", normal: "mid", hard: "lo" }[newDiff]] || job.start);
+  if (jl) say(`“${text}” 의뢰 접수! ${rand(jl)}`, false);
+  else if (c) say(`“${text}” 의뢰 접수! ${rand(["같이 해치워요!", "할 수 있어요!", "기대할게요!"])}`, false);
   save(); refresh();
 };
 $("todo-clear").onclick = () => { state.todos = state.todos.filter((x) => !x.done || x.daily); save(); refresh(); };
