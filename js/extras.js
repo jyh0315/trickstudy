@@ -83,3 +83,58 @@ function react(id, key) {
 TS.on("gift", (g) => react(g.id, "equip"));
 TS.on("bt", (id) => react(id, "promo"));
 })();
+
+/* ───── 📖 어사이드 (「어사이드 발현 · 승급」 독백) ─────
+   발현: 호감도 Lv7 또는 돌파 ✦3 · 승급: 호감도 Lv10 또는 돌파 ✦5 */
+(() => {
+const TS = window.TS, S = () => TS.state, esc = TS.esc;
+const V = (id) => (typeof voiceOf === "function" ? voiceOf(id) : null);
+const aff = (id) => (window.Affection ? window.Affection.level(id) : 1);
+const bt = (id) => (window.Growth ? window.Growth.btOf(id) : 0);
+const PARTS = [
+  { k: "a", name: "어사이드 발현", ok: (id) => aff(id) >= 7 || bt(id) >= 3, cond: "호감도 Lv7 또는 돌파 ✦3" },
+  { k: "b", name: "어사이드 승급", ok: (id) => aff(id) >= 10 || bt(id) >= 5, cond: "호감도 Lv10 또는 돌파 ✦5" },
+];
+const got = () => { if (!S().aside) S().aside = {}; return S().aside; };
+function show(id, k) {
+  const c = TS.SADO_MAP[id], v = V(id), P = PARTS.find((x) => x.k === k);
+  if (!c || !v || !v.aside || !v.aside[k]) return;
+  const ov = document.createElement("div");
+  ov.className = "as-overlay";
+  ov.innerHTML = `<div class="as-card"><img class="as-pic" src="${TS.portrait(c, true)}" alt="">
+    <div class="as-text"><small>📖 ${esc(P.name)}</small><h3>${esc(c.name)}</h3><p></p><button class="btn yellow small">닫기</button></div></div>`;
+  document.body.appendChild(ov);
+  const p = ov.querySelector("p"), txt = v.aside[k];
+  let i = 0; const tick = () => { if (!ov.isConnected) return; p.textContent = txt.slice(0, ++i); if (i < txt.length) setTimeout(tick, 38); };
+  tick();
+  ov.onclick = (e) => { if (e.target.closest("button") || e.target === ov) ov.remove(); else { i = txt.length; p.textContent = txt; } };
+  TS.sfx("level");
+}
+// 새로 열린 어사이드 알림 (한 번만)
+function check() {
+  if (!S().started) return;
+  const g = got();
+  for (const id of Object.keys(S().owned)) {
+    const v = V(id); if (!v || !v.aside) continue;
+    for (const P of PARTS) {
+      if (!v.aside[P.k] || (g[id] && g[id][P.k]) || !P.ok(id)) continue;
+      (g[id] = g[id] || {})[P.k] = 1; TS.save();
+      const c = TS.SADO_MAP[id];
+      TS.toast(`📖 ${TS.shortName(c)}의 ${P.name}이 열렸어요! (사도 상세에서 다시 볼 수 있어요)`);
+      setTimeout(() => show(id, P.k), 900);
+      return; // 한 번에 하나씩
+    }
+  }
+}
+TS.on("refresh", () => setTimeout(check, 50));
+TS.on("bt", () => setTimeout(check, 400));
+// 사도 상세
+TS.detailHooks.push((c) => {
+  const v = V(c.id); if (!v || !v.aside || !TS.state.owned[c.id]) return "";
+  return `<div class="as-book"><b>📖 어사이드</b>${PARTS.filter((P) => v.aside[P.k]).map((P) => P.ok(c.id)
+    ? `<button class="btn pink small" data-aside="${c.id}:${P.k}">${P.name}</button>`
+    : `<span class="tk-lock">🔒 ${P.name} · ${P.cond}</span>`).join("")}</div>`;
+});
+document.addEventListener("click", (e) => { const b = e.target.closest("[data-aside]"); if (!b) return; const [id, k] = b.dataset.aside.split(":"); show(id, k); });
+window.Aside = { show, check };
+})();

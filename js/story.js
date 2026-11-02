@@ -24,14 +24,21 @@ const $ = (id) => document.getElementById(id);
 const esc = TS.esc;
 const S = () => TS.state;
 
-function st() { const s = S(); if (!s.story) s.story = { base: s.stats.totalMin, seen: [] }; return s.story; }
-const allEps = () => STORY.flatMap((ch) => ch.eps.map((ep) => ({ ...ep, ch })));
-// 열린 화 수: 첫 화 + (기능을 처음 연 뒤 공부한 시간 / 60분)
-const studied = () => Math.max(0, S().stats.totalMin - st().base);
+function st() { const s = S(); if (!s.story) s.story = { base: s.stats.totalMin, seen: [] }; if (s.story.base2 == null) s.story.base2 = s.stats.totalMin; return s.story; }
 // ?preview 로 열면 시작 화면 없이 스토리 탭으로, 모든 화 열림 + 대본 보기 (구성 확인용, 보상 없음)
 const PREVIEW = new URLSearchParams(location.search).has("preview");
-const unlockedN = () => (PREVIEW ? 1e9 : 1 + Math.floor(studied() / STORY_MIN_PER_EP));
-const nextIn = () => STORY_MIN_PER_EP - (studied() % STORY_MIN_PER_EP);
+// hide: true 인 챕터(원작 메인 스토리 등 준비 중)는 미리보기에서만
+const chapters = () => STORY.filter((ch) => PREVIEW || !ch.hide);
+const allEps = () => chapters().flatMap((ch) => ch.eps.map((ep) => ({ ...ep, ch })));
+// 스토리가 열린 뒤(이번 업데이트부터) 공부한 시간
+const studied = () => Math.max(0, S().stats.totalMin - st().base2);
+// 화마다 need(분)를 채우면 열림. need 가 없으면 화 순서 × STORY_MIN_PER_EP
+const needOf = (ep, i) => (ep.need != null ? ep.need : i * STORY_MIN_PER_EP);
+const isOpen = (ep, i) => PREVIEW || studied() >= needOf(ep, i);
+const unlockedN = () => { const e = allEps(); let n = 0; while (n < e.length && isOpen(e[n], n)) n++; return n; };
+const nextEp = () => { const e = allEps(), n = unlockedN(); return n < e.length ? { ep: e[n], need: needOf(e[n], n) } : null; };
+const nextIn = () => { const x = nextEp(); return x ? Math.max(0, x.need - studied()) : 0; };
+const hm = (m) => (m >= 60 ? `${Math.floor(m / 60)}시간${m % 60 ? ` ${m % 60}분` : ""}` : `${m}분`);
 
 /* ───── 스토리 탭 ───── */
 function render() {
@@ -40,26 +47,26 @@ function render() {
   const firstNew = eps.findIndex((e, i) => i < open && !seen.has(e.id));
   el.innerHTML = `
     <div class="card story-head">
-      <h2 class="ribbon">메인 스토리</h2>
-      <p>공부를 <b>${STORY_MIN_PER_EP}분</b> 할 때마다 다음 화가 열려요.
-        ${open < eps.length ? `다음 화까지 <b>${nextIn()}분</b> 남았어요.` : "지금 있는 이야기는 모두 열렸어요!"}</p>
-      <div class="story-prog"><span class="bar"><i style="width:${(((STORY_MIN_PER_EP - nextIn()) / STORY_MIN_PER_EP) * 100).toFixed(1)}%"></i></span>
+      <h2 class="ribbon">사도 이야기</h2>
+      <p>공부할수록 다음 이야기가 열려요.
+        ${open < eps.length ? `다음 화까지 공부 <b>${hm(nextIn())}</b> 남았어요.` : "지금 있는 이야기는 모두 열렸어요!"}</p>
+      <div class="story-prog"><span class="bar"><i style="width:${(() => { const x = nextEp(); if (!x) return 100; const prevNeed = open ? needOf(eps[open - 1], open - 1) : 0; return Math.min(100, ((studied() - prevNeed) / Math.max(1, x.need - prevNeed)) * 100).toFixed(1); })()}%"></i></span>
         <small>${Math.min(open, eps.length)} / ${eps.length}화 열림 · 본 화 ${seen.size}</small></div>
       ${firstNew >= 0 ? `<button class="btn yellow" data-play="${eps[firstNew].id}">▶ 이어 보기 — ${esc(eps[firstNew].title)}</button>` : ""}
     </div>
-    ${STORY.map((ch) => `<div class="card story-ch">
+    ${chapters().map((ch) => `<div class="card story-ch">
       <h3 class="card-title">${esc(ch.season)} · ${esc(ch.name)} <small>${esc(ch.title)}</small></h3>
       <ol class="story-eps">${ch.eps.map((ep) => {
         const i = eps.findIndex((x) => x.id === ep.id), lock = i >= open;
         return `<li class="${lock ? "lock" : ""} ${seen.has(ep.id) ? "seen" : ""}">
           <button ${lock ? "disabled" : ""} data-play="${ep.id}">
             <b>${i + 1}화</b><span>${esc(ep.title)}</span>
-            <em>${lock ? `🔒 공부 ${(i - open + 1) * STORY_MIN_PER_EP - (STORY_MIN_PER_EP - nextIn())}분 더` : seen.has(ep.id) ? "✔ 다시 보기" : "NEW"}</em>
+            <em>${lock ? `🔒 공부 ${hm(Math.max(0, needOf(ep, i) - studied()))} 더` : seen.has(ep.id) ? "✔ 다시 보기" : "NEW"}</em>
           </button>${PREVIEW ? `<button class="story-script" data-script="${ep.id}">📜 대본</button>` : ""}</li>`;
       }).join("")}</ol>
     </div>`).join("")}
-    ${STORY.length ? "" : '<div class="card"><p class="hint">메인 스토리를 준비하고 있어요. 곧 시즌 1부터 올라와요!</p></div>'}
-    <p class="hint">줄거리는 원작 메인 스토리를 바탕으로 하고, 세부 대사는 새로 쓴 팬 창작이에요.</p>`;
+    ${chapters().length ? "" : '<div class="card"><p class="hint">이야기를 준비하고 있어요!</p></div>'}
+    <p class="hint">「트릭컬 사도 정리」의 실제 대사와 말투를 바탕으로 새로 쓴 팬 창작 이야기예요.</p>`;
   el.querySelectorAll("[data-play]").forEach((b) => (b.onclick = () => play(b.dataset.play)));
   el.querySelectorAll("[data-script]").forEach((b) => (b.onclick = () => showScript(b.dataset.script)));
   if (PREVIEW) el.insertAdjacentHTML("afterbegin", '<div class="card story-preview-note">🔍 <b>미리보기 모드</b> — 모든 화가 열려 있고 📜 대본으로 구성을 볼 수 있어요. 여기서 본 건 기록·보상에 반영되지 않아요.</div>');
@@ -361,7 +368,7 @@ function end() {
   box.innerHTML = `<div class="sp-end-card">
       <h3>📖 ${esc(ep.title)} 끝!</h3>
       ${first ? '<p class="reward-chip"><i class="ic-elif"></i>+50 처음 본 보상</p>' : ""}
-      <p class="hint">다음 화까지 공부 ${nextIn()}분</p>
+      <p class="hint">${nextEp() ? `다음 화까지 공부 ${hm(nextIn())}` : "지금 있는 이야기를 모두 봤어요!"}</p>
       <button class="btn yellow" id="sp-endok">확인</button></div>`;
   P.root.appendChild(box);
   box.querySelector("#sp-endok").onclick = (e) => { e.stopPropagation(); close(); };

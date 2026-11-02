@@ -2151,3 +2151,16 @@ a.icon-btn { text-decoration: none; display: inline-grid; place-items: center; }
 .sorry-act { margin: 10px 0; }
 .sorry-act p { margin: 4px 0 0; font-size: 13px; color: var(--ink-soft); font-style: italic; }
 .sorry-paw { display: inline-block; font-size: 64px; filter: sepia(1) saturate(4) hue-rotate(-30deg) brightness(.75); transform: rotate(-12deg); animation: stampIn .5s .2s cubic-bezier(.3,1.6,.6,1) both; }
+
+/* ───── 📖 어사이드 ───── */
+.as-book { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 10px 0; padding: 8px 12px; border: 2px solid var(--ink); border-radius: 14px; background: linear-gradient(135deg, #fff0f7, #f3ecff); text-align: left; }
+.as-book > b { font-family: var(--font-title); margin-right: 4px; }
+.as-overlay { position: fixed; inset: 0; z-index: 1700; display: flex; align-items: center; justify-content: center; padding: 16px; background: radial-gradient(ellipse at center, rgba(60,30,80,.55), rgba(20,10,30,.85)); animation: modalin .4s ease-out; }
+.as-card { position: relative; display: flex; align-items: flex-end; gap: 0; width: min(760px, 100%); }
+.as-pic { width: min(300px, 40vw); max-height: 70vh; object-fit: contain; filter: drop-shadow(0 10px 20px rgba(0,0,0,.5)); animation: asPic .8s cubic-bezier(.3,1.2,.5,1) both; z-index: 1; }
+@keyframes asPic { from { opacity: 0; transform: translateX(-40px); } }
+.as-text { flex: 1; margin-left: -30px; margin-bottom: 30px; padding: 18px 22px 16px 46px; background: rgba(255,250,240,.96); border: 3px solid var(--ink); border-radius: 22px; box-shadow: 0 8px 0 var(--ink); animation: tkIn .6s .2s both; }
+.as-text small { color: #b04dff; font-weight: bold; letter-spacing: 1px; }
+.as-text h3 { margin: 2px 0 8px; font-family: var(--font-title); font-size: 22px; }
+.as-text p { min-height: 4.5em; font-size: 16px; line-height: 1.7; margin: 0 0 12px; word-break: keep-all; }
+@media (max-width: 560px) { .as-card { flex-direction: column; align-items: center; } .as-pic { width: 55vw; } .as-text { margin: -20px 0 0; padding: 18px; } }
