@@ -69,3 +69,17 @@ mo.observe(document.body, { childList: true });
 if (document.getElementById("title")) showLoading();
 TS.on("start", () => mo.disconnect());
 })();
+
+/* ───── 🎁 선물(장비 장착) · ✦ 돌파(승급·스킬 강화) 반응 ───── */
+(() => {
+const TS = window.TS, V = (id) => (typeof voiceOf === "function" ? voiceOf(id) : null);
+function react(id, key) {
+  const c = TS.SADO_MAP[id], v = V(id);
+  if (!c || !v || !v[key]) return;
+  const line = TS.rand(v[key]);
+  if (id === TS.state.partner) setTimeout(() => TS.say(line), 300);
+  else setTimeout(() => TS.toast(`💬 ${TS.shortName(c)}: “${line}”`), 600);
+}
+TS.on("gift", (g) => react(g.id, "equip"));
+TS.on("bt", (id) => react(id, "promo"));
+})();

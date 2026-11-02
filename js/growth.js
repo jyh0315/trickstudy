@@ -108,7 +108,7 @@ document.addEventListener("click", (e) => {
   const id = b.dataset.btbuy, c = TS.SADO_MAP[id], o = S().owned[id], cost = CONFIG.btCost[c.rarity];
   if (!o || (o.bt || 0) >= CONFIG.btMax || S().candy < cost) return;
   S().candy -= cost; o.bt = (o.bt || 0) + 1;
-  TS.sfx("r2"); TS.confetti(40); TS.toast(`✦ ${c.name} 돌파 ${o.bt}단계!`);
+  TS.sfx("r2"); TS.confetti(40); TS.toast(`✦ ${c.name} 돌파 ${o.bt}단계!`); TS.emit("bt", id);
   TS.save(); TS.refresh();
   const box = document.querySelector(`[data-btbox="${id}"]`);
   if (box) box.outerHTML = btHTML(c);

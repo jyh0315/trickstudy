@@ -286,7 +286,7 @@ function levelUpModal(lv, bg, item, lvCandy = 0) {
   const c = SADO_MAP[state.partner];
   modal(`<h2>LEVEL UP!</h2>
     <p style="font-family:var(--font-title);font-size:22px;margin:0">교주 레벨 <b>${lv}</b> 달성!</p>
-    ${c ? `<p>${esc(c.name)}: “${esc(fmt(rand(linesOf(c, "done")), c))}”</p>` : ""}
+    ${c ? `<p>${esc(c.name)}: “${esc(fmt(rand((typeof voiceOf === "function" && voiceOf(c.id) && voiceOf(c.id).lvup) || linesOf(c, "done")), c))}”</p>` : ""}
     <div class="reward-row"><span class="reward-chip"><i class="ic-elif"></i>+${CONFIG.levelUpElif}</span>${lvCandy ? `<span class="reward-chip"><i class="ic-candy"></i>+${lvCandy}</span>` : ""}${item ? itemChip(item.id) : ""}</div>
     ${window.LvRank ? window.LvRank.upHTML(lv) : ""}
     ${bg ? `<p style="margin:6px 0 0">🖼️ 새 배경 일러스트 해금: <b>${esc(bg.name)}</b></p><img class="unlock-bg" src="assets/bg/${bg.id}.jpg" alt="">` : ""}

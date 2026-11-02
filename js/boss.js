@@ -74,7 +74,8 @@ function deal(n, src) {
       const c = TS.SADO_MAP[b.id];
       TS.modal(`<h2>👹 보스 격파!</h2>
         <img class="modal-emote boss-dead" src="${TS.chibiSrc(c)}" alt="">
-        <p><b>${TS.esc(c.name)}</b>: “${TS.esc(TS.rand(BOSS_DOWN))}”</p>
+        <p><b>${TS.esc(c.name)}</b>: “${TS.esc(TS.rand((typeof voiceOf === "function" && voiceOf(c.id) && voiceOf(c.id).lose) || BOSS_DOWN))}”</p>
+        ${(() => { const pc = TS.SADO_MAP[S().partner], w = pc && typeof voiceOf === "function" && voiceOf(pc.id) && voiceOf(pc.id).win; return w ? `<p>💛 <b>${TS.esc(pc.name)}</b>: “${TS.esc(TS.rand(w))}”</p>` : ""; })()}
         <div class="reward-row"><span class="reward-chip"><i class="ic-elif"></i>+1000</span><span class="reward-chip"><i class="ic-candy"></i>+60</span><span class="reward-chip">⭐ EXP +300</span>${drop ? TS.itemChip(drop.id) : ""}</div>
         <p class="hint">남은 기간에 주는 데미지도 랭킹 ‘보스 딜’에 그대로 쌓여요!</p>
         <div class="modal-actions"><button class="btn yellow" data-close>승리!</button></div>`);
