@@ -4,9 +4,9 @@
    ========================================================= */
 
 const RARITY = {
-  3: { label: "★★★", name: "전설", color: "#ffb321", rate: 0.04 },
-  2: { label: "★★",  name: "희귀", color: "#b77cff", rate: 0.26 },
-  1: { label: "★",   name: "일반", color: "#6cc4ff", rate: 0.70 },
+  3: { label: "★★★", name: "전설", color: "#ffb321", rate: 0.03 },
+  2: { label: "★★",  name: "희귀", color: "#b77cff", rate: 0.21 },
+  1: { label: "★",   name: "일반", color: "#6cc4ff", rate: 0.76 },
 };
 
 /* 성격 — 카드 배경색 & 성격별 기본 대사 (전용 대사가 없는 사도는 이걸 씀)

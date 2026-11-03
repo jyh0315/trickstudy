@@ -182,8 +182,18 @@ async function load(force) {
   loading = true; loadErr = ""; render();
   try {
     if (rk().on) await upload();
-    const { uid, data } = await api("ranking");
+    let { uid, data } = await api("ranking");
     meUid = uid;
+    // 전체 초기화: 관리자가 새 버전으로 처음 열면 서버 랭킹·레이드 기록을 한 번 전부 지움
+    if (isAdmin() && S().rankWiped !== TS.RESET_EPOCH) {
+      const uids = Object.keys(data || {});
+      for (const u of uids) { try { await api("ranking/" + encodeURIComponent(u), { method: "DELETE" }); } catch (e) { /* 다음 */ } }
+      try { const r = await api("raid"); for (const ev of Object.keys(r.data || {})) for (const u of Object.keys(r.data[ev] || {})) { try { await api(`raid/${encodeURIComponent(ev)}/${encodeURIComponent(u)}`, { method: "DELETE" }); } catch (e) { /* 다음 */ } } } catch (e) { /* 레이드 없음 */ }
+      S().rankWiped = TS.RESET_EPOCH; TS.save();
+      TS.toast(`🧹 랭킹 기록 ${uids.length}개를 모두 초기화했어요`);
+      if (rk().on) { lastUp = 0; await upload(); }
+      ({ data } = await api("ranking"));
+    }
     cache = Object.entries(data || {}).map(([u, e]) => {
       const c = clean(u, e);
       if (c) { c.sus = rankSuspicion(c); if (e && (typeof e.name !== "string" || typeof e.total !== "number")) c.sus.push("형식 오류"); }

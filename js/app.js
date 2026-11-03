@@ -6,6 +6,9 @@
 "use strict";
 
 const SAVE_KEY = "trickcal-study";
+/* 전체 초기화: 이 값이 바뀌면 모든 브라우저의 저장 기록이 한 번 처음부터 다시 시작 (이전 기록은 SAVE_KEY-backup-<값> 에 보관)
+   관리자가 이 버전으로 랭킹을 처음 열면 서버 랭킹·레이드 기록도 전부 지움 (ranking.js) */
+const RESET_EPOCH = "2026-11-03";
 const $ = (id) => document.getElementById(id);
 const SADO_MAP = Object.fromEntries(SADO.map((c) => [c.id, c]));
 const EMOTE_SADO = SADO.filter((c) => c.emote);
@@ -37,7 +40,7 @@ const daysAgo = (n) => { const d = new Date(); d.setDate(d.getDate() - n); retur
 const freshDaily = () => ({ login: 0, poke: 0, focusMin: 0, sessions: 0, todos: 0 });
 function defaultState() {
   return {
-    v: 1, started: false, name: "교주",
+    v: 1, resetEpoch: RESET_EPOCH, started: false, name: "교주",
     level: 1, exp: 0, elif: CONFIG.startElif, candy: 0,
     owned: {}, partner: null, bg: "trickcal", unlockedBg: ["trickcal"],
     todos: [],
@@ -55,6 +58,10 @@ function load() {
     const raw = localStorage.getItem(SAVE_KEY);
     if (!raw) return defaultState();
     const s = JSON.parse(raw), d = defaultState();
+    if (s.resetEpoch !== RESET_EPOCH) { // 전체 초기화 → 이전 기록은 백업만 해 두고 새로 시작
+      try { localStorage.setItem(SAVE_KEY + "-backup-" + RESET_EPOCH, raw); } catch (e) { /* 공간 부족 */ }
+      return d;
+    }
     // 새 필드가 생겨도 깨지지 않게 얕게 병합
     for (const k of ["daily", "weekly", "claimed", "stats", "settings", "timer"]) s[k] = { ...d[k], ...(s[k] || {}) };
     return { ...d, ...s };
@@ -763,6 +770,16 @@ function acquire(c) {
   addCandy(k);
   return { isNew: false, extra: `별사탕 +${k}` };
 }
+/* 같은 등급 안에서 뽑기: ★★★ 중 lim(확률 낮은 20명)은 0.016%, 나머지는 0.03153% (게임 확률표 기준) */
+const SADO_W = { normal: 0.03153, lim: 0.016 };
+function pickSado(r) {
+  const pool = SADO.filter((x) => x.rarity === r);
+  if (r !== 3) return rand(pool);
+  const w = pool.map((x) => (x.lim ? SADO_W.lim : SADO_W.normal)), sum = w.reduce((a, b) => a + b, 0);
+  let k = Math.random() * sum;
+  for (let i = 0; i < pool.length; i++) { k -= w[i]; if (k <= 0) return pool[i]; }
+  return pool[pool.length - 1];
+}
 function pull(n) {
   const cost = n === 10 ? CONFIG.pull10Cost : CONFIG.pullCost;
   if (state.elif < cost) { toast(`엘리프가 ${cost - state.elif}개 부족해요! 공부하러 가요!`); sfx("sad"); return; }
@@ -771,7 +788,7 @@ function pull(n) {
   for (let i = 0; i < n; i++) rs.push(rollRarity());
   if (n === 10 && !rs.some((r) => r >= 2)) rs[9] = 2; // 10회 모집은 ★2 이상 1명 확정
   const results = rs.map((r) => {
-    const c = rand(SADO.filter((x) => x.rarity === r));
+    const c = pickSado(r);
     return { c, ...acquire(c) };
   });
   state.stats.pulls += n;
@@ -1163,7 +1180,7 @@ window.TS = {
   modal, confirmModal, toast, confetti, sfx, voice, say, sayKind, renderPartner,
   addElif, addExp, addCandy, esc, rand, pad, dateKey, today, weekKey, daysAgo,
   addItem, randomItem, itemChip, itemIcon, itemOf, bag,
-  SADO_MAP, linesOf, fmt, portrait, chibiSrc, emoteSrc, stars, shortName, isPlain, setPlain, applyBg,
+  RESET_EPOCH, SADO_MAP, linesOf, fmt, portrait, chibiSrc, emoteSrc, stars, shortName, isPlain, setPlain, applyBg,
   timer: { left: timerLeft, dur: timerDur, start: startTimer, pause: pauseTimer, mmss, get t() { return state.timer; } },
 };
 
