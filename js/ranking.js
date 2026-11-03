@@ -167,6 +167,7 @@ function clean(uid, e) {
     week: String(e.week || ""), weekMin: num(e.weekMin, 1e12), day: String(e.day || ""), dayMin: num(e.dayMin, 1e12),
     total: num(e.total, 1e12), sado: num(e.sado, 1e9), boss: num(e.boss, 1e15), streak: num(e.streak, 1e9), t: num(e.t, 1e16),
     ev: e.ev && typeof e.ev === "object" ? { id: String(e.ev.id || "").slice(0, 24), c: num(e.ev.c) } : null,
+    sn: e.sn && typeof e.sn === "object" ? { id: String(e.sn.id || "").slice(0, 16), sp: num(e.sn.sp, 1e9) } : null, // 시즌 SP (season.js)
     dayKey: TS.today(), c: typeof e.c === "number" ? e.c : 0,
   };
 }

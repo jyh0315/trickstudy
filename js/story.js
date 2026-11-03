@@ -118,14 +118,23 @@ function videoCard() {
 }
 function playVideo(id) {
   const v = CG_VIDEOS.find((x) => x.id === id); if (!v) return;
+  // 화면 가득, 기본 재생바 없이: 누르면 일시정지/재생, 아래 얇은 진행선, 위에 제목·닫기
   const ov = document.createElement("div");
   ov.className = "cgv-overlay";
-  ov.innerHTML = `<video src="assets/video/${v.id}.webm" poster="assets/video/${v.id}.jpg" autoplay loop playsinline controls></video><p>${esc(v.title)}</p><button class="btn white small">닫기</button>`;
+  ov.innerHTML = `<video src="assets/video/${v.id}.webm" poster="assets/video/${v.id}.jpg" autoplay loop playsinline></video>
+    <div class="cgv-top"><b>🎞️ ${esc(v.title)}</b><button class="cgv-x" title="닫기">✕</button></div>
+    <div class="cgv-pause">❚❚</div><div class="cgv-line"><i></i></div>`;
   document.body.appendChild(ov);
+  const vid = ov.querySelector("video"), line = ov.querySelector(".cgv-line i");
   if (window.BGM && window.BGM.pauseFor) window.BGM.pauseFor("video");
-  const close = () => { ov.remove(); if (window.BGM && window.BGM.resumeFrom) window.BGM.resumeFrom("video"); };
-  ov.querySelector("button").onclick = close;
-  ov.onclick = (e) => { if (e.target === ov) close(); };
+  let raf = 0; const tick = () => { if (vid.duration) line.style.width = (vid.currentTime / vid.duration) * 100 + "%"; raf = requestAnimationFrame(tick); }; tick();
+  let hideT = 0; const wake = () => { ov.classList.add("ui"); clearTimeout(hideT); hideT = setTimeout(() => ov.classList.remove("ui"), 2200); }; wake();
+  const close = () => { cancelAnimationFrame(raf); ov.remove(); document.removeEventListener("keydown", key); if (window.BGM && window.BGM.resumeFrom) window.BGM.resumeFrom("video"); };
+  const key = (e) => { if (e.key === "Escape") close(); if (e.key === " ") { e.preventDefault(); toggle(); } };
+  const toggle = () => { if (vid.paused) { vid.play(); ov.classList.remove("paused"); } else { vid.pause(); ov.classList.add("paused"); } wake(); };
+  document.addEventListener("keydown", key);
+  ov.addEventListener("pointermove", wake);
+  ov.onclick = (e) => { if (e.target.closest(".cgv-x")) return close(); toggle(); };
 }
 TS.on("refresh", (view) => {
   if (view !== "story") return;

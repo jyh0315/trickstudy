@@ -2201,6 +2201,13 @@ a.icon-btn { text-decoration: none; display: inline-grid; place-items: center; }
 .cgv em { font-style: normal; font-size: 12px; color: var(--ink-soft); }
 .cgv.lock { cursor: default; opacity: .75; }
 .cgv.lock img { filter: blur(6px) grayscale(.6) brightness(.8); }
-.cgv-overlay { position: fixed; inset: 0; z-index: 1900; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 16px; background: rgba(10,8,6,.92); animation: modalin .3s ease-out; }
-.cgv-overlay video { width: min(1280px, 100%); max-height: 80vh; border-radius: 12px; background: #000; }
-.cgv-overlay p { margin: 0; color: #fff; font-family: var(--font-title); font-size: 20px; }
+
+.cgv-overlay { position: fixed; inset: 0; z-index: 1900; background: #000; cursor: pointer; animation: modalin .3s ease-out; }
+.cgv-overlay video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+.cgv-top { position: absolute; top: 0; left: 0; right: 0; display: flex; align-items: center; justify-content: space-between; padding: 14px 18px 30px; background: linear-gradient(rgba(0,0,0,.6), transparent); color: #fff; font-family: var(--font-title); font-size: 18px; opacity: 0; transition: opacity .3s; }
+.cgv-x { background: rgba(255,255,255,.15); border: 2px solid rgba(255,255,255,.7); color: #fff; border-radius: 50%; width: 38px; height: 38px; font-size: 18px; cursor: pointer; }
+.cgv-overlay.ui .cgv-top, .cgv-overlay.paused .cgv-top { opacity: 1; }
+.cgv-pause { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 84px; height: 84px; border-radius: 50%; background: rgba(0,0,0,.45); color: #fff; display: grid; place-items: center; font-size: 30px; opacity: 0; transition: opacity .2s; pointer-events: none; }
+.cgv-overlay.paused .cgv-pause { opacity: 1; }
+.cgv-line { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: rgba(255,255,255,.15); }
+.cgv-line i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #ffd34e, #ff8fb1); }
