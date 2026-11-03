@@ -33,7 +33,8 @@ function pickChars(n) {
 function buildBgList(c) {
   const game = (typeof SS_BACKGROUNDS !== "undefined" ? SS_BACKGROUNDS : []).map((n) => `assets/ssbg/${n}.webp`);
   const illust = (c.allBg ? BACKGROUNDS.map((b) => b.id) : S().unlockedBg.slice()).map((id) => `assets/bg/${id}.jpg`);
-  const list = c.bgSrc === "illust" ? illust : c.bgSrc === "mix" ? game.concat(illust) : game;
+  const video = (typeof CG_VIDEOS !== "undefined" ? CG_VIDEOS : []).map((v) => `assets/video/${v.id}.webm`);
+  const list = c.bgSrc === "illust" ? illust : c.bgSrc === "mix" ? game.concat(illust) : c.bgSrc === "video" ? video : c.bgSrc === "all" ? game.concat(illust, video) : game;
   return (list.length ? list : illust).sort(() => Math.random() - 0.5);
 }
 function nextBg() {
@@ -88,7 +89,13 @@ function quote() {
 function swapBg() {
   const layers = root.querySelectorAll(".ss-bg");
   const front = root.querySelector(".ss-bg.on"), back = [...layers].find((l) => l !== front);
-  back.style.backgroundImage = TS.isPlain() ? "none" : `url("${nextBg()}")`;
+  const src = TS.isPlain() ? "" : nextBg();
+  // 움직이는 CG(영상)면 배경 칸 안에 영상을 깔고, 그림이면 배경 이미지
+  const old = back.querySelector("video"); if (old) old.remove();
+  if (/\.webm$/.test(src)) {
+    back.style.backgroundImage = `url("${src.replace(/\.webm$/, ".jpg")}")`;
+    back.insertAdjacentHTML("beforeend", `<video class="ss-vid" src="${src}" autoplay muted loop playsinline></video>`);
+  } else back.style.backgroundImage = src ? `url("${src}")` : "none";
   back.style.animationName = rand(["ssKb1", "ssKb2", "ssKb3"]);
   back.classList.add("on");
   if (front) front.classList.remove("on");
@@ -133,7 +140,7 @@ async function open() {
   root = document.createElement("div");
   root.id = "ss";
   root.innerHTML = `
-    <div class="ss-bg on" style="${TS.isPlain() ? "" : `background-image:url('${bgList[0] || `assets/bg/${S().bg}.jpg`}')`}"></div><div class="ss-bg"></div>
+    <div class="ss-bg on" style="${TS.isPlain() ? "" : `background-image:url('${(bgList[0] || `assets/bg/${S().bg}.jpg`).replace(/\.webm$/, ".jpg")}')`}">${!TS.isPlain() && /\.webm$/.test(bgList[0] || "") ? `<video class="ss-vid" src="${bgList[0]}" autoplay muted loop playsinline></video>` : ""}</div><div class="ss-bg"></div>
     <div class="ss-shade"></div>
     <div class="ss-clock"><div class="ss-time"></div><div class="ss-date"></div></div>
     <div class="ss-timer hidden"><span></span><b></b><div class="ss-tbar"><i></i></div></div>
@@ -150,7 +157,7 @@ async function open() {
       <label>사도 수 <select id="ss-cnt">${[0, 1, 2, 3].map((n) => `<option value="${n}" ${c.count === n ? "selected" : ""}>${n ? n + "명" : "없음 (배경만)"}</option>`).join("")}</select></label>
       <label>사도 <select id="ss-src"><option value="owned" ${c.source === "owned" ? "selected" : ""}>보유 사도 랜덤</option><option value="partner" ${c.source === "partner" ? "selected" : ""}>대표 사도만</option></select></label>
       <label class="check"><input type="checkbox" id="ss-clk" ${c.clock ? "checked" : ""}> 큰 시계</label>
-      <label>배경 <select id="ss-bgsrc">${[["game", "게임 배경 (155장)"], ["illust", "레벨업 일러스트"], ["mix", "둘 다 섞어서"]].map(([v, l]) => `<option value="${v}" ${c.bgSrc === v ? "selected" : ""}>${l}</option>`).join("")}</select></label>
+      <label>배경 <select id="ss-bgsrc">${[["game", "게임 배경 (155장)"], ["illust", "레벨업 일러스트"], ["mix", "게임 배경 + 일러스트"], ["video", "🎞️ 움직이는 CG"], ["all", "전부 섞어서"]].map(([v, l]) => `<option value="${v}" ${c.bgSrc === v ? "selected" : ""}>${l}</option>`).join("")}</select></label>
       <label class="check"><input type="checkbox" id="ss-allbg" ${c.allBg ? "checked" : ""}> 잠긴 일러스트도 보기</label>
       <label class="check"><input type="checkbox" id="ss-auto" ${c.auto ? "checked" : ""}> 집중 시작하면 자동으로 켜기</label>
     </div>`;

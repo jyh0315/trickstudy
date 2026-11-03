@@ -12,7 +12,7 @@
      { s: "erpin", t: "대사 *강조할 말*", f: "happy", e: "!", st: "shout" }   (*…* 는 초록색 강조)
          s = 말하는 사도(id) 또는 "me"(교주) / f = 표정·동작 / e = 감정 스티커 / st = shout·think
      { n: "나레이션" }  { shake: 1 }  { flash: 1 }  { wait: 800 }
-     { cg: "assets/story/cg/s1c1/003.webp" }  CG 보이기 · { cg: "" } 닫기 · { clear: 1 } 무대의 사도 모두 퇴장
+     { cg: "assets/story/cg/s1c1/003.webp" }  CG 보이기 (.webm 이면 움직이는 CG) · { cg: "" } 닫기 · { clear: 1 } 무대의 사도 모두 퇴장
      { sfx: "gun" }  효과음 (gun boom pop magic crowd run knock door pull bonk drop eat gulp ominous)
      { music: "02. Day Life.mp3" }  배경음악 바꾸기 (assets/bgm, 천천히 넘어감) · music: "" 은 끄기 / 화에 bgm: 을 적으면 첫 곡
      { choice: ["보기1", "보기2"], r: ["보기1 고르면 나올 대사", "보기2 대사"] }  (r는 교주 대신 첫 사도가 반응)
@@ -99,6 +99,35 @@ function showScript(id) {
     <div class="modal-actions"><button class="btn yellow" data-close>닫기</button></div>`);
 }
 if (PREVIEW && window.TitleScreen) window.TitleScreen.show = (done) => { done(); setTimeout(() => TS.go("story"), 0); };
+/* ───── 🎞️ 특별 영상 (움직이는 CG): 공부 시간으로 하나씩 열림 ───── */
+function videoCard() {
+  if (typeof CG_VIDEOS === "undefined" || !CG_VIDEOS.length) return "";
+  return `<div class="card story-ch"><h3 class="card-title">🎞️ 특별 영상 <small>움직이는 CG · 공부할수록 열려요</small></h3>
+    <div class="cgv-grid">${CG_VIDEOS.map((v) => {
+      const open = PREVIEW || studied() >= v.need;
+      return `<button class="cgv ${open ? "" : "lock"}" ${open ? `data-cgv="${v.id}"` : "disabled"}>
+        <img src="assets/video/${v.id}.jpg" alt="" loading="lazy"><b>${esc(v.title)}</b>
+        <em>${open ? "▶ 보기" : `🔒 공부 ${hm(Math.max(0, v.need - studied()))} 더`}</em></button>`;
+    }).join("")}</div></div>`;
+}
+function playVideo(id) {
+  const v = CG_VIDEOS.find((x) => x.id === id); if (!v) return;
+  const ov = document.createElement("div");
+  ov.className = "cgv-overlay";
+  ov.innerHTML = `<video src="assets/video/${v.id}.webm" poster="assets/video/${v.id}.jpg" autoplay loop playsinline controls></video><p>${esc(v.title)}</p><button class="btn white small">닫기</button>`;
+  document.body.appendChild(ov);
+  if (window.BGM && window.BGM.pauseFor) window.BGM.pauseFor("video");
+  const close = () => { ov.remove(); if (window.BGM && window.BGM.resumeFrom) window.BGM.resumeFrom("video"); };
+  ov.querySelector("button").onclick = close;
+  ov.onclick = (e) => { if (e.target === ov) close(); };
+}
+TS.on("refresh", (view) => {
+  if (view !== "story") return;
+  const el = $("view-story"); if (!el || el.querySelector(".cgv-grid")) return;
+  const hint = el.querySelector(":scope > p.hint");
+  (hint || el.lastElementChild).insertAdjacentHTML("beforebegin", videoCard());
+  el.querySelectorAll("[data-cgv]").forEach((b) => (b.onclick = () => playVideo(b.dataset.cgv)));
+});
 TS.views.story = render;
 
 /* ───── 재생기 ───── */
@@ -406,10 +435,15 @@ function finishTyping() {
 function showCg(src) {
   let el = P.root.querySelector(".sp-cg");
   if (!el) { el = document.createElement("div"); el.className = "sp-cg"; el.innerHTML = '<img alt="">'; P.root.querySelector(".sp-stage").after(el); }
-  if (!src) { el.classList.remove("on"); return; }
-  const img = el.querySelector("img");
-  if (el.classList.contains("on") && !img.src.endsWith(src)) { el.classList.add("swap"); setTimeout(() => { img.src = src; el.classList.remove("swap"); }, 250); }
-  else img.src = src;
+  if (!src) { el.classList.remove("on"); const v = el.querySelector("video"); if (v) setTimeout(() => v.pause(), 600); return; }
+  // .webm 이면 움직이는 CG(영상)
+  const isV = /\.webm$/.test(src);
+  const put = () => {
+    el.innerHTML = isV ? `<video src="${src}" poster="${src.replace(/\.webm$/, ".jpg")}" autoplay muted loop playsinline></video>` : `<img src="${src}" alt="">`;
+  };
+  const cur = el.querySelector("img,video");
+  if (el.classList.contains("on") && cur && !cur.getAttribute("src").endsWith(src)) { el.classList.add("swap"); setTimeout(() => { put(); el.classList.remove("swap"); }, 250); }
+  else if (!cur || !cur.getAttribute("src").endsWith(src)) put();
   el.classList.add("on");
 }
 function setBg(src, instant) {

@@ -5,6 +5,17 @@
 const STORY_NPC = {
   yeongchun: { name: "영춘", img: "assets/story/yeongchun.webp" },
 };
+/* 🎞️ 움직이는 CG (assets/video/<id>.webm + 같은 이름 .jpg 미리보기)
+   이야기 대본에서 { cg: "assets/video/cg1.webm" } 처럼 쓰거나, 이야기 탭 「특별 영상」에서 봄 · 화면보호기 배경으로도 나옴
+   need = 열리는 공부 시간(분, 이야기 기능이 열린 뒤부터). 어느 챕터 장면인지 알게 되면 그 화 대본에도 넣기 */
+const CG_VIDEOS = [
+  { id: "cg1", title: "바닷가의 눈물", need: 0 },
+  { id: "cg2", title: "여왕과 뿔 달린 손님", need: 180 },
+  { id: "cg3", title: "별빛 아래 깨어나는 힘", need: 420 },
+  { id: "cg4", title: "모두의 축하 파티", need: 720 },
+  { id: "cg5", title: "부서진 차원 속에서", need: 1080 },
+  { id: "cg6", title: "다시 만난 두 사람", need: 1500 },
+];
 const STORY = [
   {
     id: "s1c1", season: "시즌 1", name: "챕터 1", title: "최소한 잼은 발라줘", // 원작 메인 스토리 (「트릭컬 스토리 정리」 줄거리 바탕). 다음 챕터는 이 챕터 마지막 화(need 250) + 10시간 = need 850 부터
