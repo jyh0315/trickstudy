@@ -1010,7 +1010,7 @@ function onboarding() {
         save(); close();
         renderPartner(); sfx("level"); confetti(80);
         sayKind("partner");
-        modal(`<h2>시작 선물 🎁</h2><p>모집에 쓸 수 있는 <b>엘리프 ${CONFIG.startElif}개</b>를 드려요!<br>공부하고, 의뢰를 해결하고, 임무를 깨면 엘리프가 쌓여요.<br>모은 엘리프로 <b>136명의 사도</b>를 모집해 보세요!</p>
+        modal(`<h2>시작 선물 🎁</h2><p>모집에 쓸 수 있는 <b>엘리프 ${CONFIG.startElif}개</b>를 드려요! <b>10회 모집</b>을 한 번 할 수 있어요.<br>공부하고, 의뢰를 해결하고, 임무를 깨면 엘리프가 쌓여요.<br>모은 엘리프로 <b>136명의 사도</b>를 모집해 보세요!</p>
           <div class="modal-actions"><button class="btn pink" id="m-g">바로 모집하러 가기</button><button class="btn yellow" data-close>좋아요!</button></div>`,
           (e2, c2) => { e2.querySelector("#m-g").onclick = () => { c2(); go("gacha"); }; });
         refresh();
