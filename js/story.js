@@ -102,13 +102,19 @@ if (PREVIEW && window.TitleScreen) window.TitleScreen.show = (done) => { done();
 /* ───── 🎞️ 특별 영상 (움직이는 CG): 공부 시간으로 하나씩 열림 ───── */
 function videoCard() {
   if (typeof CG_VIDEOS === "undefined" || !CG_VIDEOS.length) return "";
-  return `<div class="card story-ch"><h3 class="card-title">🎞️ 특별 영상 <small>움직이는 CG · 공부할수록 열려요</small></h3>
-    <div class="cgv-grid">${CG_VIDEOS.map((v) => {
+  return `<div class="card story-ch"><h3 class="card-title">🎞️ 특별 영상 <small>움직이는 CG ${CG_VIDEOS.filter((v) => PREVIEW || studied() >= v.need).length} / ${CG_VIDEOS.length}</small></h3>
+    <div class="cgv-grid">${(() => {
+      // 열린 영상 전부 + 다음에 열릴 3개만 (나머지는 개수만)
+      const L = CG_VIDEOS.slice().sort((a, b) => a.need - b.need);
+      const open = L.filter((v) => PREVIEW || studied() >= v.need), lock = L.filter((v) => !(PREVIEW || studied() >= v.need));
+      window.__cgvMore = Math.max(0, lock.length - 3);
+      return open.concat(lock.slice(0, 3));
+    })().map((v) => {
       const open = PREVIEW || studied() >= v.need;
       return `<button class="cgv ${open ? "" : "lock"}" ${open ? `data-cgv="${v.id}"` : "disabled"}>
         <img src="assets/video/${v.id}.jpg" alt="" loading="lazy"><b>${esc(v.title)}</b>
         <em>${open ? "▶ 보기" : `🔒 공부 ${hm(Math.max(0, v.need - studied()))} 더`}</em></button>`;
-    }).join("")}</div></div>`;
+    }).join("")}</div>${window.__cgvMore ? `<p class="hint" style="margin:8px 0 0">🔒 그 밖에 ${window.__cgvMore}개가 더 기다리고 있어요. 공부할수록 하나씩 열려요!</p>` : ""}</div>`;
 }
 function playVideo(id) {
   const v = CG_VIDEOS.find((x) => x.id === id); if (!v) return;
