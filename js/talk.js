@@ -1,7 +1,7 @@
 /* =========================================================
    💬 사도끼리 대화 — 「트릭컬 사도 정리」의 교단 대화(SADO_TALKS)
    - 대화에 나오는 사도를 모두 가지고 있으면 열림
-   - 로비에 있으면 가끔 대표 사도가 나오는 대화가 저절로 재생, 💬 대화 버튼으로 바로 보기
+   - 5분마다 대화가 저절로 재생 (집중 중엔 쉬었다가), 💬 대화 버튼으로 바로 보기
    - 본 대화는 기록되고, 사도 상세에서 다시 볼 수 있음
    ========================================================= */
 (() => {
@@ -75,15 +75,16 @@ btn.onclick = () => {
   play(i);
 };
 
-/* 로비에서 가끔 저절로 (5분에 한 번 정도, 집중 중·창이 떠 있을 땐 안 함) */
+/* 5분마다 저절로 (집중 중·다른 창이 떠 있을 땐 미뤘다가 끝나면 바로)
+   대표 사도가 나오는 대화가 먼저, 없으면 가진 사도들끼리의 다른 대화 */
 let last = Date.now();
 setInterval(() => {
-  if (!S().started || document.hidden || TS.modalOpen || playing || TS.view !== "lobby") return;
+  if (!S().started || document.hidden || TS.modalOpen || playing || document.querySelector("#story, .cgv-overlay, #ss")) return;
   if (TS.timer.t.running && TS.timer.t.mode === "focus") return;
-  if (Date.now() - last < 5 * 60000 || Math.random() > 0.5) return;
-  const i = pick(false); if (i < 0) return;
+  if (Date.now() - last < 5 * 60000) return;
+  const i = pick(true); if (i < 0) return;
   last = Date.now(); play(i);
-}, 30000);
+}, 15000);
 
 /* 사도 상세: 이 사도의 대화 목록 */
 TS.detailHooks.push((c) => {
