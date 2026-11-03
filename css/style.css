@@ -2211,3 +2211,17 @@ a.icon-btn { text-decoration: none; display: inline-grid; place-items: center; }
 .cgv-overlay.paused .cgv-pause { opacity: 1; }
 .cgv-line { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: rgba(255,255,255,.15); }
 .cgv-line i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #ffd34e, #ff8fb1); }
+
+/* 🧭 튜토리얼 */
+.tu-overlay { position: fixed; inset: 0; z-index: 2000; }
+.tu-hole { position: fixed; border-radius: 16px; box-shadow: 0 0 0 9999px rgba(30,20,14,.68); border: 3px solid #ffd34e; transition: all .35s cubic-bezier(.3,1.2,.5,1); pointer-events: none; animation: tuPulse 1.6s ease-in-out infinite; }
+.tu-hole.none { left: 50% !important; top: 50% !important; width: 0 !important; height: 0 !important; border: 0; animation: none; }
+@keyframes tuPulse { 50% { border-color: #ff8fb1; } }
+.tu-card { position: fixed; display: flex; gap: 12px; align-items: flex-start; padding: 14px 16px; background: #fffaf0; border: 3px solid var(--ink); border-radius: 18px; box-shadow: 0 6px 0 var(--ink), 0 18px 40px rgba(0,0,0,.3); transition: left .35s, top .35s; animation: tkIn .35s ease-out; }
+.tu-card.mid { left: 50% !important; top: 50% !important; transform: translate(-50%, -50%); width: min(420px, calc(100vw - 24px)) !important; }
+.tu-chibi { width: 64px; height: 64px; object-fit: contain; flex: none; border-radius: 14px; background: #fff; border: 2px solid var(--ink); }
+.tu-body { flex: 1; min-width: 0; }
+.tu-t { font-family: var(--font-title); font-weight: normal; font-size: 18px; }
+.tu-d { margin: 4px 0 10px; font-size: 14px; line-height: 1.55; word-break: keep-all; }
+.tu-nav { display: flex; align-items: center; gap: 6px; }
+.tu-n { margin-right: auto; font-size: 12px; color: var(--ink-soft); }
