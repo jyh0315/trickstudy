@@ -2227,3 +2227,8 @@ a.icon-btn { text-decoration: none; display: inline-grid; place-items: center; }
 .tu-n { margin-right: auto; font-size: 12px; color: var(--ink-soft); }
 .tu-card.bottom { left: 50% !important; top: auto !important; bottom: 18px; transform: translateX(-50%); width: min(460px, calc(100vw - 24px)) !important; }
 #tabs button.tu-tab { position: relative; z-index: 2001; box-shadow: 0 0 0 3px #ffd34e, 0 0 18px 4px rgba(255,211,78,.8); }
+
+/* ✏️ 과목 기록 고치기 */
+.fx-form { display: grid; gap: 10px; margin: 12px 0; }
+.fx-form label { display: grid; gap: 4px; font-weight: 700; font-size: 14px; }
+.fx-form select, .fx-form input { padding: 8px; border-radius: 10px; border: 2px solid #e5d8c0; font: inherit; }
