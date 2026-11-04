@@ -1,11 +1,13 @@
 /* =========================================================
    ✦ 돌파 · 🔁 환생 · 장기 꾸미기
    - 돌파: 사도마다 ✦1~5. 중복 영입(표정을 다 연 뒤) 또는 별사탕으로 올림
-           대표 사도의 돌파 1단계당 집중 보상 +4% (최대 +20%)
+           대표 사도의 돌파 1단계당 집중 보상 ★ +2% · ★★ +3% · ★★★ +5% (✦5면 +10% · +15% · +25%)
    - 환생: 사도 100명 이상 모으면 원할 때만. 대표 사도만 남기고 도감을 비우는 대신
            영구 집중 보상 +10%/회 (최대 +50%), 별사탕 300, 환생 칭호·프레임·테마·뱃지
    - 몇 년 걸리는 장기 칭호 · 프레임 · 카드 테마 · 뱃지
    ========================================================= */
+// 돌파 1단계당 보너스 (등급별)
+const btPer = (c) => (typeof CONFIG.btBonus === "object" ? CONFIG.btBonus[c.rarity] || 0 : CONFIG.btBonus);
 const REBORN_NEED = 100, REBORN_BONUS = 0.1, REBORN_MAX = 5;
 const btOf = (s, id) => (s.owned[id] && s.owned[id].bt) || 0;
 const btFull = (s) => Object.values(s.owned).filter((o) => (o.bt || 0) >= 5).length;
@@ -86,7 +88,8 @@ const esc = TS.esc;
 /* ───── 보상 배율 ───── */
 TS.rewardHooks.push((rw) => {
   const s = S(), bt = btOf(s, s.partner), rb = Math.min(REBORN_MAX, rebornN(s));
-  if (bt) { rw.eff *= 1 + CONFIG.btBonus * bt; rw.notes.push(`✦ 돌파 +${Math.round(CONFIG.btBonus * bt * 100)}%`); }
+  const pc = TS.SADO_MAP[s.partner], per = pc ? btPer(pc) : 0;
+  if (bt && per) { rw.eff *= 1 + per * bt; rw.notes.push(`✦ 돌파 +${Math.round(per * bt * 100)}%`); }
   if (rb) { rw.eff *= 1 + REBORN_BONUS * rb; rw.notes.push(`🔁 환생 +${Math.round(REBORN_BONUS * rb * 100)}%`); }
 });
 
@@ -96,7 +99,7 @@ function btHTML(c) {
   const bt = o.bt || 0, cost = CONFIG.btCost[c.rarity], max = bt >= CONFIG.btMax;
   return `<div class="bt-box" data-btbox="${c.id}">
     <div class="bt-stars">${[1, 2, 3, 4, 5].map((i) => `<span class="${i <= bt ? "on" : ""}">✦</span>`).join("")}</div>
-    <p class="bt-desc">돌파 <b>${bt} / ${CONFIG.btMax}</b> · 대표 사도일 때 집중 보상 <b>+${Math.round(bt * CONFIG.btBonus * 100)}%</b></p>
+    <p class="bt-desc">돌파 <b>${bt} / ${CONFIG.btMax}</b> · 대표 사도일 때 집중 보상 <b>+${Math.round(bt * btPer(c) * 100)}%</b> <small>(${"★".repeat(c.rarity)} 단계당 +${Math.round(btPer(c) * 100)}%)</small></p>
     ${max ? '<p class="hint">최대 돌파! 이제 중복은 별사탕으로 바뀌어요.</p>'
       : `<button class="btn pink small" data-btbuy="${c.id}" ${S().candy < cost ? "disabled" : ""}><i class="ic-candy"></i> ${cost}개로 돌파 ✦${bt + 1}</button>
          <p class="hint">${c.emote && (o.emo || 1) < 4 ? "중복 영입은 표정을 먼저 열고, 그다음 돌파에 쓰여요." : "중복으로 영입해도 돌파가 올라가요."}</p>`}
