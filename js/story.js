@@ -449,16 +449,16 @@ function finishTyping() {
 /* CG: 무대 위를 덮는 일러스트 (대사창은 그 위에). { cg: "경로" } 보이기 · { cg: "" } 닫기 */
 function showCg(src) {
   let el = P.root.querySelector(".sp-cg");
-  if (!el) { el = document.createElement("div"); el.className = "sp-cg"; el.innerHTML = '<img alt="">'; P.root.querySelector(".sp-stage").after(el); }
+  if (!el) { el = document.createElement("div"); el.className = "sp-cg"; P.root.querySelector(".sp-stage").after(el); }
   if (!src) { el.classList.remove("on"); const v = el.querySelector("video"); if (v) setTimeout(() => v.pause(), 600); return; }
   // .webm 이면 움직이는 CG(영상)
   const isV = /\.webm$/.test(src);
   const put = () => {
     el.innerHTML = isV ? `<video src="${src}" poster="${src.replace(/\.webm$/, ".jpg")}" autoplay muted loop playsinline></video>` : `<img src="${src}" alt="">`;
   };
-  const cur = el.querySelector("img,video");
-  if (el.classList.contains("on") && cur && !cur.getAttribute("src").endsWith(src)) { el.classList.add("swap"); setTimeout(() => { put(); el.classList.remove("swap"); }, 250); }
-  else if (!cur || !cur.getAttribute("src").endsWith(src)) put();
+  const cur = el.querySelector("img,video"), curSrc = (cur && cur.getAttribute("src")) || "";
+  if (el.classList.contains("on") && cur && !curSrc.endsWith(src)) { el.classList.add("swap"); setTimeout(() => { put(); el.classList.remove("swap"); }, 250); }
+  else if (!cur || !curSrc.endsWith(src)) put();
   el.classList.add("on");
 }
 function setBg(src, instant) {
