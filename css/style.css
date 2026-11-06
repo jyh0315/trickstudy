@@ -2232,3 +2232,9 @@ a.icon-btn { text-decoration: none; display: inline-grid; place-items: center; }
 .fx-form { display: grid; gap: 10px; margin: 12px 0; }
 .fx-form label { display: grid; gap: 4px; font-weight: 700; font-size: 14px; }
 .fx-form select, .fx-form input { padding: 8px; border-radius: 10px; border: 2px solid #e5d8c0; font: inherit; }
+
+/* 이야기 중 사도 만지기 */
+.sp-react { position: absolute; left: 50%; top: 6%; translate: -50% 0; max-width: 46%; padding: 10px 16px; background: #fffdf6; color: #4a3424; border: 3px solid #4a3424; border-radius: 18px; font: 700 20px/1.35 var(--font-body); text-align: center; opacity: 0; transform: translateY(10px) scale(.9); transition: opacity .25s, transform .25s cubic-bezier(.3,1.5,.6,1); z-index: 3; pointer-events: none; }
+.sp-react.on { opacity: 1; transform: none; }
+.sp-heart { position: absolute; top: 30%; font-size: 40px; animation: spHeart 1.6s ease-out forwards; pointer-events: none; z-index: 3; }
+@keyframes spHeart { from { opacity: 0; transform: translateY(0) scale(.6); } 20% { opacity: 1; } to { opacity: 0; transform: translateY(-160px) scale(1.1); } }

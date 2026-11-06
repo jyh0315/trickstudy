@@ -201,7 +201,7 @@ function play(epId) {
   </div>`;
   document.body.appendChild(root);
   document.body.classList.add("story-open");
-  P = { ep: { ...ep, lines: ep.lines.slice() }, root, i: -1, actors: {}, typing: null, auto: false, autoT: 0, log: [], wait: false, done: false };
+  P = { ep: { ...ep, lines: ep.lines.slice() }, root, i: -1, actors: {}, seq: 0, typing: null, auto: false, autoT: 0, log: [], wait: false, done: false };
   if (window.BGM && window.BGM.pauseFor) window.BGM.pauseFor("story");
   if (ep.bgm && S().settings.sound !== false) setMusic(ep.bgm);
   root.addEventListener("click", (e) => {
@@ -213,6 +213,7 @@ function play(epId) {
     advance();
   });
   document.addEventListener("keydown", onKey);
+  bindTouch(root);
   fit(); window.addEventListener("resize", fit);
   syncBtns();
   advance();
@@ -300,7 +301,7 @@ function run(L) {
   if (L.clear) Object.keys(P.actors).forEach(leave); // 무대 비우기
   if (L.cg != null) showCg(L.cg);
   if (L.in) enter(L.in, L.at || "C", L.f, L.flip);
-  else if (L.flip != null && L.s && P.actors[L.s]) P.actors[L.s].el.classList.toggle("flip", !!L.flip); // 말하면서 돌아보기
+  else if (L.flip != null && L.s && P.actors[L.s]) { P.actors[L.s].flip = L.flip; P.actors[L.s].el.classList.toggle("flip", !!L.flip); } // 말하면서 돌아보기
   if (L.out) leave(L.out);
   if (L.loc) showLoc(L.loc);
   if (L.shake) { P.root.classList.remove("shake"); void P.root.offsetWidth; P.root.classList.add("shake"); TS.sfx("poke"); }
@@ -471,8 +472,26 @@ function setBg(src, instant) {
 }
 // 사도 그림은 기본이 왼쪽을 봄 → 왼쪽(L) 자리면 좌우 반전해서 가운데(상대)를 보게. 대본에서 flip: 1/0 으로 직접 정할 수도 있음
 const faceFlip = (at, flip) => (flip != null ? !!flip : at === "L");
+/* 무대 자리 정리: 같은 자리에 둘 이상 서면 겹쳐 보이니까 사람 수에 맞춰 고르게 벌려 세움
+   (대본의 L·C·R 순서는 그대로, 많아지면 조금 작게) */
+const slotPct = (at) => parseFloat(SLOTS[at] || at) || 50;
+const SPREAD = { 1: [50], 2: [31, 69], 3: [20, 50, 80], 4: [15, 38, 62, 85], 5: [12, 31, 50, 69, 88] };
+function layout() {
+  const list = Object.values(P.actors).sort((a, b) => a.want - b.want || a.seq - b.seq);
+  const n = list.length; if (!n) return;
+  const clash = list.some((a, i) => i && a.want - list[i - 1].want < 30);
+  const pos = clash || n > 3 ? SPREAD[Math.min(n, 5)] || list.map((_, i) => 8 + (84 * i) / (n - 1)) : list.map((a) => a.want);
+  const sc = n >= 5 ? 0.74 : n === 4 ? 0.84 : 1;
+  list.forEach((a, i) => {
+    const x = pos[i];
+    a.el.style.left = x + "%";
+    a.el.style.scale = sc === 1 ? "" : String(sc);
+    a.el.style.transformOrigin = "50% 100%";
+    a.el.classList.toggle("flip", a.flip != null ? !!a.flip : x < 45);
+  });
+}
 function enter(id, at, f, flip) {
-  if (P.actors[id]) { P.actors[id].el.style.left = SLOTS[at] || at; P.actors[id].el.classList.toggle("flip", faceFlip(at, flip)); return; }
+  if (P.actors[id]) { const a0 = P.actors[id]; a0.want = slotPct(at); a0.flip = flip; a0.seq = ++P.seq; layout(); return; }
   const c = TS.SADO_MAP[id], N = npc(id);
   if (!c && !N) return;
   const el = document.createElement("div");
@@ -480,11 +499,12 @@ function enter(id, at, f, flip) {
   el.style.left = SLOTS[at] || at;
   el.innerHTML = `<div class="sp-sticker"></div>`;
   P.root.querySelector(".sp-stage").appendChild(el);
-  const a = { id, el, live: null };
+  const a = { id, el, live: null, want: slotPct(at), flip, seq: ++P.seq };
   const fallback = () => { if (!el.querySelector(".sp-img")) el.insertAdjacentHTML("beforeend", `<img class="sp-img" src="${picOf(id)}" alt="">`); };
   a.live = c && window.Live ? window.Live.mount(el, id, { frame: "story", onReady: (ctrl) => { a.ctrl = ctrl; if (f) a.live.play(f); }, onFail: fallback }) : null;
   if (!a.live) fallback();
   P.actors[id] = a;
+  layout();
   requestAnimationFrame(() => el.classList.add("in"));
 
 }
@@ -493,6 +513,7 @@ function leave(id) {
   if (!a) return;
   delete P.actors[id];
   a.el.classList.add("out");
+  layout();
   setTimeout(() => { if (a.live) a.live.dispose(); a.el.remove(); }, 500);
 }
 function sticker(a, e) {
@@ -566,5 +587,91 @@ function close() {
   if (TS.view === "story") render();
 }
 
+
+/* ───── 이야기 중에도 사도 만지기 ─────
+   볼 근처를 누르고 끌기 = 볼 당기기 · 길게 누르기 = 쓰다듬기 · 문지르기 = 간지럽히기
+   그냥 누르면 평소처럼 다음 대사 (만진 뒤 따라오는 클릭은 넘기지 않음) */
+const TOUCH_LINES = {
+  pat: ["헤헤… 쓰다듬어 주는 거예요?", "기분 좋아요~", "더 해줘요!"],
+  tickle: ["꺄하하! 간지러워요!", "그, 그만~ 히히히!", "간지럼은 반칙이에요!"],
+  pull: ["으에에… 볼 늘어나요!", "아야야, 놔 주세요~", "볼은 장난감이 아니에요!"],
+};
+function actorAt(x, y) {
+  const list = Object.values(P.actors).filter((a) => a.ctrl && a.ctrl.ready).sort((a, b) => (+getComputedStyle(b.el).zIndex || 0) - (+getComputedStyle(a.el).zIndex || 0) || b.seq - a.seq);
+  // 몸통 근처(가운데 쪽)만 — 투명한 여백을 눌렀을 땐 대사 넘기기
+  return list.find((a) => { const r = a.el.getBoundingClientRect(); return Math.abs(x - (r.left + r.width / 2)) < r.width * 0.2 && y > r.top + r.height * 0.12 && y < r.bottom - r.height * 0.05; });
+}
+function reactLine(a, kind) {
+  const v = TS.voice && TS.voice(a.id, kind === "pull" ? "pull" : "pat");
+  const text = (v && v.text) || TS.fmt(TS.rand(TOUCH_LINES[kind]), TS.SADO_MAP[a.id]);
+  let b = a.el.querySelector(".sp-react");
+  if (!b) { b = document.createElement("div"); b.className = "sp-react"; a.el.appendChild(b); }
+  b.textContent = text; b.classList.remove("on"); void b.offsetWidth; b.classList.add("on");
+  clearTimeout(b._t); b._t = setTimeout(() => b.classList.remove("on"), 2600);
+  if (!v) TS.sfx("poke");
+}
+const T_HOLD = { pat: ["Pat_Idle", "Pat_End"], tickle: ["Tickle_Idle_1", "Tickle_End"] };
+function holdAnim(a, kind) {
+  const c = a.ctrl, [loop] = T_HOLD[kind];
+  if (!c.anims.includes(loop)) { a.live.play(kind === "pat" ? "happy" : "shy"); return; }
+  c.player.animationState.setAnimation(0, loop, true); c.busyUntil = Infinity;
+}
+function holdOff(a, kind) {
+  const c = a.ctrl; if (!c || !c.player) return;
+  const [loop, end] = T_HOLD[kind];
+  if (!c.anims.includes(loop)) return;
+  const st = c.player.animationState;
+  let dur = 0;
+  if (c.anims.includes(end)) { st.setAnimation(0, end, false); dur = c.player.skeleton.data.findAnimation(end).duration; }
+  st.addAnimation(0, c.idles[0] || c.anims[0], true, 0);
+  c.busyUntil = Date.now() + dur * 1000;
+}
+function bindTouch(root) {
+  let d = null, used = false;
+  root.addEventListener("pointerdown", (e) => {
+    used = false; d = null;
+    if (e.target.closest("[data-c], .sp-choice, .sp-log, .sp-box, .sp-end")) return;
+    const a = actorAt(e.clientX, e.clientY); if (!a) return;
+    d = { a, x: e.clientX, y: e.clientY, moved: 0, kind: "" };
+    if (!a.pull && window.Live && window.Live.cheekPull) a.pull = window.Live.cheekPull(a.ctrl) || false;
+    if (a.pull && a.pull.near(e.clientX, e.clientY) < a.el.getBoundingClientRect().width * 0.09) {
+      e.preventDefault();
+      try { root.setPointerCapture(e.pointerId); } catch (_) { /* 무시 */ }
+      d.kind = "pull"; used = true;
+      a.pull.grab(e.clientX, e.clientY); reactLine(a, "pull");
+      return;
+    }
+    try { root.setPointerCapture(e.pointerId); } catch (_) { /* 무시 */ }
+    d.timer = setTimeout(() => {
+      if (!d || d.kind || d.moved > 20) return;
+      d.kind = "pat"; used = true; holdAnim(a, "pat"); reactLine(a, "pat"); hearts(a);
+    }, 550);
+  });
+  root.addEventListener("pointermove", (e) => {
+    if (!d) return;
+    if (d.kind === "pull") { d.a.pull.move(e.clientX, e.clientY); return; }
+    d.moved += Math.hypot(e.movementX || 0, e.movementY || 0);
+    if (!d.kind && d.moved > 90) { clearTimeout(d.timer); d.kind = "tickle"; used = true; holdAnim(d.a, "tickle"); reactLine(d.a, "tickle"); }
+  });
+  const up = () => {
+    if (!d) return;
+    clearTimeout(d.timer);
+    if (d.kind === "pull") d.a.pull.release();
+    else if (d.kind) { const { a, kind } = d; setTimeout(() => holdOff(a, kind), 600); }
+    d = null;
+  };
+  root.addEventListener("pointerup", up);
+  root.addEventListener("pointercancel", up);
+  // 만진 뒤 따라오는 클릭은 대사 넘기기로 치지 않음
+  root.addEventListener("click", (e) => { if (used) { used = false; e.stopImmediatePropagation(); } }, true);
+}
+function hearts(a) {
+  for (let i = 0; i < 5; i++) {
+    const h = document.createElement("span");
+    h.className = "sp-heart"; h.textContent = TS.rand(["💗", "💕", "💖"]);
+    h.style.left = 38 + Math.random() * 24 + "%"; h.style.animationDelay = i * 0.12 + "s";
+    a.el.appendChild(h); setTimeout(() => h.remove(), 1800);
+  }
+}
 window.Story = { play, render };
 })();
