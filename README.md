@@ -89,20 +89,28 @@
       ".read": false,
       ".write": false
     },
-    "raid": {
-      "$event": {
-        ".read": true,
-        "$uid": {
-          ".write": "auth != null && (auth.uid === $uid || root.child('admins').child(auth.uid).val() === true)",
-          ".validate": "newData.hasChild('n') && newData.child('n').isString() && newData.child('n').val().length <= 12"
-        }
-      }
-    },
     "ranking": {
       ".read": true,
       "$uid": {
         ".write": "auth != null && (auth.uid === $uid || root.child('admins').child(auth.uid).val() === true)",
-        ".validate": "newData.hasChild('name') && newData.child('name').isString() && newData.child('name').val().length <= 12"
+        ".validate": "newData.hasChildren(['name', 't']) && newData.child('name').isString() && newData.child('name').val().length <= 12 && newData.child('t').isNumber() && newData.child('t').val() <= now + 60000 && (!data.exists() || now - data.child('t').val() > 5000 || root.child('admins').child(auth.uid).val() === true)",
+        "total":   { ".validate": "newData.isNumber() && newData.val() >= 0" },
+        "dayMin":  { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1440" },
+        "weekMin": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 10080" },
+        "lv":      { ".validate": "newData.isNumber() && newData.val() >= 1" },
+        "sado":    { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 136" },
+        "boss":    { ".validate": "newData.isNumber() && newData.val() >= 0" },
+        "partner": { ".validate": "newData.isString() && newData.val().length <= 40" }
+      }
+    },
+    "raid": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$event": {
+        ".read": true,
+        "$uid": {
+          ".write": "auth != null && (auth.uid === $uid || root.child('admins').child(auth.uid).val() === true)",
+          ".validate": "newData.hasChildren(['n', 'd', 't']) && newData.child('n').isString() && newData.child('n').val().length <= 12 && newData.child('d').isNumber() && newData.child('d').val() >= 0 && newData.child('t').isNumber()"
+        }
       }
     },
     "rooms": {
@@ -111,7 +119,7 @@
         "m": {
           "$uid": {
             ".write": "auth != null && auth.uid === $uid",
-            ".validate": "newData.hasChild('n') && newData.child('n').isString() && newData.child('n').val().length <= 12 && newData.child('t').isNumber()"
+            ".validate": "newData.hasChildren(['n', 't']) && newData.child('n').isString() && newData.child('n').val().length <= 12 && newData.child('t').isNumber()"
           }
         },
         "ping": {
@@ -126,12 +134,9 @@
 }
 ```
 - 로그인한 본인(또는 관리자)만 기록을 쓰거나 지울 수 있어요
-- 기록마다 **처음 올린 시각(c)** 이 있고, 공부 시간은 그 뒤로 **실제로 흐른 시간 + 3시간**을 넘을 수 없어요 (새 계정으로 큰 숫자 올리기 불가)
-- 레벨² ≤ 누적분/3 + 200 (공부 안 하고 레벨만 올린 기록 거절)
-- 이 규칙 전부터 있던 기록은 누적 시간을 그대로 이어받아요
-- 하루 24시간·일주일 168시간 초과, 레벨 300 초과, 공부 시간에 안 맞는 보스 데미지 등은 서버가 거절
-- 5초에 한 번까지만 저장 가능
-- 사이트에서도 같은 기준으로 비정상 기록을 숨기고, 관리자는 🛡️ 랭킹 관리에서 지울 수 있어요
+- 이름 12자, 하루 1440분·일주일 10080분 초과, 사도 136명 초과, 음수 값은 서버가 거절
+- 같은 기록은 5초에 한 번까지만 저장 가능 (관리자는 예외)
+- 관리자는 `/raid` 전체를 읽을 수 있어서 🛡️ 랭킹 관리·초기화 때 레이드 기록도 같이 지워져요
 - 게임이 브라우저에서 돌아가서 100% 막을 수는 없어요. 위 규칙은 “말이 안 되는 기록”을 막는 거예요
 
 ## 🎵 배경음악
