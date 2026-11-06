@@ -838,7 +838,8 @@ function gachaShow(results) {
       st.querySelector("#g-ok").onclick = () => {
         st.remove();
         const top = results.find((x) => x.isNew && x.c.rarity === 3) || results.find((x) => x.isNew);
-        if (top) say(`${top.c.name}: “${fmt(rand(linesOf(top.c, "idle")), top.c)}”`, false);
+        // 새로 온 사도의 인사는 대표 사도 말풍선이 아니라 알림으로 (대표 사도가 대신 말하는 것처럼 보이지 않게)
+        if (top) toast(`✨ 새로 온 ${top.c.name}: “${fmt(rand(linesOf(top.c, "idle")), top.c)}”`);
         refresh();
       };
     }, 450);
