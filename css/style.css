@@ -2284,3 +2284,13 @@ a.icon-btn { text-decoration: none; display: inline-grid; place-items: center; }
 .r3-tap { position: absolute; right: 16px; top: 14px; z-index: 4; color: #fff6d8; font: 700 13px var(--font-body); opacity: .75; animation: r3Up .5s 2s both; }
 .r3-name { paint-order: stroke fill; -webkit-text-stroke: 6px #6b3500; }
 @media (max-aspect-ratio: 1/1) { .r3-char { bottom: 24%; width: min(110vw, 620px); height: min(110vw, 620px); } }
+/* ★★★ 순서: 대사 먼저(실루엣) → 공개 */
+.r3-ov:not(.rev) .r3-char { filter: brightness(0) drop-shadow(0 0 18px rgba(255,236,160,.95)); }
+.r3-ov .r3-char { transition: filter .5s ease-out; }
+.r3-ov:not(.rev) .r3-stars, .r3-ov:not(.rev) .r3-name, .r3-ov:not(.rev) .r3-new { visibility: hidden; animation: none; }
+.r3-ov:not(.rev) .r3-stars i { animation: none; }
+.r3-ov.rev .r3-name, .r3-ov.rev .r3-new { animation: r3Pop .55s cubic-bezier(.3,1.7,.5,1) both; }
+@keyframes r3Pop { from { opacity: 0; transform: scale(2.2); } }
+.r3-ov:not(.rev) .r3-flash { opacity: 0; animation: none; }
+.r3-info { animation-delay: .5s; }
+.r3-tap { animation-delay: 1s; }

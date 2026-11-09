@@ -49,19 +49,30 @@ function show(x) {
     live = window.Live.mount(box, c.id, { frame: "body", onReady: (ctrl) => { box.classList.add("ok"); ctrl.play(TS.rand(["happy", "dance", "proud"])); } });
   }
   TS.sfx("r3");
-  // 대사는 사도가 등장한 뒤 타자 치듯
+  // 1) 대사가 먼저 (사도는 검은 실루엣) → 2) 번쩍! 누군지 공개 (별·이름·색)
   const p = ov.querySelector(".r3-line p");
-  let txt = "", k = 0, typer = 0;
+  let txt = "", k = 0, typer = 0, revealed = false, revT = 0;
+  const reveal = () => {
+    if (revealed || !ov.isConnected) return;
+    revealed = true; clearTimeout(revT);
+    clearInterval(typer); if (txt) { k = txt.length; p.textContent = txt; }
+    ov.classList.add("rev");
+    const f = ov.querySelector(".r3-flash"); f.style.animation = "none"; void f.offsetWidth; f.style.animation = "";
+    TS.sfx("level"); if (TS.confetti) TS.confetti(50);
+  };
   setTimeout(() => {
     if (!ov.isConnected) return;
     txt = lineOf(c);
     ov.classList.add("talk");
-    typer = setInterval(() => { p.textContent = txt.slice(0, ++k); if (k >= txt.length) clearInterval(typer); }, 42);
-  }, 1300);
+    typer = setInterval(() => {
+      p.textContent = txt.slice(0, ++k);
+      if (k >= txt.length) { clearInterval(typer); revT = setTimeout(reveal, 700); }
+    }, 45);
+  }, 700);
   const t0 = Date.now();
   ov.addEventListener("click", () => {
-    if (Date.now() - t0 < 900) return;
-    if (txt && k < txt.length) { k = txt.length; p.textContent = txt; clearInterval(typer); return; }
+    if (Date.now() - t0 < 700) return;
+    if (!revealed) { if (txt) reveal(); return; } // 첫 클릭: 바로 공개
     clearInterval(typer);
     ov.classList.add("bye");
     setTimeout(() => { if (live) live.dispose(); ov.remove(); cur = null; next(); }, 350);
