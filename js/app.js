@@ -830,7 +830,7 @@ function gachaShow(results) {
         el.classList.add("flip");
         const r = results[+el.dataset.i].c.rarity;
         sfx(r === 3 ? "r3" : r === 2 ? "r2" : "flip");
-        if (r === 3) confetti(40);
+        if (r === 3) { confetti(40); emit("r3", results[+el.dataset.i]); }
         check();
       };
       cards.forEach((el) => (el.onclick = () => flip(el)));
