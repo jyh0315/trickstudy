@@ -26,7 +26,7 @@ PROFILE_TITLES.push(
   { id: "todo500",  label: "의뢰의 전설",      cond: "의뢰 500개 해결",       ok: (s) => (s.stats.todosDone || 0) >= 500 },
   { id: "lv30",     label: "베테랑 교주",      cond: "레벨 30",              ok: (s) => s.level >= 30 },
   { id: "lv50",     label: "교주 중의 교주",   cond: "레벨 50",              ok: (s) => s.level >= 50 },
-  { id: "dex",      label: "도감 완성",        cond: "사도 136명 모두 영입",   ok: (s) => Object.keys(s.owned).length >= SADO.length },
+  { id: "dex",      label: "도감 완성",        cond: "사도 전원 영입",   ok: (s) => Object.keys(s.owned).length >= SADO.length },
   { id: "bt1",      label: "돌파의 달인",      cond: "사도 1명 돌파 ✦5",      ok: (s) => btFull(s) >= 1 },
   { id: "bt10",     label: "한계 돌파",        cond: "사도 10명 돌파 ✦5",     ok: (s) => btFull(s) >= 10 },
   { id: "rb1",      label: "환생한 교주",      cond: "환생 1회",             ok: (s) => rebornN(s) >= 1 },

@@ -60,6 +60,7 @@ const SPINE_DATA = {
   "hilde": { dir: "Hilde", skins: [["Hilde", "Base"], ["HildeSkin1", "Skin 1"], ["HildeSkin2", "Skin 2"], ["HildeSkin3", "Skin 3"], ["HildeSkin4", "Skin 4"]] },
   "ifrit": { dir: "Ifrit", skins: [["Ifrit", "Base"], ["IfritSkin1", "Skin 1"]] },
   "inkle": { dir: "Inkle", skins: [["Inkle", "Base"], ["InkleSkin1", "Skin 1"], ["InkleSkin2", "Skin 2"]] },
+  "dudu": { dir: "Dudu", skins: [["Dudu", "Base"], ["DuduSkin1", "Skin 1"]] },
   "jade": { dir: "Jade", skins: [["Jade", "Base"], ["JadeSkin1", "Skin 1"]] },
   "joanne": { dir: "Joanne", skins: [["Joanne", "Base"], ["JoanneSkin1", "Skin 1"], ["JoanneSkin2", "Skin 2"], ["JoanneSkin3", "Skin 3"], ["JoanneSkin4", "Skin 4"], ["JoanneSkin5", "Skin 5"]] },
   "jubee": { dir: "Jubee", skins: [["Jubee", "Base"], ["JubeeSkin1", "Skin 1"]] },

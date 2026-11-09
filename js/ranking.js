@@ -36,7 +36,7 @@ function rankSuspicion(e, now = Date.now()) {
   if (e.total > 120000) why.push("누적 2000시간 초과");
   if (cumExp(e.lv) > e.total * 6 + 8000) why.push("공부 시간에 비해 레벨이 너무 높음");
   if (sameWeek && e.boss > e.weekMin * 45 + 6000) why.push("보스 데미지가 공부 시간보다 너무 많음");
-  if (e.sado > 136) why.push("사도 수 초과");
+  if (e.sado > 200) why.push("사도 수 초과");
   if (e.streak > 400) why.push("연속 일수 이상");
   if (e.t > now + 10 * 60000) why.push("미래 시각");
   if (e.ev && e.ev.c > 5000) why.push("이벤트 재화 이상");
@@ -113,7 +113,7 @@ function myEntry() {
   return {
     name: String(s.name).slice(0, 12), lv, partner: s.partner || "",
     week: wk, weekMin: week, day: td, dayMin: day,
-    total, sado: Math.min(136, Object.keys(s.owned).length),
+    total, sado: Math.min(200, Object.keys(s.owned).length),
     boss: Math.round(b), streak: st.streak, t: now, c: rk().c,
     p: window.Profile ? window.Profile.publicProfile() : null, // 꾸민 프로필
     ...Object.assign({}, ...RANK_EXTRA.map((fn) => fn())),     // 이벤트 등 모듈 추가 필드

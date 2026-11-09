@@ -203,7 +203,7 @@ const ACHIEVEMENTS = [
   { id: "a_c10",     title: "사도 10명 영입",        goal: 10,   elif: 200, check: s => Object.keys(s.owned).length },
   { id: "a_c30",     title: "사도 30명 영입",        goal: 30,   elif: 600, check: s => Object.keys(s.owned).length },
   { id: "a_c70",     title: "사도 70명 영입",        goal: 70,   elif: 1500, check: s => Object.keys(s.owned).length },
-  { id: "a_all",     title: "사도 전원 영입",        goal: 136,  elif: 5000, check: s => Object.keys(s.owned).length },
+  { id: "a_all",     title: "사도 전원 영입",        goal: SADO.length,  elif: 5000, check: s => Object.keys(s.owned).length },
   { id: "a_poke",    title: "볼따구 100번 찌르기",   goal: 100,  elif: 100, check: s => s.stats.pokes },
 ];
 

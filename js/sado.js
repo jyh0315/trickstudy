@@ -9,6 +9,7 @@ const SADO = [
   { id: "beni-beni", name: "베니(베니)", en: "Beni (Beni)", rarity: 3, pers: "cool" },
   { id: "caesar", name: "시저", en: "Caesar", rarity: 3, pers: "cool" },
   { id: "canta", name: "칸타", en: "Canta", rarity: 2, pers: "cool" },
+  { id: "dudu", name: "두두", en: "Dudu", rarity: 3, pers: "jolly" },
   { id: "coffe", name: "코페", en: "Coffe", rarity: 3, pers: "cool" },
   { id: "diana-yester", name: "디아나(왕년)", en: "Diana (Yester)", rarity: 3, lim: true, pers: "cool" },
   { id: "ed", name: "이드", en: "ED", rarity: 3, lim: true, pers: "cool" },
