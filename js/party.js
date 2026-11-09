@@ -78,84 +78,137 @@ TS.on("giveup", () => {
   setTimeout(() => TS.toast(`💫 ${TS.shortName(TS.SADO_MAP[id])}: “${line(id, "down")}”`), 1200);
 });
 
-/* ───── 전투 연출 ───── */
+/* ───── 전투 연출 (16:9 무대 1280×720, 화면에 맞춰 확대·축소) ─────
+   배경: 보스마다 전장 · 왼쪽 편성 3명(오른쪽을 봄) vs 오른쪽 보스 (모두 움직이는 사도)
+   대사는 아래 대사창에 (얼굴을 가리지 않게) · 말하는 사도는 밝게, 머리 위에 ▼ */
+const BOSS_BG = { "tig-hero": "096", maestromk2: "029", ifrit: "138", bigwood: "122", "rim-chaos": "127", "ner-rage": "082", "shaydi-twisted": "129", makasha: "101" };
+const SLOT = [{ x: 250, y: 0, s: 1 }, { x: 40, y: 30, s: 0.9 }, { x: 450, y: 36, s: 0.86 }]; // 앞·뒤 배치 (가운데 앞, 양옆 뒤)
 let ov = null;
 function cutscene(x) {
   if (ov) ov.remove();
-  const boss = TS.SADO_MAP[x.bossId];
+  const boss = TS.SADO_MAP[x.bossId], bi = window.Boss.BOSSES.find((z) => z.id === x.bossId) || {};
   const total = x.n + x.skills.reduce((a, k) => a + k.n, 0);
   const pw = x.ids.map(pow), pws = pw.reduce((a, b) => a + b, 0) || 1;
+  const bg = `assets/ssbg/${BOSS_BG[x.bossId] || "096"}.webp`;
+  const hp0 = Math.max(0, 1 - x.before / x.max), hp1 = Math.max(0, 1 - x.after / x.max);
   ov = document.createElement("div");
-  ov.className = "bt-ov";
-  ov.innerHTML = `<div class="bt-bg"></div>
-    <div class="bt-hp"><b>${esc(boss.name)}</b><span class="bar hp"><i style="width:${Math.max(0, 1 - x.before / x.max) * 100}%"></i></span></div>
-    <div class="bt-boss"><img src="${TS.chibiSrc(boss)}" alt=""><div class="bt-dmg"></div></div>
-    <div class="bt-team">${x.ids.map((id, i) => `<div class="bt-m" data-i="${i}"><div class="bt-live"><img class="bt-pic" src="${TS.chibiSrc(TS.SADO_MAP[id])}" alt=""></div><div class="bt-say"></div></div>`).join("")}</div>
-    <div class="bt-cut"></div>
-    <div class="bt-total"></div>
-    <button class="bt-skip">건너뛰기 ▶</button>`;
+  ov.className = "bx-ov";
+  ov.style.setProperty("--bxbg", `url('${bg}')`);
+  ov.innerHTML = `<div class="bx-zone">
+      <div class="bx-bg" style="background-image:url('${bg}')"></div><div class="bx-vig"></div>
+      <div class="bx-hud"><div class="bx-bname"><b>${esc(boss.name)}</b><small>${esc(bi.title || "")}</small></div>
+        <div class="bx-hpbar"><i class="bx-hpdelay" style="width:${hp0 * 100}%"></i><i class="bx-hp" style="width:${hp0 * 100}%"></i><span>HP ${Math.round(hp0 * 100)}%</span></div></div>
+      <div class="bx-boss"><div class="bx-shadow"></div><div class="bx-live"><img class="bx-pic" src="${TS.chibiSrc(boss)}" alt=""></div><div class="bx-fx"></div></div>
+      ${x.ids.map((id, i) => `<div class="bx-m" data-i="${i}" style="left:${SLOT[i].x}px;bottom:${60 + SLOT[i].y}px;--s:${SLOT[i].s};z-index:${i === 0 ? 4 : 3}"><div class="bx-shadow"></div><div class="bx-live"><img class="bx-pic" src="${TS.chibiSrc(TS.SADO_MAP[id])}" alt=""></div><span class="bx-mark">▼</span></div>`).join("")}
+      <div class="bx-cut"><div class="bx-cut-lines"></div><img alt=""><div class="bx-cut-t"><small></small><b></b></div></div>
+      <div class="bx-flash"></div>
+      <div class="bx-box"><div class="bx-name"><span></span></div><p></p></div>
+      <div class="bx-result"><small>총 데미지</small><b></b><em>BOSS DOWN!</em><span></span></div>
+      <button class="bx-skip">건너뛰기 ▶</button>
+    </div>`;
   document.body.appendChild(ov);
-  const me = ov, lives = [];
-  const alive = () => me.isConnected;
-  const close = () => { if (!alive()) return; me.classList.add("bye"); setTimeout(() => { lives.forEach((l) => l && l.dispose()); me.remove(); if (ov === me) ov = null; }, 350); };
-  me.querySelector(".bt-skip").onclick = (e) => { e.stopPropagation(); close(); };
-  me.addEventListener("click", () => { if (me.classList.contains("end")) close(); });
-  // 움직이는 사도
-  const ctrls = [];
-  me.querySelectorAll(".bt-m").forEach((m, i) => {
-    const host = m.querySelector(".bt-live"), id = x.ids[i];
-    if (window.Live && window.Live.canLive && window.Live.canLive(id)) {
-      lives.push(window.Live.mount(host, id, { frame: "body", onReady: (c) => { ctrls[i] = c; host.classList.add("ok"); } }));
-    }
-  });
-  const say = (i, t, cls = "") => { const el = me.querySelectorAll(".bt-say")[i]; if (!el) return; el.className = "bt-say on " + cls; el.textContent = t; };
-  const play = (i, k) => { try { ctrls[i] && ctrls[i].play(k); } catch (e) { /* 무시 */ } };
-  const float = (n, big) => {
-    const f = document.createElement("span"); f.className = "bt-num" + (big ? " big" : "");
-    f.textContent = "-" + Math.round(n).toLocaleString(); f.style.left = 15 + Math.random() * 55 + "%"; f.style.top = 20 + Math.random() * 40 + "%";
-    me.querySelector(".bt-dmg").appendChild(f); setTimeout(() => f.remove(), 1500);
-    const img = me.querySelector(".bt-boss img"); img.classList.remove("hit"); void img.offsetWidth; img.classList.add("hit");
+  const me = ov, zone = me.querySelector(".bx-zone"), lives = [];
+  // 세로 화면(휴대폰)은 720×1280 세로 무대로 (보스 위 · 사도 아래)
+  const fitZ = () => {
+    const port = innerHeight > innerWidth * 1.1;
+    me.classList.toggle("port", port);
+    const [w, h] = port ? [720, 1280] : [1280, 720];
+    zone.style.transform = `translate(-50%, -50%) scale(${Math.min(innerWidth / w, innerHeight / h)})`;
   };
-  const steps = [];
-  let t = 400;
+  fitZ(); addEventListener("resize", fitZ);
+  const alive = () => me.isConnected;
+  const close = () => { if (!alive()) return; me.classList.add("bye"); removeEventListener("resize", fitZ); setTimeout(() => { lives.forEach((l) => l && l.dispose()); me.remove(); if (ov === me) ov = null; }, 350); };
+  me.querySelector(".bx-skip").onclick = (e) => { e.stopPropagation(); close(); };
+  me.addEventListener("click", () => { if (me.classList.contains("end")) close(); });
+  // 움직이는 사도·보스
+  const ctrls = [], mount = (box, id, cb) => {
+    const host = box.querySelector(".bx-live");
+    if (!(window.Live && window.Live.canLive && window.Live.canLive(id))) return;
+    lives.push(window.Live.mount(host, id, { frame: "body", onReady: (c) => { host.classList.add("ok"); cb(c); } }));
+  };
+  me.querySelectorAll(".bx-m").forEach((m, i) => mount(m, x.ids[i], (c) => (ctrls[i] = c)));
+  let bossCtrl = null; mount(me.querySelector(".bx-boss"), x.bossId, (c) => (bossCtrl = c));
+  const play = (c, k) => { try { c && c.play(k); } catch (e) { /* 무시 */ } };
+  // 대사창
+  const box = me.querySelector(".bx-box"), mEls = me.querySelectorAll(".bx-m");
+  let typeT = 0;
+  const talk = (who, text, i = -1, cls = "") => {
+    box.className = "bx-box on " + cls;
+    box.querySelector(".bx-name span").textContent = who;
+    const p = box.querySelector("p"); clearInterval(typeT); let k = 0;
+    typeT = setInterval(() => { p.textContent = text.slice(0, ++k); if (k >= text.length) clearInterval(typeT); }, 28);
+    mEls.forEach((m, j) => m.classList.toggle("speak", j === i));
+  };
+  const shake = (big) => { zone.classList.remove("shake", "shake2"); void zone.offsetWidth; zone.classList.add(big ? "shake2" : "shake"); };
+  const flash = () => { const f = me.querySelector(".bx-flash"); f.classList.remove("on"); void f.offsetWidth; f.classList.add("on"); };
+  const hit = (n, big) => {
+    const fx = me.querySelector(".bx-fx");
+    const sl = document.createElement("i"); sl.className = "bx-slash" + (big ? " big" : ""); sl.style.rotate = (-35 + Math.random() * 70) + "deg"; fx.appendChild(sl); setTimeout(() => sl.remove(), 600);
+    const bu = document.createElement("i"); bu.className = "bx-burst" + (big ? " big" : ""); fx.appendChild(bu); setTimeout(() => bu.remove(), 700);
+    const f = document.createElement("span"); f.className = "bx-num" + (big ? " big" : "");
+    f.textContent = Math.round(n).toLocaleString(); f.style.left = 25 + Math.random() * 40 + "%"; f.style.top = 10 + Math.random() * 30 + "%";
+    fx.appendChild(f); setTimeout(() => f.remove(), 1500);
+    const b = me.querySelector(".bx-boss"); b.classList.remove("hit"); void b.offsetWidth; b.classList.add("hit");
+    play(bossCtrl, Math.random() < 0.5 ? "angry" : "dizzy"); shake(big);
+  };
+  // HP 바: 앞 바는 바로, 뒤(노란) 바는 천천히
+  let dealt = 0;
+  const hpTo = () => {
+    const r = Math.max(hp1, hp0 - (hp0 - hp1) * Math.min(1, dealt / (total || 1)));
+    me.querySelector(".bx-hp").style.width = r * 100 + "%";
+    setTimeout(() => { if (alive()) me.querySelector(".bx-hpdelay").style.width = r * 100 + "%"; }, 450);
+    me.querySelector(".bx-hpbar span").textContent = `HP ${Math.round(r * 100)}%`;
+  };
+  const steps = []; let t = 300;
+  // 0) 보스 도발
+  steps.push([t, () => { play(bossCtrl, "angry"); talk(boss.name, TS.rand(bi.taunt || ["…"]), -1, "boss"); }]);
+  t += 1500;
   // 1) 등장
-  x.ids.forEach((id, i) => steps.push([t + i * 350, () => { me.querySelectorAll(".bt-m")[i].classList.add("in"); say(i, line(id, "enter")); }]));
-  t += 350 * x.ids.length + 900;
-  // 2) 공격 (데미지를 힘에 비례해서 나눔)
-  x.ids.forEach((id, i) => steps.push([t + i * 420, () => {
-    const m = me.querySelectorAll(".bt-m")[i]; m.classList.remove("atk"); void m.offsetWidth; m.classList.add("atk");
-    play(i, "proud"); say(i, line(id, Math.random() < 0.3 ? "atk2" : "atk"));
-    TS.sfx("poke"); if (x.n) float((x.n * pw[i]) / pws);
+  x.ids.forEach((id, i) => steps.push([t + i * 260, () => { mEls[i].classList.add("in"); if (i === 0) talk(TS.SADO_MAP[id].name, line(id, "enter"), 0); }]));
+  t += 260 * x.ids.length + 1300;
+  // 2) 공격
+  x.ids.forEach((id, i) => steps.push([t + i * 900, () => {
+    const m = mEls[i]; m.classList.remove("atk"); void m.offsetWidth; m.classList.add("atk");
+    play(ctrls[i], "proud"); talk(TS.SADO_MAP[id].name, line(id, Math.random() < 0.3 ? "atk2" : "atk"), i);
+    TS.sfx("poke");
+    setTimeout(() => { if (!alive()) return; const d = (x.n * pw[i]) / pws; dealt += d; if (x.n) { hit(d); hpTo(); } }, 260);
   }]));
-  t += 420 * x.ids.length + 700;
-  // 3) 스킬
+  t += 900 * x.ids.length + 300;
+  // 3) 스킬 컷인
   x.skills.forEach((k) => {
     steps.push([t, () => {
-      const i = x.ids.indexOf(k.id), c = TS.SADO_MAP[k.id];
-      const cut = me.querySelector(".bt-cut");
-      cut.className = "bt-cut on " + k.kind;
-      cut.innerHTML = `<img src="${TS.portrait(c, true)}" alt=""><div><small>${k.kind === "s2" ? "고학년 스킬" : "저학년 스킬"}</small><b>${esc(line(k.id, k.kind))}</b></div>`;
-      play(i, "dance"); TS.sfx(k.kind === "s2" ? "r3" : "level");
-      setTimeout(() => { if (alive()) { float(k.n, true); cut.className = "bt-cut"; } }, 1100);
+      const i = x.ids.indexOf(k.id), c = TS.SADO_MAP[k.id], cut = me.querySelector(".bx-cut");
+      cut.querySelector("img").src = TS.portrait(c, true);
+      cut.querySelector("small").textContent = k.kind === "s2" ? "고학년 스킬" : "저학년 스킬";
+      cut.querySelector("b").textContent = line(k.id, k.kind);
+      cut.className = "bx-cut on " + k.kind;
+      play(ctrls[i], "dance"); TS.sfx(k.kind === "s2" ? "r3" : "level");
+      talk(c.name, cut.querySelector("b").textContent, i, "skill");
+      setTimeout(() => { if (!alive()) return; cut.className = "bx-cut"; flash(); dealt += k.n; hit(k.n, true); hpTo(); }, 1250);
     }]);
-    t += 1600;
+    t += 2100;
   });
-  // 4) HP 줄이고 마무리
-  steps.push([t, () => {
-    me.querySelector(".bt-hp i").style.width = Math.max(0, 1 - x.after / x.max) * 100 + "%";
+  // 4) 결과
+  steps.push([t + 200, () => {
+    dealt = total; hpTo();
     const killed = x.before < x.max && x.after >= x.max;
-    const tot = me.querySelector(".bt-total");
-    tot.innerHTML = `총 데미지 <b>${Math.round(total).toLocaleString()}</b>${killed ? "<em>BOSS DOWN!</em>" : ""}<small>화면을 누르면 닫혀요</small>`;
-    tot.classList.add("on");
+    const r = me.querySelector(".bx-result");
+    r.querySelector("b").textContent = Math.round(total).toLocaleString();
     if (killed) {
-      me.classList.add("killed");
+      me.classList.add("killed"); play(bossCtrl, "sad"); flash();
       const mvp = x.ids.map((id, i) => ({ i, id, v: pw[i] })).sort((a, b) => b.v - a.v)[0];
-      play(mvp.i, "happy"); say(mvp.i, (V(mvp.id).win && TS.rand(V(mvp.id).win)) || line(mvp.id, "s2"), "mvp");
+      play(ctrls[mvp.i], "happy");
+      talk(TS.SADO_MAP[mvp.id].name, (V(mvp.id).win && TS.rand(V(mvp.id).win)) || line(mvp.id, "s2"), mvp.i, "mvp");
+      r.querySelector("span").textContent = `👑 MVP ${TS.shortName(TS.SADO_MAP[mvp.id])} · 호감도 +10`;
       if (window.Affection && window.Affection.gain) window.Affection.gain(mvp.id, 10);
+    } else {
+      play(bossCtrl, "dizzy");
+      talk(boss.name, TS.rand(typeof BOSS_HURT !== "undefined" ? BOSS_HURT : ["크윽…!"]), -1, "boss");
+      r.querySelector("span").textContent = `남은 HP ${Math.round(hp1 * 100)}% · 화면을 누르면 닫혀요`;
     }
-    me.classList.add("end");
+    r.classList.add("on"); me.classList.add("end");
   }]);
-  steps.push([t + 5000, close]);
+  steps.push([t + 6500, close]);
   steps.forEach(([ms, fn]) => setTimeout(() => { if (alive()) fn(); }, ms));
 }
 
