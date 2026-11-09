@@ -2294,3 +2294,76 @@ a.icon-btn { text-decoration: none; display: inline-grid; place-items: center; }
 .r3-ov:not(.rev) .r3-flash { opacity: 0; animation: none; }
 .r3-info { animation-delay: .5s; }
 .r3-tap { animation-delay: 1s; }
+
+/* ⚔️ 편성 카드 */
+.pt-slots { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.pt-slot { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 6px; border: 3px solid var(--ink); border-radius: 16px; background: #fffaf0; cursor: pointer; font-family: var(--font-body); box-shadow: 0 4px 0 var(--ink); transition: transform .12s; }
+.pt-slot:hover { transform: translateY(-2px); }
+.pt-slot img { width: 72px; height: 85px; object-fit: cover; border-radius: 12px; border: 2px solid var(--ink); }
+.pt-slot b { font: 800 15px var(--font-title); }
+.pt-slot small { font-size: 11px; color: var(--ink-soft); }
+.pt-slot.weak { background: #fff3c9; border-color: #c98a00; }
+.pt-slot.empty { border-style: dashed; color: var(--ink-soft); justify-content: center; min-height: 140px; }
+.pt-slot.empty span { font-size: 34px; line-height: 1; }
+.pt-gauge { display: grid; gap: 6px; margin: 12px 0 4px; }
+.pt-gauge > div { display: grid; grid-template-columns: 110px 1fr 90px; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; }
+.pt-gauge small { text-align: right; color: var(--ink-soft); }
+.pt-pick { display: grid; grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); gap: 8px; max-height: 55vh; overflow: auto; padding: 4px; }
+.pt-pick button { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 4px; border: 2px solid var(--ink); border-radius: 12px; background: #fffaf0; cursor: pointer; font-family: var(--font-body); }
+.pt-pick button img { width: 56px; height: 66px; object-fit: cover; border-radius: 8px; }
+.pt-pick button b { font-size: 12px; } .pt-pick button small { font-size: 10px; color: var(--ink-soft); }
+.pt-pick button.in { opacity: .45; } .pt-pick button.weak { background: #fff3c9; }
+
+/* ⚔️ 전투 연출 */
+.bt-ov { position: fixed; inset: 0; z-index: 2900; overflow: hidden; cursor: pointer; user-select: none; animation: r3In .3s; }
+.bt-ov.bye { animation: r3Out .35s forwards; }
+.bt-bg { position: absolute; inset: 0; background: radial-gradient(ellipse at 70% 40%, #6b2d4a 0%, #2a1630 55%, #120a16 100%); }
+.bt-bg::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 28%; background: linear-gradient(180deg, transparent, rgba(0,0,0,.45)); }
+.bt-hp { position: absolute; top: 16px; left: 50%; translate: -50% 0; width: min(560px, 86vw); display: grid; gap: 6px; text-align: center; color: #fff; z-index: 3; font: 800 18px var(--font-title); text-shadow: 0 2px 0 #000; }
+.bt-hp .bar { height: 16px; border: 3px solid #fff; background: rgba(0,0,0,.4); }
+.bt-hp .bar i { background: linear-gradient(90deg, #ff5a5a, #ffb04a); transition: width 1.4s cubic-bezier(.2,.8,.2,1); }
+.bt-boss { position: absolute; right: 8%; top: 18%; width: min(34vw, 300px); z-index: 2; }
+.bt-boss img { width: 100%; border-radius: 24px; border: 5px solid #fff; box-shadow: 0 0 40px rgba(255,80,120,.55); }
+.bt-boss img.hit { animation: btHit .35s; }
+@keyframes btHit { 25% { transform: translateX(14px) rotate(3deg); filter: brightness(2); } 60% { transform: translateX(-8px); } }
+.bt-ov.killed .bt-boss img { animation: btDown 1.2s forwards; }
+@keyframes btDown { to { transform: translateY(40px) rotate(12deg) scale(.85); filter: grayscale(1) brightness(.6); opacity: .55; } }
+.bt-dmg { position: absolute; inset: 0; pointer-events: none; }
+.bt-num { position: absolute; font: 900 34px var(--font-title); color: #fff; -webkit-text-stroke: 2px #b3122e; paint-order: stroke fill; animation: btNum 1.4s ease-out forwards; }
+.bt-num.big { font-size: 58px; color: #ffe066; -webkit-text-stroke: 3px #8a3b00; }
+@keyframes btNum { 0% { opacity: 0; transform: scale(2); } 15% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: translateY(-70px); } }
+.bt-team { position: absolute; left: 3%; bottom: 4%; width: 60%; height: 62%; display: flex; align-items: flex-end; z-index: 2; }
+.bt-m { position: relative; flex: 1; height: 100%; opacity: 0; transform: translateX(-60px); transition: opacity .4s, transform .5s cubic-bezier(.2,1.3,.4,1); }
+.bt-m.in { opacity: 1; transform: none; }
+.bt-m.atk { animation: btAtk .45s; }
+@keyframes btAtk { 35% { transform: translateX(40px) scale(1.05); } }
+.bt-live { position: absolute; inset: 0; }
+.bt-pic { position: absolute; left: 50%; bottom: 8%; translate: -50% 0; width: 70%; border-radius: 16px; border: 4px solid #fff; }
+.bt-live.ok .bt-pic { display: none; }
+.bt-say { position: absolute; left: 50%; top: 2%; translate: -50% 0; width: 92%; padding: 8px 10px; background: #fffaf0; color: #4a3424; border: 3px solid #4a3424; border-radius: 14px; font: 800 14px/1.35 var(--font-body); text-align: center; opacity: 0; transform: translateY(8px); transition: opacity .2s, transform .2s; z-index: 2; }
+.bt-say.on { opacity: 1; transform: none; }
+.bt-say.mvp { background: #fff3c9; border-color: #c98a00; box-shadow: 0 0 18px #ffd34e; }
+.bt-say.mvp::before { content: "👑 MVP "; color: #c98a00; }
+.bt-cut { position: absolute; left: 0; right: 0; top: 34%; height: 0; z-index: 4; display: flex; align-items: center; gap: 20px; padding: 0 8%; overflow: hidden; background: linear-gradient(90deg, rgba(255,210,80,.95), rgba(255,120,60,.95)); transition: height .25s; }
+.bt-cut.s1 { background: linear-gradient(90deg, rgba(120,200,255,.95), rgba(150,120,255,.95)); }
+.bt-cut.on { height: 150px; }
+.bt-cut img { height: 130px; width: 130px; object-fit: cover; border-radius: 50%; border: 5px solid #fff; animation: btCut .35s; }
+.bt-cut small { display: block; color: #fff; font: 700 15px var(--font-body); }
+.bt-cut b { color: #fff; font: 900 clamp(24px, 4vw, 44px)/1.2 var(--font-title); -webkit-text-stroke: 2px #4a2000; paint-order: stroke fill; }
+@keyframes btCut { from { transform: translateX(-120px); } }
+.bt-total { position: absolute; right: 6%; bottom: 8%; z-index: 4; color: #fff; text-align: right; font: 800 20px var(--font-title); opacity: 0; transform: scale(.8); transition: .35s cubic-bezier(.3,1.6,.5,1); text-shadow: 0 2px 0 #000; }
+.bt-total.on { opacity: 1; transform: none; }
+.bt-total b { display: block; font-size: 52px; color: #ffe066; -webkit-text-stroke: 2px #8a3b00; paint-order: stroke fill; }
+.bt-total em { display: block; font-style: normal; font-size: 40px; color: #ff6b8a; -webkit-text-stroke: 2px #fff; paint-order: stroke fill; animation: r3Pop .5s; }
+.bt-total small { display: block; font-size: 12px; opacity: .7; }
+.bt-skip { position: absolute; right: 14px; top: 14px; z-index: 5; border: 2px solid #fff; background: rgba(0,0,0,.35); color: #fff; border-radius: 999px; padding: 6px 14px; font: 700 13px var(--font-body); cursor: pointer; }
+@media (max-aspect-ratio: 1/1) {
+  .bt-boss { right: 50%; translate: 50% 0; top: 12%; width: 46vw; }
+  .bt-team { left: 2%; width: 96%; height: 46%; }
+  .bt-say { font-size: 12px; }
+  .bt-cut.on { height: 120px; } .bt-cut img { width: 100px; height: 100px; }
+  .bt-total { right: 50%; translate: 50% 0; bottom: auto; top: 44%; text-align: center; }
+}
+.bt-say { top: 24%; }
+.bt-skip { top: auto; bottom: 14px; }
+@media (max-aspect-ratio: 1/1) { .bt-say { top: 30%; } .bt-team { height: 42%; } }

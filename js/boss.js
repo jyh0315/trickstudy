@@ -6,14 +6,14 @@
    - HP 50% 상자, 격파 보상
    ========================================================= */
 const BOSSES = [
-  { id: "tig-hero",       title: "더 피드스탠스",      taunt: ["으하하! 공부 따위로 이 몸을 쓰러뜨릴 수 있을 것 같으냐!", "교주여, 그 정도 집중력으론 간지럽지도 않다!"] },
-  { id: "maestromk2",     title: "폭주 모드",          taunt: ["삐빅. 교주의 집중력: 측정 불가(너무 낮음).", "삐-. 공부 방해 프로토콜 가동."] },
-  { id: "ifrit",          title: "숙제를 태우는 불꽃",  taunt: ["네 문제집을 전부 태워주마!", "활활! 집중력도 같이 타버려라!"] },
-  { id: "bigwood",        title: "졸음의 거목",        taunt: ["쿠우우… 너도… 같이… 자자…", "공부는… 내일 해도… 되지 않을까…"] },
-  { id: "rim-chaos",      title: "혼돈의 마녀",        taunt: ["후후, 오늘은 유튜브 딱 한 편만 보는 건 어때?", "혼돈이야말로 진정한 공부법이지!"] },
-  { id: "ner-rage",       title: "분노 폭발",          taunt: ["왜 아직도 공부를 안 끝냈어?!!", "으아아! 다 부숴버릴 거야!"] },
-  { id: "shaydi-twisted", title: "뒤틀린 그림자",      taunt: ["…집중 같은 건 그림자에 삼켜질 거야.", "…넌 결국 핸드폰을 보게 될걸."] },
-  { id: "makasha",        title: "미루기의 화신",      taunt: ["5분만 더 쉬어~ 5분만~", "그거 내일의 교주가 할 거야~"] },
+  { id: "tig-hero",       weakP: "jolly", title: "더 피드스탠스",      taunt: ["으하하! 공부 따위로 이 몸을 쓰러뜨릴 수 있을 것 같으냐!", "교주여, 그 정도 집중력으론 간지럽지도 않다!"] },
+  { id: "maestromk2",     weakP: "cool", title: "폭주 모드",          taunt: ["삐빅. 교주의 집중력: 측정 불가(너무 낮음).", "삐-. 공부 방해 프로토콜 가동."] },
+  { id: "ifrit",          weakP: "pure", title: "숙제를 태우는 불꽃",  taunt: ["네 문제집을 전부 태워주마!", "활활! 집중력도 같이 타버려라!"] },
+  { id: "bigwood",        weakP: "jolly", title: "졸음의 거목",        taunt: ["쿠우우… 너도… 같이… 자자…", "공부는… 내일 해도… 되지 않을까…"] },
+  { id: "rim-chaos",      weakP: "gloomy", title: "혼돈의 마녀",        taunt: ["후후, 오늘은 유튜브 딱 한 편만 보는 건 어때?", "혼돈이야말로 진정한 공부법이지!"] },
+  { id: "ner-rage",       weakP: "pure", title: "분노 폭발",          taunt: ["왜 아직도 공부를 안 끝냈어?!!", "으아아! 다 부숴버릴 거야!"] },
+  { id: "shaydi-twisted", weakP: "jolly", title: "뒤틀린 그림자",      taunt: ["…집중 같은 건 그림자에 삼켜질 거야.", "…넌 결국 핸드폰을 보게 될걸."] },
+  { id: "makasha",        weakP: "mad", title: "미루기의 화신",      taunt: ["5분만 더 쉬어~ 5분만~", "그거 내일의 교주가 할 거야~"] },
 ];
 const BOSS_HURT = ["크윽…!", "아, 아프잖아!", "이, 이럴 수가…!", "교주 녀석… 제법이군!", "으아악! 집중력이 너무 강해!"];
 const BOSS_DOWN = ["으아아… 이번 주는 내가 졌다…!", "다음 주엔… 반드시…!"];
@@ -37,7 +37,7 @@ function ensure() {
     s.bossHist = [{ week: s.boss.week, id: s.boss.id, dmg: s.boss.dmg, max: s.boss.max }, ...(s.bossHist || [])].slice(0, 12);
   }
   const b = BOSSES[((weekIndex() % BOSSES.length) + BOSSES.length) % BOSSES.length];
-  const max = Math.max(3000, Math.round((s.settings.goal * 5 * 10) / 100) * 100);
+  const max = Math.max(3500, Math.round((s.settings.goal * 5 * 10 * 1.25) / 100) * 100); // 편성 배율이 생겨서 ×1.25
   s.boss = { week: wk, id: b.id, max, dmg: 0, hits: [], chest: [], seen: false, weak: window.Balance ? window.Balance.pickWeak() : null };
   TS.save();
   return s.boss;
@@ -93,8 +93,10 @@ TS.on("focus", ({ min, eff, subject, partner, extras }) => {
   const bonus = window.Affection ? window.Affection.bonusPct(partner) : 0;
   const weak = ensure().weak && subject === ensure().weak;
   const mult = weak ? (window.Balance ? window.Balance.BALANCE.weakMult : 2) : 1;
-  const n = deal((eff == null ? min : eff) * 10 * (1 + bonus / 100) * mult, `${subject} ${min}분${weak ? " ⚡약점" : ""}`);
+  const pm = window.Party ? window.Party.mult() : 1, before = ensure().dmg;
+  const n = deal((eff == null ? min : eff) * 10 * (1 + bonus / 100) * mult * pm, `${subject} ${min}분${weak ? " ⚡약점" : ""}${pm > 1 ? ` ⚔️×${pm.toFixed(2)}` : ""}`);
   if (n) extras.push(`👹 -${fmtN(n)}${weak ? " ⚡약점!" : ""}`);
+  if (window.Party) window.Party.afterFocus({ min, n, before, extras });
 });
 TS.on("todo", (x) => {
   const n = deal(TODO_DMG[x.diff] || 50, "의뢰");
@@ -145,6 +147,7 @@ function render() {
       누적 데미지 <b>${fmtN(b.dmg)}</b>${b.dmg > b.max ? ` (초과 ${fmtN(b.dmg - b.max)})` : ""}</p>
       <div class="modal-actions"><button class="btn red big" data-go="timer">⚔️ 집중해서 공격!</button></div>
     </div>
+    ${window.Party ? window.Party.card() : ""}
     <div class="card">
       <h3 class="card-title">전투 기록</h3>
       <ul class="boss-log">${b.hits.map((h) => `<li><span>${new Date(h.t).toLocaleString("ko-KR", { weekday: "short", hour: "2-digit", minute: "2-digit" })}</span><span>${TS.esc(h.src)}</span><b>-${fmtN(h.n)}</b></li>`).join("") || '<li class="empty">아직 공격하지 않았어요. 집중을 시작해서 첫 타격을!</li>'}</ul>
@@ -176,7 +179,7 @@ function dexHTML() {
         <em>“${TS.esc(b.taunt[0])}”</em>
         <span class="dex-kill">${k ? `🏆 격파 ${k}회` : "아직 못 잡음"}</span></div></div>`;
     }).join("")}</div>
-    <p class="hint">보스는 ${n}주마다 한 바퀴 돌아요. HP는 하루 목표 시간 × 5일 × 10 (최소 3,000).</p></div>`;
+    <p class="hint">보스는 ${n}주마다 한 바퀴 돌아요. HP는 하루 목표 시간 × 5일 × 12.5 (최소 3,500).</p></div>`;
 }
 
 TS.on("refresh", () => {
