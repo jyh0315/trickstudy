@@ -1133,6 +1133,11 @@ function trailer(e) {
   // 남은 CG 몇 장을 넘겨 보기
   const rest = f.filter((_, k) => k >= n * step).filter((_, k, a) => k % Math.max(1, Math.ceil(a.length / 5)) === 0).slice(0, 5);
   rest.forEach((x, k) => { lines.push({ cg: T(e.ep, x) }); lines.push({ n: k === rest.length - 1 ? "— 자세한 장면은 CG 앨범에서 볼 수 있어요." : "…", wait: 500 }); });
+  // 이 화에 움직이는 CG(특별 영상)가 있으면 마지막에 보여 줌
+  if (typeof CG_VIDEO_FROM !== "undefined") for (const p of Object.values(CG_VIDEO_FROM)) {
+    const [k, ep, f] = p.split("/");
+    if (k === "theme" && +ep === e.ep && !lines.some((l) => l.cg === T(e.ep, f))) { lines.splice(lines.length - 2, 0, { cg: T(e.ep, f) }, { n: "🎞️", wait: 2500 }); }
+  }
   lines.push({ cg: "" });
   return { id: "tt" + e.ep, title: e.t, need: e.ep * 60, bgm: TT_BGM[e.ep % TT_BGM.length], lines };
 }

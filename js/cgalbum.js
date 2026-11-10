@@ -17,6 +17,9 @@ const dir = (kind, ep) => `assets/story/cg/${kind}/${String(ep).padStart(2, "0")
 const isOpen = (kind, e) => PREVIEW || studied() >= KINDS[kind].need(e.ep);
 const seen = () => { const s = S(); if (!s.cgSeen) s.cgSeen = {}; return s.cgSeen; };
 let tab = "main";
+// 이 CG에 움직이는 버전(특별 영상)이 있으면 그 영상 주소
+const VID = (() => { const m = {}; if (typeof CG_VIDEO_FROM !== "undefined") for (const [id, p] of Object.entries(CG_VIDEO_FROM)) m[p] = `assets/video/${id}.webm`; return m; })();
+const vidOf = (kind, ep, f) => VID[`${kind}/${String(ep).padStart(2, "0")}/${f}`];
 
 function card() {
   const list = CG_CATALOG[tab] || [];
@@ -30,7 +33,7 @@ function card() {
       return `<button class="cga ${o ? "" : "lock"}" ${o ? `data-cga="${tab}:${e.ep}"` : "disabled"}>
         <img src="${dir(tab, e.ep)}${cover}.webp" alt="" loading="lazy">
         <b>Ep.${e.ep} ${esc(e.t)}</b>
-        <em>${o ? `${seen()[tab + e.ep] ? "✔" : "NEW"} · ${e.f.length}장` : `🔒 공부 ${hm(Math.max(0, KINDS[tab].need(e.ep) - studied()))} 더`}</em></button>`;
+        <em>${o ? `${seen()[tab + e.ep] ? "✔" : "NEW"} · ${e.f.length}장${e.f.some((f) => vidOf(tab, e.ep, f)) ? " · 🎞️ 영상" : ""}` : `🔒 공부 ${hm(Math.max(0, KINDS[tab].need(e.ep) - studied()))} 더`}</em></button>`;
     }).join("")}</div>
     ${lock.length > 3 ? `<p class="hint" style="margin:8px 0 0">🔒 그 밖에 ${lock.length - 3}화가 더 기다리고 있어요.</p>` : ""}</div>`;
 }
@@ -54,13 +57,16 @@ function view(kind, ep) {
   const ov = document.createElement("div");
   ov.className = "cga-ov";
   ov.innerHTML = `<div class="cga-top"><b>${KINDS[kind].label} Ep.${ep} · ${esc(e.t)}</b><span class="cga-n"></span><button class="cga-x">✕</button></div>${(() => { const t = kind === "theme" && typeof THEME_INFO !== "undefined" && THEME_INFO[ep]; return t && (t.c || t.s.length) ? `<div class="cga-info">${t.c ? `<b>주연: ${esc(t.c)}</b>` : ""}${esc(t.s.join(" "))}</div>` : ""; })()}
-    <img class="cga-img" alt=""><button class="cga-nav prev">‹</button><button class="cga-nav next">›</button>
-    <div class="cga-strip">${e.f.map((f, k) => `<img data-k="${k}" src="${dir(kind, ep)}${f}.webp" loading="lazy" alt="">`).join("")}</div>`;
+    <img class="cga-img" alt=""><video class="cga-vid" loop playsinline autoplay muted></video><button class="cga-nav prev">‹</button><button class="cga-nav next">›</button>
+    <div class="cga-strip">${e.f.map((f, k) => `<img data-k="${k}" class="${vidOf(kind, ep, f) ? "mv" : ""}" src="${dir(kind, ep)}${f}.webp" loading="lazy" alt="">`).join("")}</div>`;
   document.body.appendChild(ov);
   const img = ov.querySelector(".cga-img");
   const show = (k) => {
     i = (k + e.f.length) % e.f.length;
+    const v = vidOf(kind, ep, e.f[i]), vid = ov.querySelector(".cga-vid");
     img.classList.remove("in"); void img.offsetWidth; img.src = `${dir(kind, ep)}${e.f[i]}.webp`; img.classList.add("in");
+    img.style.display = v ? "none" : ""; vid.style.display = v ? "" : "none";
+    if (v) { vid.src = v; vid.poster = img.src; vid.play().catch(() => {}); } else { vid.pause(); vid.removeAttribute("src"); }
     ov.querySelector(".cga-n").textContent = `${i + 1} / ${e.f.length}`;
     ov.querySelectorAll(".cga-strip img").forEach((t, k2) => t.classList.toggle("on", k2 === i));
     const cur = ov.querySelector(".cga-strip img.on"); if (cur) cur.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" });

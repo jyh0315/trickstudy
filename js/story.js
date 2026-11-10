@@ -113,7 +113,7 @@ function videoCard() {
     })().map((v) => {
       const open = PREVIEW || studied() >= v.need;
       return `<button class="cgv ${open ? "" : "lock"}" ${open ? `data-cgv="${v.id}"` : "disabled"}>
-        <img src="assets/video/${v.id}.jpg" alt="" loading="lazy"><b>${esc(v.title)}</b>
+        <img src="assets/video/${v.id}.jpg" alt="" loading="lazy"><b>${esc(v.title)}</b>${(() => { const f = fromOf(v.id); return f ? `<small class="cgv-from">${esc(f.label)}</small>` : ""; })()}
         <em>${open ? "▶ 보기" : `🔒 공부 ${hm(Math.max(0, v.need - studied()))} 더`}</em></button>`;
     }).join("")}</div>${window.__cgvMore ? `<p class="hint" style="margin:8px 0 0">🔒 그 밖에 ${window.__cgvMore}개가 더 기다리고 있어요. 공부할수록 하나씩 열려요!</p>` : ""}</div>`;
 }
@@ -123,7 +123,7 @@ function playVideo(id) {
   const ov = document.createElement("div");
   ov.className = "cgv-overlay";
   ov.innerHTML = `<video src="assets/video/${v.id}.webm" poster="assets/video/${v.id}.jpg" autoplay loop playsinline></video>
-    <div class="cgv-top"><b>🎞️ ${esc(v.title)}</b><button class="cgv-x" title="닫기">✕</button></div>
+    <div class="cgv-top"><b>🎞️ ${esc(v.title)}${(() => { const f = fromOf(v.id); return f ? ` <small>— ${esc(f.label)}</small>` : ""; })()}</b><button class="cgv-x" title="닫기">✕</button></div>
     <div class="cgv-pause">❚❚</div><div class="cgv-line"><i></i></div>`;
   document.body.appendChild(ov);
   const vid = ov.querySelector("video"), line = ov.querySelector(".cgv-line i");
@@ -449,7 +449,16 @@ function finishTyping() {
   scheduleAuto();
 }
 /* CG: 무대 위를 덮는 일러스트 (대사창은 그 위에). { cg: "경로" } 보이기 · { cg: "" } 닫기 */
+// 원래 위치를 찾은 특별 영상: 그 CG 그림이 나올 때 영상으로 바꿔 보여 줌 (cg-video-map.js)
+const VID_OF = (() => { const m = {}; if (typeof CG_VIDEO_FROM !== "undefined") for (const [id, p] of Object.entries(CG_VIDEO_FROM)) m[`assets/story/cg/${p}.webp`] = `assets/video/${id}.webm`; return m; })();
+const KIND_KO = { main: "메인 스토리", theme: "테마극장" };
+function fromOf(id) {
+  const p = typeof CG_VIDEO_FROM !== "undefined" && CG_VIDEO_FROM[id]; if (!p) return null;
+  const [kind, ep] = p.split("/"), e = typeof CG_CATALOG !== "undefined" && CG_CATALOG[kind].find((x) => x.ep === +ep);
+  return { kind, ep: +ep, label: `${KIND_KO[kind]} Ep.${+ep}${e ? " · " + e.t : ""}` };
+}
 function showCg(src) {
+  if (src && VID_OF[src]) src = VID_OF[src];
   let el = P.root.querySelector(".sp-cg");
   if (!el) { el = document.createElement("div"); el.className = "sp-cg"; P.root.querySelector(".sp-stage").after(el); }
   if (!src) { el.classList.remove("on"); const v = el.querySelector("video"); if (v) setTimeout(() => v.pause(), 600); return; }
