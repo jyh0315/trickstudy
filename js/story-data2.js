@@ -240,6 +240,181 @@ const MORE = [
     ],
   },
 ];
+MORE.push({
+  id: "s1c5", season: "시즌 1", name: "챕터 5", title: "옆집 불구경",
+  eps: [
+    {
+      id: "s1c5e1", title: "사카린 쇼크", need: 3400, bgm: "28. Bakery In Peace.mp3",
+      lines: [
+        { bg: "assets/ssbg/084.webp" },
+        { loc: "요정 왕국 · 다시 지은 마을" },
+        { n: "'사료 사태'가 지나가고, 엘리아스에는 평화가 찾아왔다. 모나티엄의 설탕도 다시 들어오기 시작했다." },
+        { in: "erpin", at: "L", f: "happy" }, { in: "ashur", at: "R" },
+        { s: "erpin", t: "에슈르! 오늘의 빵 줘! 여왕 특대 사이즈로!", f: "happy" },
+        { s: "ashur", t: "네에, 방금 구웠어요. 이번에 들어온 설탕으로 만든 첫 빵이에요!" },
+        { n: "에르핀이 빵을 한입 크게 베어 물었다.", sfx: "eat" },
+        { s: "erpin", t: "……", f: "surprise", wait: 600 },
+        { s: "erpin", t: "퉤퉤퉤! 이게 뭐야! 달긴 단데 끝맛이 쓰고 이상해!", f: "angry", st: "shout", shake: 1 },
+        { s: "ashur", t: "네? 그럴 리가… (할짝) …이, 이건 설탕이 아니에요! *사카린*이에요!", e: "!?" },
+        { cg: M(5, 3) },
+        { n: "소문은 순식간에 퍼졌다. 빵집 앞에는 항의하는 요정들이 줄을 섰고, 가게마다 '빵 없음' 딱지가 붙었다.", sfx: "crowd" },
+        { s: "ashur", t: "사카린으로는 빵이 안 부풀어요오… 반죽이 그냥 떡이 돼요…" },
+        { cg: "" },
+        { s: "erpin", t: "엘레나아아!! 또 너냐!!", f: "angry", st: "shout", shake: 1 },
+        { s: "me", t: "(평화가 2주를 못 가네.)", st: "think" },
+      ],
+    },
+    {
+      id: "s1c5e2", title: "모나티엄에서 온 해명", need: 3440, bgm: "33. This Is Awkward.mp3",
+      lines: [
+        { bg: "assets/ssbg/105.webp" },
+        { loc: "요정 왕궁 · 접견실" },
+        { cg: M(5, 2) },
+        { n: "다음 날, 모나티엄에서 사절이 찾아왔다. 익숙한 갑옷 차림이었다." },
+        { s: "rohne", t: "아, 안녕하세요! 친절한 이웃 스파… 아니, *공식 사절* 로네입니다!", f: "happy" },
+        { s: "ner", t: "이번엔 숨기지도 않으시네요…", f: "talk" },
+        { cg: "" },
+        { in: "rohne", at: "C" }, { in: "erpin", at: "L", f: "angry" }, { in: "ner", at: "R" },
+        { s: "erpin", t: "설탕 내놔! 사카린 말고 진짜 설탕!", f: "angry", st: "shout" },
+        { s: "rohne", t: "그, 그게요! 일부러 그런 게 아니에요! 정령산의 정령이 화가 나서 저희 공장을 계속 습격하고 있어요!", f: "surprise", e: "💧" },
+        { s: "rohne", t: "설탕 공장이 멈춰서… 남은 재고가 사카린뿐이었어요. 시장님도 머리를 싸매고 계세요.", f: "sad" },
+        { s: "ner", t: "정령이 공장을요? 정령들은 원래 세상을 돌보는 온순한 분들인데…", f: "surprise" },
+        { s: "rohne", t: "저희 공장은 정령님들의 마력으로 돌아가거든요. 그게 마음에 안 드시는 것 같아요…" },
+        { s: "me", t: "(정령의 마력으로 돌아가는 공장? 설마 정령들을 가둬 놓고 일을 시키는 건…)", st: "think", sfx: "ominous" },
+        { s: "erpin", t: "알았어! 에르핀이 가서 해결할게! 설탕을 위해서라면!", f: "proud", st: "shout" },
+        { s: "ner", t: "여왕님이 먼저 나서시다니… 동기는 불순하지만 기특하세요.", f: "happy" },
+        { s: "me", t: "(나도 가 봐야겠다. 강제 노역이라면 그냥 넘어갈 수 없으니까.)", st: "think" },
+      ],
+    },
+    {
+      id: "s1c5e3", title: "꿈의 직장", need: 3480, bgm: "24. Monatium.mp3",
+      lines: [
+        { bg: "assets/ssbg/041.webp" },
+        { loc: "모나티엄 · 공장 지구" },
+        { cg: M(5, 4) },
+        { s: "canna", t: "충성! 경비대장 칸나입니다. 시장님께서 기다리고 계십니다… 휴가 8개월째 못 갔지만요." },
+        { cg: M(5, 5) },
+        { s: "elena", t: "오셨군요, 여왕님! 지난 일은 물에 흘려보내고, 이번엔 서로 돕자고요. 설탕은 우리 모두의 것이니까!" },
+        { s: "amelia", t: "시장님의 넓은 아량에 감탄할 따름입니다." },
+        { cg: "" },
+        { in: "elena", at: "C" }, { in: "erpin", at: "L" },
+        { s: "me", t: "그 전에 하나만 묻자. 정령들을 가둬 놓고 강제로 마력을 뽑는 건 아니겠지?" },
+        { s: "elena", t: "강제요? 하하, 직접 보시죠. 이쪽이 저희 공장의 심장, *정령 놀이동산*입니다!", f: "proud" },
+        { bg: "assets/ssbg/094.webp", sfx: "magic" },
+        { n: "문 너머에는… 회전목마와 미끄럼틀, 솜사탕 기계 사이에서 하급 정령들이 꺄르르 뛰어놀고 있었다." },
+        { s: "elena", t: "정령은 즐거우면 마력이 넘쳐흘러요. 놀기만 하면 공장이 돌아가죠. 근무 시간? 없어요. 간식? 무제한!", f: "happy" },
+        { s: "erpin", t: "……에르핀도 여기 취직할래.", f: "surprise", e: "✨" },
+        { s: "me", t: "(강제 노역이 아니라 꿈의 직장이었어…?)", st: "think" },
+        { s: "elena", t: "문제는 윗분이에요. '정령의 본분을 잊고 놀기만 한다'면서, 저 애들을 통째로 *소멸*시키겠다고…", f: "sad" },
+        { n: "그 순간, 공장 벽이 붉게 달아올랐다.", sfx: "ominous", shake: 1 },
+      ],
+    },
+    {
+      id: "s1c5e4", title: "숙제를 태우는 불꽃", need: 3520, bgm: "37. Gold Thief Attack.mp3",
+      lines: [
+        { bg: "assets/ssbg/138.webp" },
+        { loc: "모나티엄 · 화력발전소 앞" },
+        { cg: M(5, 6) },
+        { n: "벽을 녹이고 들어온 건, 주먹만 한 불덩이였다. 불덩이가 씩씩대며 소리쳤다." },
+        { s: "ifrit", t: "정령의 본분은 봉사라고! 놀고먹는 녀석들은 전부 태워서 다시 태어나게 해 주겠어!", st: "shout" },
+        { s: "erpin", t: "에게, 쪼끄맣네! 후 불면 꺼지겠다!", f: "happy" },
+        { cg: "" },
+        { in: "ifrit", at: "R", f: "angry" }, { in: "erpin", at: "L" },
+        { s: "ifrit", t: "쪼, 쪼끄맣다고?! 고위 정령 이프리트 님한테 감히!", f: "angry", e: "💢", st: "shout" },
+        { s: "elena", t: "칸나! 물대포 발사! 저 불씨를 꺼 버려!" },
+        { n: "쏴아아— 경비대의 물대포가 이프리트를 덮쳤다. 치이익, 김이 피어올랐다.", sfx: "boom" },
+        { s: "ifrit", t: "…미지근하네. 이게 다야?", f: "proud" },
+        { n: "이프리트가 화력발전소 굴뚝으로 날아들었다. 발전소의 불길이 통째로 그 작은 몸에 빨려 들어갔다.", sfx: "ominous", shake: 1 },
+        { out: "ifrit" },
+        { cg: M(5, 7), music: "09. Tig, The Feedstance (Phase 1).mp3" },
+        { n: "불길 속에서 일어선 건, 굴뚝보다 큰 불의 거인이었다.", sfx: "boom", flash: 1, shake: 1 },
+        { s: "ifrit", t: "자, 누가 쪼끄맣다고?", st: "shout" },
+        { s: "erpin", t: "……에르핀은 아무 말도 안 했어.", f: "surprise", e: "💧" },
+        { s: "me", t: "(여왕님, 방금 전까지 제일 크게 말했잖아!)", st: "think" },
+        { cg: "" },
+      ],
+    },
+    {
+      id: "s1c5e5", title: "댐을 열어라", need: 3570, bgm: "10. Tig, The Feedstance (Phase 2).mp3",
+      lines: [
+        { bg: "assets/ssbg/138.webp" },
+        { loc: "모나티엄 · 불타는 공장 지구" },
+        { in: "elena", at: "C", f: "surprise" }, { in: "erpin", at: "L" },
+        { s: "elena", t: "물대포로 안 되면… 어쩔 수 없지. 아멜리아! *수력발전소 수문을 전부 열어!*", st: "shout" },
+        { s: "amelia", t: "시장님, 그러면 하류의 공장 지구가 통째로 잠깁니다만." },
+        { s: "elena", t: "타 없어지는 것보단 낫잖아! 열어!", f: "angry", st: "shout" },
+        { cg: M(5, 8) },
+        { n: "콰아아아— 댐에 모아 둔 물이 해일처럼 쏟아져 불의 거인을 삼켰다.", sfx: "boom", shake: 1 },
+        { n: "수증기가 하늘을 뒤덮었다. 모두가 숨을 죽였다.", wait: 700 },
+        { cg: M(5, 7) },
+        { s: "ifrit", t: "……시원하네. 고마워, 땀이 식었어.", st: "shout" },
+        { n: "거인은 멀쩡했다. 오히려 더 크게 타올랐다.", sfx: "ominous", shake: 1 },
+        { cg: "" },
+        { s: "elena", t: "…댐 하나를 통째로 썼는데?", f: "dizzy", e: "💧" },
+        { s: "erpin", t: "교주! 뭔가 방법 없어?! 저러다 설탕 공장까지 다 타!", f: "surprise", st: "shout" },
+        { s: "me", t: "(물로도 안 꺼지는 불… 힘으로는 못 이겨. 화를 가라앉힐 방법이 있어야 해.)", st: "think" },
+        { n: "그때, 뜨거운 바람 사이로 차갑고 가는 무언가가 뺨에 닿았다.", sfx: "magic" },
+        { s: "me", t: "(…비?)", st: "think" },
+      ],
+    },
+    {
+      id: "s1c5e6", title: "이슬비가 내리면", need: 3620, bgm: "16. Moistful Spirits.mp3",
+      lines: [
+        { bg: "assets/ssbg/138.webp" },
+        { loc: "모나티엄 · 화력발전소 앞" },
+        { in: "ui", at: "C", f: "happy" },
+        { n: "보슬보슬. 소리도 없이 이슬비가 내리기 시작했다. 작은 정령 하나가 빗속을 걸어왔다." },
+        { s: "ui", t: "이프리트, 또 화났구나. 화내면 배고파지는데.", f: "talk" },
+        { s: "ifrit", t: "우이…? 비켜! 이 녀석들은 정령의 소임을 잊었다고!", st: "shout" },
+        { s: "ui", t: "응. 그런데 저 애들이 웃으면 마을에 불이 켜지고 빵이 구워져. 그것도 누군가를 돕는 거 아닐까?", f: "happy" },
+        { n: "이슬비가 불의 거인을 적셨다. 댐의 물로도 꺼지지 않던 불길이, 조금씩 작아졌다.", sfx: "magic" },
+        { s: "ifrit", t: "…치사해. 네 비를 맞으면 화가 안 난단 말이야.", f: "shy" },
+        { n: "푸슉. 거인은 다시 주먹만 한 불덩이로 돌아와, 우이의 손바닥 위에 톡 내려앉았다.", sfx: "pop" },
+        { s: "ifrit", t: "오, 오늘은 이쯤 해 두는 거야! 다음에 또 놀기만 하면 진짜 태울 거니까!", f: "angry", e: "💢" },
+        { out: "ifrit" }, { out: "ui" },
+        { in: "erpin", at: "L", f: "happy" }, { in: "elena", at: "R", f: "sad" },
+        { s: "erpin", t: "해결! 자, 이제 설탕 줘!", f: "happy", st: "shout" },
+        { s: "elena", t: "…공장을 돌리던 화력발전소가 통째로 사라졌는데요. 수리가 끝날 때까지 설탕은 없어요.", f: "sad" },
+        { s: "erpin", t: "…그럼 그동안 뭐 먹어?", f: "surprise" },
+        { s: "elena", t: "비상식량이 있죠. *건빵*.", f: "talk" },
+        { s: "erpin", t: "싫어어어어어!!", f: "sad", e: "💧", st: "shout", shake: 1 },
+        { clear: 1 },
+        { bg: "assets/ssbg/064.webp", music: "02. Day Life.mp3" },
+        { loc: "며칠 뒤 · 요정 왕국" },
+        { in: "sist", at: "L" }, { in: "ner", at: "R" },
+        { s: "sist", t: "사제장 나리, 단골이니까 공짜로 하나 알려 드리죠. 이프리트를 부추긴 녀석이 있습니다." },
+        { cg: M(5, 9) },
+        { s: "sist", t: "가시 마녀 *프리클*. 정령산에 드나드는 걸 본 눈이 있어요. 정보료는… 건빵 말고 진짜 빵으로 받겠습니다." },
+        { s: "ner", t: "프리클… 왕궁에서 벨벳을 데려간 그 마녀…", f: "surprise", sfx: "ominous" },
+        { cg: "" },
+        { s: "me", t: "(요정 왕국의 반란도, 정령의 습격도… 누군가 뒤에서 판을 짜고 있다.)", st: "think" },
+        { title: "챕터 5 완료", sub: "다음 이야기: 네 번 절하고 네 번 박아" },
+      ],
+    },
+  ],
+});
+
+/* ───── 🎭 테마극장 예고편 (자동 구성) ─────
+   줄거리가 자세히 정리된 화는 위 MORE/THEME_FULL 에 직접 쓴 이야기로, 소개 문구만 있는 화는 CG + 소개 문구로 짧은 예고편.
+   N화는 공부 N × 60분에 열림 (CG 앨범과 같음) */
+const T = (ep, f) => `assets/story/cg/theme/${String(ep).padStart(2, "0")}/${f}.webp`;
+const TT_BGM = ["06. Theme Theater.mp3", "34. Life Is Comedy.mp3", "02. Day Life.mp3", "13. Adventure Begins.mp3", "35. Trick Or Treat.mp3", "40. Sugar Free.mp3"];
+function trailer(e) {
+  const info = (typeof THEME_INFO !== "undefined" && THEME_INFO[e.ep]) || { c: "", s: [] };
+  const f = e.f, n = Math.max(1, info.s.length), step = Math.max(1, Math.floor((f.length - 1) / (n + 2)));
+  const lines = [{ title: e.t, sub: info.c ? "주연: " + info.c : "테마극장" }];
+  info.s.forEach((s, k) => { lines.push({ cg: T(e.ep, f[Math.min(f.length - 1, k * step)]) }); lines.push({ n: s }); });
+  // 남은 CG 몇 장을 넘겨 보기
+  const rest = f.filter((_, k) => k >= n * step).filter((_, k, a) => k % Math.max(1, Math.ceil(a.length / 5)) === 0).slice(0, 5);
+  rest.forEach((x, k) => { lines.push({ cg: T(e.ep, x) }); lines.push({ n: k === rest.length - 1 ? "— 자세한 장면은 CG 앨범에서 볼 수 있어요." : "…", wait: 500 }); });
+  lines.push({ cg: "" });
+  return { id: "tt" + e.ep, title: e.t, need: e.ep * 60, bgm: TT_BGM[e.ep % TT_BGM.length], lines };
+}
+const FULL = new Set(MORE.flatMap((c) => c.eps.map((x) => x.tt)).filter(Boolean)); // 직접 쓴 테마극장 화 번호
+if (typeof CG_CATALOG !== "undefined") {
+  const list = CG_CATALOG.theme.filter((e) => !FULL.has(e.ep));
+  MORE.push({ id: "tt", season: "테마극장", name: "예고편", title: "CG와 소개 문구로 보는 짧은 예고편", fold: true, eps: list.map(trailer) });
+}
 // 「사도 이야기」(daily) 앞에 끼워 넣기
 const at = STORY.findIndex((c) => c.id === "daily");
 STORY.splice(at < 0 ? STORY.length : at, 0, ...MORE);

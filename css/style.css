@@ -2494,3 +2494,5 @@ a.icon-btn { text-decoration: none; display: inline-grid; place-items: center; }
 .cga-strip img { height: 54px; border-radius: 6px; opacity: .5; cursor: pointer; border: 2px solid transparent; flex: none; }
 .cga-strip img.on { opacity: 1; border-color: #ffd34e; }
 @media (max-width: 600px) { .cga-grid { grid-template-columns: 1fr 1fr; } .cga-nav { display: none; } }
+.story-fold > summary { cursor: pointer; font-weight: 700; padding: 6px 2px; color: var(--ink-soft); }
+.cga-info { position: absolute; top: 56px; left: 50%; translate: -50% 0; max-width: min(860px, 92vw); padding: 6px 14px; border-radius: 12px; background: rgba(0,0,0,.55); color: #f4e9d6; font: 600 13px/1.5 var(--font-body); text-align: center; z-index: 2; cursor: default; } .cga-info b { display: block; color: #ffd98a; }

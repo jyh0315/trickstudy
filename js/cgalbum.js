@@ -53,7 +53,7 @@ function view(kind, ep) {
   let i = 0;
   const ov = document.createElement("div");
   ov.className = "cga-ov";
-  ov.innerHTML = `<div class="cga-top"><b>${KINDS[kind].label} Ep.${ep} · ${esc(e.t)}</b><span class="cga-n"></span><button class="cga-x">✕</button></div>
+  ov.innerHTML = `<div class="cga-top"><b>${KINDS[kind].label} Ep.${ep} · ${esc(e.t)}</b><span class="cga-n"></span><button class="cga-x">✕</button></div>${(() => { const t = kind === "theme" && typeof THEME_INFO !== "undefined" && THEME_INFO[ep]; return t && (t.c || t.s.length) ? `<div class="cga-info">${t.c ? `<b>주연: ${esc(t.c)}</b>` : ""}${esc(t.s.join(" "))}</div>` : ""; })()}
     <img class="cga-img" alt=""><button class="cga-nav prev">‹</button><button class="cga-nav next">›</button>
     <div class="cga-strip">${e.f.map((f, k) => `<img data-k="${k}" src="${dir(kind, ep)}${f}.webp" loading="lazy" alt="">`).join("")}</div>`;
   document.body.appendChild(ov);
@@ -71,7 +71,7 @@ function view(kind, ep) {
   ov.addEventListener("click", (ev) => {
     if (ev.target.closest(".cga-x")) return close();
     const t = ev.target.closest(".cga-strip img"); if (t) return show(+t.dataset.k);
-    if (ev.target.closest(".cga-top, .cga-strip")) return;
+    if (ev.target.closest(".cga-top, .cga-strip, .cga-info")) return;
     if (ev.target.closest(".prev")) return show(i - 1);
     if (ev.target.closest(".next")) return show(i + 1);
     show(ev.clientX < innerWidth / 2 ? i - 1 : i + 1);
