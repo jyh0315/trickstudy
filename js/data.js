@@ -148,6 +148,43 @@ const BACKGROUNDS = [
   { id: "ed",                name: "별의 저편" },
   { id: "2year-anniversary", name: "2주년 대축제" },
 ];
+/* 레벨 배경 — 게임 속 배경. Lv.15부터 3레벨마다 하나씩 (Lv.15 ~ Lv.102)
+   일러스트 배경(위 14개)은 Lv.1 ~ 14 에 하나씩 */
+BACKGROUNDS.forEach((b, i) => { b.lv = i + 1; });
+BACKGROUNDS.push(
+  { id: "lv017", name: "초원의 아침", src: "assets/ssbg/017.webp", lv: 15 },
+  { id: "lv084", name: "요정 마을", src: "assets/ssbg/084.webp", lv: 18 },
+  { id: "lv062", name: "에슈르의 빵집", src: "assets/ssbg/062.webp", lv: 21 },
+  { id: "lv078", name: "세계수 광장", src: "assets/ssbg/078.webp", lv: 24 },
+  { id: "lv105", name: "요정 왕궁", src: "assets/ssbg/105.webp", lv: 27 },
+  { id: "lv098", name: "수인 마을", src: "assets/ssbg/098.webp", lv: 30 },
+  { id: "lv117", name: "주말 농장", src: "assets/ssbg/117.webp", lv: 33 },
+  { id: "lv041", name: "모나티엄 거리", src: "assets/ssbg/041.webp", lv: 36 },
+  { id: "lv025", name: "도시의 밤", src: "assets/ssbg/025.webp", lv: 39 },
+  { id: "lv112", name: "정령의 숲", src: "assets/ssbg/112.webp", lv: 42 },
+  { id: "lv140", name: "정령산 호수", src: "assets/ssbg/140.webp", lv: 45 },
+  { id: "lv136", name: "정령산 정상", src: "assets/ssbg/136.webp", lv: 48 },
+  { id: "lv124", name: "수정 호수", src: "assets/ssbg/124.webp", lv: 51 },
+  { id: "lv134", name: "수정 동굴", src: "assets/ssbg/134.webp", lv: 54 },
+  { id: "lv138", name: "용암 동굴", src: "assets/ssbg/138.webp", lv: 57 },
+  { id: "lv129", name: "유령 늪", src: "assets/ssbg/129.webp", lv: 60 },
+  { id: "lv157", name: "버섯 마을", src: "assets/ssbg/157.webp", lv: 63 },
+  { id: "lv101", name: "축제의 방", src: "assets/ssbg/101.webp", lv: 66 },
+  { id: "lv139", name: "한낮의 해변", src: "assets/ssbg/139.webp", lv: 69 },
+  { id: "lv141", name: "여름 바다", src: "assets/ssbg/141.webp", lv: 72 },
+  { id: "lv115", name: "노을 호수", src: "assets/ssbg/115.webp", lv: 75 },
+  { id: "lv114", name: "반딧불 숲", src: "assets/ssbg/114.webp", lv: 78 },
+  { id: "lv027", name: "은하수 들판", src: "assets/ssbg/027.webp", lv: 81 },
+  { id: "lv144", name: "눈 내리는 밤", src: "assets/ssbg/144.webp", lv: 84 },
+  { id: "lv143", name: "오로라", src: "assets/ssbg/143.webp", lv: 87 },
+  { id: "lv147", name: "구름 바다", src: "assets/ssbg/147.webp", lv: 90 },
+  { id: "lv149", name: "분홍빛 성", src: "assets/ssbg/149.webp", lv: 93 },
+  { id: "lv050", name: "달 뜨는 언덕", src: "assets/ssbg/050.webp", lv: 96 },
+  { id: "lv052", name: "차원의 소용돌이", src: "assets/ssbg/052.webp", lv: 99 },
+  { id: "lv077", name: "세계수 아래", src: "assets/ssbg/077.webp", lv: 102 },
+);
+const bgSrc = (id) => { const b = BACKGROUNDS.find((x) => x.id === id); return b && b.src ? b.src : `assets/bg/${b ? id : "trickcal"}.jpg`; };
+
 
 /* 밸런스 */
 const CONFIG = {

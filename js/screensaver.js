@@ -32,13 +32,13 @@ function pickChars(n) {
 /* 배경 목록 (이미지 주소) */
 function buildBgList(c) {
   const game = (typeof SS_BACKGROUNDS !== "undefined" ? SS_BACKGROUNDS : []).map((n) => `assets/ssbg/${n}.webp`);
-  const illust = (c.allBg ? BACKGROUNDS.map((b) => b.id) : S().unlockedBg.slice()).map((id) => `assets/bg/${id}.jpg`);
+  const illust = (c.allBg ? BACKGROUNDS.map((b) => b.id) : S().unlockedBg.slice()).map((id) => bgSrc(id));
   const video = (typeof CG_VIDEOS !== "undefined" ? CG_VIDEOS : []).map((v) => `assets/video/${v.id}.webm`);
   const list = c.bgSrc === "illust" ? illust : c.bgSrc === "mix" ? game.concat(illust) : c.bgSrc === "video" ? video : c.bgSrc === "all" ? game.concat(illust, video) : game;
   return (list.length ? list : illust).sort(() => Math.random() - 0.5);
 }
 function nextBg() {
-  if (!bgList.length) return `assets/bg/${S().bg}.jpg`;
+  if (!bgList.length) return bgSrc(S().bg);
   bgIdx = (bgIdx + 1) % bgList.length;
   const next = bgList[(bgIdx + 1) % bgList.length];
   if (next) new Image().src = next; // 다음 배경 미리 받아두기 (바뀔 때 깜빡임 방지)
@@ -140,7 +140,7 @@ async function open() {
   root = document.createElement("div");
   root.id = "ss";
   root.innerHTML = `
-    <div class="ss-bg on" style="${TS.isPlain() ? "" : `background-image:url('${(bgList[0] || `assets/bg/${S().bg}.jpg`).replace(/\.webm$/, ".jpg")}')`}">${!TS.isPlain() && /\.webm$/.test(bgList[0] || "") ? `<video class="ss-vid" src="${bgList[0]}" autoplay muted loop playsinline></video>` : ""}</div><div class="ss-bg"></div>
+    <div class="ss-bg on" style="${TS.isPlain() ? "" : `background-image:url('${(bgList[0] || bgSrc(S().bg)).replace(/\.webm$/, ".jpg")}')`}">${!TS.isPlain() && /\.webm$/.test(bgList[0] || "") ? `<video class="ss-vid" src="${bgList[0]}" autoplay muted loop playsinline></video>` : ""}</div><div class="ss-bg"></div>
     <div class="ss-shade"></div>
     <div class="ss-clock"><div class="ss-time"></div><div class="ss-date"></div></div>
     <div class="ss-timer hidden"><span></span><b></b><div class="ss-tbar"><i></i></div></div>

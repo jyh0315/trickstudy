@@ -2554,3 +2554,53 @@ a.icon-btn { text-decoration: none; display: inline-grid; place-items: center; }
 .kg-hole { overflow: visible; }
 .kg-clip { position: absolute; inset: 0; overflow: hidden; border-radius: 18px; }
 .kg-say { max-width: 190px; top: -4%; z-index: 7; }
+.bg-head { grid-column: 1 / -1; margin: 10px 0 2px; font: 800 16px var(--font-title); } .bg-head small { font: 600 12px var(--font-body); color: var(--ink-soft); margin-left: 6px; }
+
+/* 🧶 놀아주기 */
+.pr-ov { position: fixed; inset: 0; z-index: 2100; overflow: hidden; user-select: none; animation: fadein .25s; touch-action: manipulation; font-family: var(--font-body); }
+.pr-bg { position: absolute; inset: 0; background: #2a2034 center/cover no-repeat; transition: background-image .5s; }
+.pr-shade { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,.25) 0, transparent 18%, transparent 70%, rgba(0,0,0,.35) 100%); pointer-events: none; }
+.pr-top { position: absolute; top: 0; left: 0; right: 0; z-index: 5; display: flex; align-items: center; gap: 8px; padding: 12px 14px; color: #fff; text-shadow: 0 2px 4px rgba(0,0,0,.6); }
+.pr-top b { font: 900 22px var(--font-title); } .pr-aff { margin-right: auto; font: 700 14px var(--font-body); padding: 3px 10px; background: rgba(0,0,0,.35); border-radius: 999px; }
+.pr-field { position: absolute; inset: 0; cursor: pointer; }
+.pr-ov[data-tool="snack"] .pr-field { cursor: copy; } .pr-ov[data-tool="ball"] .pr-field, .pr-ov[data-tool="bubble"] .pr-field { cursor: crosshair; }
+.pr-chars, .pr-items { position: absolute; inset: 0; pointer-events: none; }
+.pr-char { position: absolute; bottom: 14vh; width: min(30vh, 34vw); height: min(34vh, 39vw); translate: -50% 0; pointer-events: auto; transition: left 1s linear; }
+.pr-body { position: absolute; inset: 0; }
+.pr-char.flip .pr-body { transform: scaleX(-1); }
+.pr-char.walk .pr-body { animation: prHop .34s ease-in-out infinite alternate; }
+.pr-char.flip.walk .pr-body { animation-name: prHopF; }
+@keyframes prHop { to { transform: translateY(-9%); } } @keyframes prHopF { from { transform: scaleX(-1); } to { transform: scaleX(-1) translateY(-9%); } }
+.pr-char.boing { animation: prBoing .4s; } @keyframes prBoing { 30% { transform: scale(1.08, .9); } 60% { transform: scale(.95, 1.07); } }
+.pr-pic { position: absolute; left: 50%; bottom: 6%; translate: -50% 0; width: 60%; border-radius: 22px; border: 4px solid #fff; box-shadow: 0 6px 0 rgba(0,0,0,.25); }
+.pr-body.ok .pr-pic { display: none; }
+.pr-char::after { content: ""; position: absolute; left: 50%; bottom: 2%; width: 46%; height: 5%; translate: -50% 50%; background: radial-gradient(ellipse, rgba(0,0,0,.4), transparent 70%); z-index: -1; }
+.pr-name { position: absolute; left: 50%; bottom: -22px; translate: -50% 0; padding: 1px 10px; background: rgba(0,0,0,.5); color: #fff; border-radius: 999px; font: 700 12px var(--font-body); white-space: nowrap; }
+.pr-bub { position: absolute; left: 50%; bottom: 100%; translate: -50% 0; width: max-content; max-width: min(260px, 60vw); padding: 7px 12px; background: #fffaf0; color: #4a3424; border: 3px solid #4a3424; border-radius: 16px; font: 800 14px/1.35 var(--font-body); text-align: center; opacity: 0; transform: translateY(8px) scale(.9); transition: .2s cubic-bezier(.3,1.5,.6,1); z-index: 3; pointer-events: none; }
+.pr-bub.on { opacity: 1; transform: none; }
+.pr-heart { position: absolute; top: 12%; font-size: 26px; pointer-events: none; animation: spHeart 1.5s ease-out forwards; z-index: 4; }
+.pr-snack { position: absolute; bottom: 13vh; translate: -50% 0; font-size: 40px; animation: prDrop .5s cubic-bezier(.4,0,.6,1.6); transition: transform .3s, opacity .3s; filter: drop-shadow(0 4px 0 rgba(0,0,0,.25)); }
+.pr-snack.eaten { transform: scale(0) rotate(40deg); opacity: 0; }
+@keyframes prDrop { from { transform: translateY(-60vh); } }
+.pr-ball { position: absolute; bottom: 13vh; translate: -50% 0; font-size: 42px; transition: left .75s cubic-bezier(.3,.6,.5,1); filter: drop-shadow(0 4px 0 rgba(0,0,0,.25)); }
+.pr-ball.fly { animation: prBall .75s ease-out; } @keyframes prBall { 0% { transform: translateY(0) rotate(0); } 45% { transform: translateY(-28vh) rotate(260deg); } 80% { transform: translateY(0) rotate(480deg); } 90% { transform: translateY(-4vh) rotate(520deg); } 100% { transform: translateY(0) rotate(540deg); } }
+.pr-bb { position: absolute; width: var(--sz); height: var(--sz); border-radius: 50%; border: 2px solid rgba(255,255,255,.85); background: radial-gradient(circle at 30% 30%, rgba(255,255,255,.9), rgba(160,220,255,.25) 60%, rgba(255,170,230,.2)); animation: prBb 3.4s ease-out forwards; }
+@keyframes prBb { to { transform: translate(var(--dx), -70vh) scale(1.3); opacity: 0; } }
+.pr-tip { position: absolute; left: 50%; bottom: 92px; translate: -50% 0; z-index: 5; padding: 3px 14px; background: rgba(0,0,0,.45); color: #fff; border-radius: 999px; font: 600 13px var(--font-body); white-space: nowrap; pointer-events: none; }
+.pr-tools { position: absolute; left: 50%; bottom: 14px; translate: -50% 0; z-index: 5; display: flex; gap: 8px; padding: 8px 10px; background: rgba(255,250,240,.94); border: 3px solid var(--ink); border-radius: 22px; box-shadow: 0 5px 0 var(--ink); max-width: 96vw; }
+.pr-tools button { display: flex; flex-direction: column; align-items: center; gap: 0; min-width: 56px; padding: 5px 6px; border: 3px solid transparent; border-radius: 14px; background: transparent; cursor: pointer; font-family: var(--font-body); color: var(--ink); }
+.pr-tools button i { font-style: normal; font-size: 26px; line-height: 1.15; } .pr-tools button span { font: 800 11px var(--font-body); }
+.pr-tools button.on { background: #ffd34e; border-color: var(--ink); }
+.pr-tools button:hover { background: #fff0bf; }
+@media (max-width: 600px) { .pr-tools { gap: 2px; padding: 6px; } .pr-tools button { min-width: 46px; } .pr-top b { font-size: 18px; } .pr-aff { font-size: 12px; } .pr-char { bottom: 20vh; } .pr-snack, .pr-ball { bottom: 19vh; } }
+.pr-top b, .pr-top .btn { white-space: nowrap; }
+@media (max-width: 600px) {
+  .pr-top { gap: 5px; padding: 10px; flex-wrap: nowrap; }
+  .pr-top b { font-size: 16px; }
+  .pr-aff { font-size: 11px; padding: 2px 8px; white-space: nowrap; }
+  .pr-top .btn.small { padding: 4px 8px; font-size: 12px; }
+  .pr-char { width: 34vw; height: 40vw; }
+  .pr-tip { bottom: 96px; font-size: 11px; }
+  .pr-tools button span { white-space: nowrap; font-size: 10px; }
+}
+@media (max-width: 600px) { .pr-bub { max-width: 44vw; font-size: 12px; } }

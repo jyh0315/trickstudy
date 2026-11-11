@@ -71,6 +71,8 @@ function load() {
   }
 }
 let state = load();
+// 이미 넘은 레벨의 배경은 바로 해금 (레벨 배경이 나중에 추가돼도 소급)
+BACKGROUNDS.forEach((b) => { if (b.lv <= state.level && !state.unlockedBg.includes(b.id)) state.unlockedBg.push(b.id); });
 const save = () => { try { localStorage.setItem(SAVE_KEY, JSON.stringify(state)); } catch (e) { /* 저장 불가 환경 */ } };
 
 /* ───── 텍스트 ───── */
@@ -279,8 +281,10 @@ function addExp(n) {
     state.elif += CONFIG.levelUpElif;
     const lvItem = randomItem(state.level % 5 === 0 ? "SR" : state.level % 2 === 0 ? "R" : "N", state.partner);
     if (lvItem) addItem(lvItem.id);
-    const next = BACKGROUNDS.find((b) => !state.unlockedBg.includes(b.id));
-    if (next) state.unlockedBg.push(next.id);
+    // 이 레벨까지 열리는 배경을 모두 해금 (일러스트 Lv.1~14 · 레벨 배경 Lv.15부터 3레벨마다)
+    const news = BACKGROUNDS.filter((b) => b.lv <= state.level && !state.unlockedBg.includes(b.id));
+    news.forEach((b) => state.unlockedBg.push(b.id));
+    const next = news[news.length - 1];
     // 무한 레벨: 배경을 다 열면 별사탕, 10레벨마다 별사탕 보너스
     const lvCandy = (next ? 0 : 10) + (state.level % 10 === 0 ? 50 : 0);
     if (lvCandy) addCandy(lvCandy);
@@ -296,7 +300,7 @@ function levelUpModal(lv, bg, item, lvCandy = 0) {
     ${c ? `<p>${esc(c.name)}: “${esc(fmt(rand((typeof voiceOf === "function" && voiceOf(c.id) && voiceOf(c.id).lvup) || linesOf(c, "done")), c))}”</p>` : ""}
     <div class="reward-row"><span class="reward-chip"><i class="ic-elif"></i>+${CONFIG.levelUpElif}</span>${lvCandy ? `<span class="reward-chip"><i class="ic-candy"></i>+${lvCandy}</span>` : ""}${item ? itemChip(item.id) : ""}</div>
     ${window.LvRank ? window.LvRank.upHTML(lv) : ""}
-    ${bg ? `<p style="margin:6px 0 0">🖼️ 새 배경 일러스트 해금: <b>${esc(bg.name)}</b></p><img class="unlock-bg" src="assets/bg/${bg.id}.jpg" alt="">` : ""}
+    ${bg ? `<p style="margin:6px 0 0">🖼️ 새 배경 일러스트 해금: <b>${esc(bg.name)}</b></p><img class="unlock-bg" src="${bgSrc(bg.id)}" alt="">` : ""}
     <div class="modal-actions">${bg ? '<button class="btn white" id="m-setbg">배경으로 설정</button>' : ""}<button class="btn yellow" data-close>좋아!</button></div>`,
     (el, close) => {
       const b = el.querySelector("#m-setbg");
@@ -484,7 +488,7 @@ function renderMini() {
   $("streak").textContent = currentStreak();
 }
 function applyBg() {
-  $("bg").style.backgroundImage = isPlain() ? "none" : `url("assets/bg/${state.bg}.jpg")`;
+  $("bg").style.backgroundImage = isPlain() ? "none" : `url("${bgSrc(state.bg)}")`;
 }
 
 /* ───── 로비 ───── */
@@ -946,8 +950,9 @@ function sadoDetail(id) {
 function renderBg() {
   $("bg-grid").innerHTML = BACKGROUNDS.map((b, i) => {
     const un = state.unlockedBg.includes(b.id);
-    return `<button class="bg-item ${un ? "" : "locked"} ${state.bg === b.id ? "on" : ""}" data-bg="${b.id}" ${un ? "" : "disabled"}>
-      <img src="assets/bg/${b.id}.jpg" alt="" loading="lazy"><span>${un ? esc(b.name) : `🔒 레벨 ${i + 1} 달성 시 해금`}</span></button>`;
+    const head = i === 0 ? '<h4 class="bg-head">🖼️ 일러스트 <small>Lv.1 ~ 14</small></h4>' : b.src && !BACKGROUNDS[i - 1].src ? '<h4 class="bg-head">🏞️ 레벨 배경 <small>Lv.15부터 3레벨마다</small></h4>' : "";
+    return `${head}<button class="bg-item ${un ? "" : "locked"} ${state.bg === b.id ? "on" : ""}" data-bg="${b.id}" ${un ? "" : "disabled"}>
+      <img src="${bgSrc(b.id)}" alt="" loading="lazy"><span>${un ? esc(b.name) : `🔒 레벨 ${b.lv} 달성 시 해금`}</span></button>`;
   }).join("");
 }
 

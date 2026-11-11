@@ -177,7 +177,7 @@ function open(y = Y()) {
   const ov = document.createElement("div");
   ov.className = "yr-overlay";
   // 배경: 해금한 일러스트가 장마다 바뀌며 천천히 줌 + 색 필터 + 눈·별 파티클 + 사도 퍼레이드
-  const bgs = (S().unlockedBg || []).filter((id) => BACKGROUNDS.some((b) => b.id === id));
+  const bgs = (S().unlockedBg || []).filter((id) => BACKGROUNDS.some((b) => b.id === id && !b.src));
   const pool = bgs.length >= 3 ? bgs : BACKGROUNDS.map((b) => b.id);
   const R = (a, b) => a + Math.random() * (b - a);
   const parts = Array.from({ length: 34 }, (_, k) => {
