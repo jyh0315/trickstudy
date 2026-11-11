@@ -448,8 +448,9 @@ function go(v) {
     v = "timer";
   }
   view = v;
+  document.body.dataset.view = v; // 휴대폰에서 로비가 아닐 땐 대표 사도 영역을 접음 (css)
   emit("view", v);
-  document.querySelectorAll("#tabs button").forEach((b) => b.classList.toggle("on", b.dataset.view === v));
+  document.querySelectorAll("#tabs button").forEach((b) => { const on = b.dataset.view === v; b.classList.toggle("on", on); if (on && b.scrollIntoView && innerWidth <= 900) b.scrollIntoView({ inline: "center", block: "nearest" }); });
   document.querySelectorAll(".view").forEach((s) => s.classList.toggle("on", s.id === "view-" + v));
   sfx("click");
   refresh();

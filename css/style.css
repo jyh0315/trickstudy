@@ -2500,3 +2500,22 @@ a.icon-btn { text-decoration: none; display: inline-grid; place-items: center; }
 .cgv-top small { font-weight: 600; opacity: .85; }
 .cga-vid { max-width: 94vw; max-height: calc(100vh - 170px); border-radius: 8px; box-shadow: 0 10px 50px rgba(0,0,0,.7); background: #000; }
 .cga-strip img.mv { outline: 2px solid #7fd6ff; outline-offset: -2px; }
+
+/* ───── 다듬기 (v12.5) ───── */
+/* 이야기: 챕터 접기 */
+.story-chd > summary { cursor: pointer; list-style: none; display: flex; align-items: baseline; gap: 8px; margin: 0; }
+.story-chd > summary::-webkit-details-marker { display: none; }
+.story-chd > summary::before { content: "▸"; color: var(--ink-soft); transition: transform .15s; display: inline-block; }
+.story-chd[open] > summary::before { transform: rotate(90deg); }
+.story-chd > summary em { margin-left: auto; font: 700 12px var(--font-body); font-style: normal; color: var(--ink-soft); white-space: nowrap; }
+.story-chd[open] > summary { margin-bottom: 10px; }
+.story-chd:not([open]) { padding-top: 12px; padding-bottom: 12px; }
+@media (max-width: 900px) {
+  /* 휴대폰: 로비가 아닌 화면에선 대표 사도 영역을 접어서 내용이 바로 보이게 */
+  body:not([data-view="lobby"]) .stage { display: none; }
+  /* 아래 탭: 글자가 꺾이지 않게 한 줄로, 옆으로 밀어서 보기 */
+  .tabs { overflow-x: auto; justify-content: flex-start; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tabs button { flex: 0 0 54px; }
+  .tabs button span { white-space: nowrap; font-size: 11px; }
+}

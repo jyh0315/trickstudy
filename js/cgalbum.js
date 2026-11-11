@@ -10,13 +10,14 @@
 const TS = window.TS, S = () => TS.state, esc = TS.esc;
 if (typeof CG_CATALOG === "undefined") return;
 const PREVIEW = new URLSearchParams(location.search).has("preview");
-const KINDS = { main: { label: "메인 스토리", need: (ep) => (ep - 1) * 850 }, theme: { label: "테마극장", need: (ep) => ep * 60 } };
+const KINDS = { main: { label: "메인 스토리", need: (ep) => (window.CG_MAIN_NEED && window.CG_MAIN_NEED[ep] != null ? window.CG_MAIN_NEED[ep] : (ep - 1) * 850) }, theme: { label: "테마극장", need: (ep) => ep * 60 } };
 const studied = () => { const s = S(), b = s.story && s.story.base2 != null ? s.story.base2 : s.stats.totalMin; return Math.max(0, s.stats.totalMin - b); };
 const hm = (m) => (m >= 60 ? `${Math.floor(m / 60)}시간${m % 60 ? ` ${m % 60}분` : ""}` : `${m}분`);
 const dir = (kind, ep) => `assets/story/cg/${kind}/${String(ep).padStart(2, "0")}/`;
 const isOpen = (kind, e) => PREVIEW || studied() >= KINDS[kind].need(e.ep);
 const seen = () => { const s = S(); if (!s.cgSeen) s.cgSeen = {}; return s.cgSeen; };
 let tab = "main";
+const all = {};
 // 이 CG에 움직이는 버전(특별 영상)이 있으면 그 영상 주소
 const VID = (() => { const m = {}; if (typeof CG_VIDEO_FROM !== "undefined") for (const [id, p] of Object.entries(CG_VIDEO_FROM)) m[p] = `assets/video/${id}.webm`; return m; })();
 const vidOf = (kind, ep, f) => VID[`${kind}/${String(ep).padStart(2, "0")}/${f}`];
@@ -24,7 +25,9 @@ const vidOf = (kind, ep, f) => VID[`${kind}/${String(ep).padStart(2, "0")}/${f}`
 function card() {
   const list = CG_CATALOG[tab] || [];
   const open = list.filter((e) => isOpen(tab, e)), lock = list.filter((e) => !isOpen(tab, e));
-  const show = open.concat(lock.slice(0, 3));
+  // 많이 열리면 길어지니까: 최근에 열린 8화 + 다음에 열릴 3화만, 「전체 보기」로 펼침
+  const hidden = all[tab] ? 0 : Math.max(0, open.length - 8);
+  const show = open.slice(hidden).concat(lock.slice(0, 3));
   const total = (k) => CG_CATALOG[k].filter((e) => isOpen(k, e)).length + " / " + CG_CATALOG[k].length;
   return `<div class="card story-ch cga-card"><h3 class="card-title">🖼️ CG 앨범 <small>공부할수록 한 화씩 열려요</small></h3>
     <div class="seg small cga-tabs">${Object.keys(KINDS).map((k) => `<button data-cgatab="${k}" class="${k === tab ? "on" : ""}">${KINDS[k].label} <small>${total(k)}</small></button>`).join("")}</div>
@@ -35,6 +38,7 @@ function card() {
         <b>Ep.${e.ep} ${esc(e.t)}</b>
         <em>${o ? `${seen()[tab + e.ep] ? "✔" : "NEW"} · ${e.f.length}장${e.f.some((f) => vidOf(tab, e.ep, f)) ? " · 🎞️ 영상" : ""}` : `🔒 공부 ${hm(Math.max(0, KINDS[tab].need(e.ep) - studied()))} 더`}</em></button>`;
     }).join("")}</div>
+    ${open.length > 8 ? `<div class="modal-actions" style="margin-top:8px"><button class="btn white small" data-cgaall>${all[tab] ? "최근 것만 보기" : `앞의 ${hidden}화도 전체 보기`}</button></div>` : ""}
     ${lock.length > 3 ? `<p class="hint" style="margin:8px 0 0">🔒 그 밖에 ${lock.length - 3}화가 더 기다리고 있어요.</p>` : ""}</div>`;
 }
 function mountCard() {
@@ -46,6 +50,7 @@ function mountCard() {
 TS.on("refresh", (view) => { if (view === "story") setTimeout(mountCard, 0); });
 document.addEventListener("click", (e) => {
   const t = e.target.closest("[data-cgatab]"); if (t) { tab = t.dataset.cgatab; return mountCard(); }
+  if (e.target.closest("[data-cgaall]")) { all[tab] = !all[tab]; return mountCard(); }
   const b = e.target.closest("[data-cga]"); if (b) { const [k, ep] = b.dataset.cga.split(":"); view(k, +ep); }
 });
 

@@ -59,9 +59,15 @@ function render() {
         <small>${Math.min(open, eps.length)} / ${eps.length}화 열림 · 본 화 ${seen.size}</small></div>
       ${firstNew >= 0 ? `<button class="btn yellow" data-play="${eps[firstNew].id}">▶ 이어 보기 — ${esc(eps[firstNew].title)}</button>` : ""}
     </div>
-    ${chapters().map((ch) => `<div class="card story-ch">
-      <h3 class="card-title">${esc(ch.season)} · ${esc(ch.name)} <small>${esc(ch.title)}</small></h3>
-      ${ch.fold ? `<details class="story-fold"><summary>${ch.eps.filter((ep) => { const k = eps.findIndex((x) => x.id === ep.id); return isOpen(eps[k], k); }).length} / ${ch.eps.length}화 열림 · 눌러서 펼치기</summary>` : ""}
+    ${chapters().map((ch, ci, all) => {
+      // 챕터가 많아져서: 지금 볼 차례인 챕터만 펼치고 나머지는 접어 둠 (제목을 누르면 펼쳐짐)
+      const idx = ch.eps.map((ep) => eps.findIndex((x) => x.id === ep.id));
+      const nOpen = idx.filter((k) => isOpen(eps[k], k)).length, nSeen = ch.eps.filter((ep) => seen.has(ep.id)).length;
+      const cur = firstNew >= 0 ? idx.includes(firstNew) : ci === all.map((c) => c.eps.some((ep) => { const k = eps.findIndex((x) => x.id === ep.id); return isOpen(eps[k], k); })).lastIndexOf(true);
+      const state = !nOpen ? "🔒" : nSeen === ch.eps.length ? "✔ 다 봄" : `${nSeen} / ${ch.eps.length}화`;
+      return `<details class="card story-ch story-chd" ${cur && !ch.fold ? "open" : ""}>
+      <summary class="card-title">${esc(ch.season)} · ${esc(ch.name)} <small>${esc(ch.title)}</small><em>${state}</em></summary>
+      ${ch.fold ? `<details class="story-fold" open><summary>${ch.eps.filter((ep) => { const k = eps.findIndex((x) => x.id === ep.id); return isOpen(eps[k], k); }).length} / ${ch.eps.length}화 열림 · 눌러서 펼치기</summary>` : ""}
       <ol class="story-eps">${(ch.fold ? ch.eps.filter((ep, n) => { const k = eps.findIndex((x) => x.id === ep.id); return isOpen(eps[k], k) || ch.eps.slice(0, n).filter((p) => { const q = eps.findIndex((x) => x.id === p.id); return !isOpen(eps[q], q); }).length < 3; }) : ch.eps).map((ep) => {
         const i = eps.findIndex((x) => x.id === ep.id), lock = !isOpen(eps[i], i);
         return `<li class="${lock ? "lock" : ""} ${seen.has(ep.id) ? "seen" : ""}">
@@ -70,7 +76,7 @@ function render() {
             <em>${lock ? `🔒 공부 ${hm(Math.max(0, needOf(ep, i) - studied()))} 더` : seen.has(ep.id) ? "✔ 다시 보기" : "NEW"}</em>
           </button>${PREVIEW ? `<button class="story-script" data-script="${ep.id}">📜 대본</button>` : ""}</li>`;
       }).join("")}</ol>${ch.fold ? "</details>" : ""}
-    </div>`).join("")}
+    </details>`; }).join("")}
     ${chapters().length ? "" : '<div class="card"><p class="hint">이야기를 준비하고 있어요!</p></div>'}
     <p class="hint">시즌 1은 원작 메인 스토리 줄거리(「트릭컬 스토리 정리」)를, 사도 이야기는 「트릭컬 사도 정리」의 대사·말투를 바탕으로 새로 쓴 팬 창작이에요.</p>`;
   el.querySelectorAll("[data-play]").forEach((b) => (b.onclick = () => play(b.dataset.play)));
