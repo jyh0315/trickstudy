@@ -509,7 +509,8 @@ function renderLobby() {
 let questTab = "daily";
 const questProg = (q, kind) => kind === "ach" ? q.check(state) : (kind === "daily" ? state.daily : state.weekly)[q.stat] || 0;
 const questClaimed = (q, kind) => state.claimed[kind].includes(q.id);
-const questReady = (q, kind) => !questClaimed(q, kind) && questProg(q, kind) >= q.goal;
+const questOpen = (q, kind) => kind !== "ach" || !q.after || state.claimed.ach.includes(q.after);
+const questReady = (q, kind) => questOpen(q, kind) && !questClaimed(q, kind) && questProg(q, kind) >= q.goal;
 function questHTML(q, kind) {
   const p = Math.min(q.goal, questProg(q, kind)), done = questClaimed(q, kind), ready = questReady(q, kind);
   return `<div class="quest ${done ? "claimed" : ""} ${ready ? "ready" : ""}">
@@ -535,7 +536,7 @@ function renderQuests() {
   document.querySelectorAll("#quest-seg button").forEach((b) => b.classList.toggle("on", b.dataset.q === questTab));
   // 받을 수 있는 것 → 진행 중 → 완료 순
   const order = (q) => (questReady(q, questTab) ? 0 : questClaimed(q, questTab) ? 2 : 1);
-  $("quest-list").innerHTML = list.slice().sort((a, b) => order(a) - order(b)).map((q) => questHTML(q, questTab)).join("");
+  $("quest-list").innerHTML = list.filter((q) => questOpen(q, questTab)).sort((a, b) => order(a) - order(b)).map((q) => questHTML(q, questTab)).join("");
   const now = new Date(), mid = new Date(now); mid.setHours(24, 0, 0, 0);
   const h = Math.floor((mid - now) / 3600000), m = Math.floor(((mid - now) % 3600000) / 60000);
   $("quest-reset").textContent = questTab === "daily" ? `⏳ 일일 임무 초기화까지 ${h}시간 ${m}분`
