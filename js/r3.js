@@ -75,7 +75,7 @@ function show(x) {
     if (!revealed) { if (txt) reveal(); return; } // 첫 클릭: 바로 공개
     clearInterval(typer);
     ov.classList.add("bye");
-    setTimeout(() => { if (live) live.dispose(); ov.remove(); cur = null; next(); }, 350);
+    setTimeout(() => { if (live) live.dispose(); ov.remove(); cur = null; try { x.done && x.done(); } catch (e) { /* 무시 */ } next(); }, 350);
   });
 }
 function next() { if (!cur && queue.length) show(queue.shift()); }

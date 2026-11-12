@@ -53,6 +53,8 @@ function deal(n, src) {
   const b = ensure();
   n = Math.round(n);
   if (n <= 0) return 0;
+  if (b.dmg >= b.max) return 0; // 이미 잡은 보스는 더 때릴 수 없음 (다음 주 새 보스를 기다림)
+  n = Math.min(n, b.max - b.dmg); // 마지막 일격은 남은 HP 만큼만
   const beforePhase = phase(b), wasAlive = b.dmg < b.max, wasHalf = b.dmg >= b.max / 2;
   b.dmg += n;
   b.hits.unshift({ t: Date.now(), src, n });
@@ -77,7 +79,7 @@ function deal(n, src) {
         <p><b>${TS.esc(c.name)}</b>: “${TS.esc(TS.rand((typeof voiceOf === "function" && voiceOf(c.id) && voiceOf(c.id).lose) || BOSS_DOWN))}”</p>
         ${(() => { const pc = TS.SADO_MAP[S().partner], w = pc && typeof voiceOf === "function" && voiceOf(pc.id) && voiceOf(pc.id).win; return w ? `<p>💛 <b>${TS.esc(pc.name)}</b>: “${TS.esc(TS.rand(w))}”</p>` : ""; })()}
         <div class="reward-row"><span class="reward-chip"><i class="ic-elif"></i>+1000</span><span class="reward-chip"><i class="ic-candy"></i>+60</span><span class="reward-chip">⭐ EXP +300</span>${drop ? TS.itemChip(drop.id) : ""}</div>
-        <p class="hint">남은 기간에 주는 데미지도 랭킹 ‘보스 딜’에 그대로 쌓여요!</p>
+        <p class="hint">이번 주 보스는 끝! 다음 주 월요일에 새 보스가 나와요.</p>
         <div class="modal-actions"><button class="btn yellow" data-close>승리!</button></div>`);
       TS.addExp(300);
       TS.save(); TS.refresh();
@@ -145,7 +147,7 @@ function render() {
       ${b.weak ? `<div class="boss-weak">⚡ 약점 과목: <b>${TS.esc(b.weak)}</b> — 이 과목으로 집중하면 데미지 ${window.Balance ? window.Balance.BALANCE.weakMult : 2}배! <small>(지난주에 제일 적게 공부한 과목)</small></div>` : ""}
       <p class="hint">⚔️ 집중 1분 = 10 데미지${bonus ? ` (대표 사도 호감도 보너스 <b>+${bonus}%</b>)` : ""} · 의뢰 해결 쉬움 50 / 보통 100 / 어려움 200<br>
       누적 데미지 <b>${fmtN(b.dmg)}</b>${b.dmg > b.max ? ` (초과 ${fmtN(b.dmg - b.max)})` : ""}</p>
-      <div class="modal-actions"><button class="btn red big" data-go="timer">⚔️ 집중해서 공격!</button></div>
+      <div class="modal-actions">${dead ? '<span class="tag" style="font-size:15px;padding:8px 16px">🏆 격파 완료 — 다음 주 새 보스를 기다려요</span>' : '<button class="btn red big" data-go="timer">⚔️ 집중해서 공격!</button>'}</div>
     </div>
     ${window.Party ? window.Party.card() : ""}
     <div class="card">

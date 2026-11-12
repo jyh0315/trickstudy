@@ -831,12 +831,14 @@ function gachaShow(results) {
         }
       };
       const flip = (el) => {
-        if (el.classList.contains("flip")) return;
-        el.classList.add("flip");
-        const r = results[+el.dataset.i].c.rarity;
+        if (el.classList.contains("flip") || el.classList.contains("wait")) return;
+        const x = results[+el.dataset.i], r = x.c.rarity;
+        const turn = () => { el.classList.remove("wait"); el.classList.add("flip"); check(); };
+        // ★★★: 카드를 뒤집기 전에 등장 연출이 먼저 → 연출이 끝난 뒤에 카드가 뒤집힘 (결과가 미리 보이지 않게)
+        if (r === 3 && window.R3) { el.classList.add("wait"); emit("r3", { ...x, done: turn }); return; }
         sfx(r === 3 ? "r3" : r === 2 ? "r2" : "flip");
-        if (r === 3) { confetti(40); emit("r3", results[+el.dataset.i]); }
-        check();
+        if (r === 3) confetti(40);
+        turn();
       };
       cards.forEach((el) => (el.onclick = () => flip(el)));
       st.querySelector("#g-all").onclick = () => cards.forEach((el, i) => setTimeout(() => flip(el), i * 110));
