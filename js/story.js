@@ -195,6 +195,8 @@ function play(epId) {
       <span class="sp-next"></span>
     </div>
     <div class="sp-ctrl">
+      <button class="sp-btn" data-c="back" title="이전 대사로 (← · Backspace)">◀<br>이전</button>
+      <button class="sp-btn" data-c="log" title="지난 대사 모아 보기 (↑ · 휠 위로)">📜<br>대사록</button>
       <button class="sp-btn" data-c="nextep" title="다 보면 다음 화 바로 재생">다음화<br>자동재생</button>
       <button class="sp-btn" data-c="auto" title="대사 자동 넘김">대사<br><b>AUTO</b></button>
       <button class="sp-btn menu" data-c="menu" title="메뉴"><i></i><i></i><i></i></button>
@@ -220,7 +222,9 @@ function play(epId) {
     advance();
   });
   document.addEventListener("keydown", onKey);
+  root.addEventListener("wheel", (e) => { if (e.target.closest(".sp-log")) return; if (e.deltaY < -20) ctrl("log"); else if (e.deltaY > 20 && root.querySelector(".sp-log").classList.contains("hidden")) advance(); }, { passive: true });
   bindTouch(root);
+  prefetchActors(ep);
   fit(); window.addEventListener("resize", fit);
   syncBtns();
   advance();
@@ -234,6 +238,8 @@ function onKey(e) {
   if (!P) return;
   if (e.key === "Escape") return close();
   if (e.key === "Enter" || e.key === " " || e.key === "ArrowRight") { e.preventDefault(); advance(); }
+  if (e.key === "ArrowLeft" || e.key === "Backspace") { e.preventDefault(); back(); }
+  if (e.key === "ArrowUp") { e.preventDefault(); ctrl("log"); }
 }
 function ctrl(c) {
   const menu = P.root.querySelector(".sp-menu");
@@ -241,6 +247,7 @@ function ctrl(c) {
   if (c === "menu") return menu.classList.toggle("hidden");
   if (c === "nextep") { st().nextAuto = !st().nextAuto; TS.save(); return syncBtns(); }
   if (c === "close") return close();
+  if (c === "back") return back();
   if (c === "auto") { P.auto = !P.auto; syncBtns(); if (P.auto && !P.typing && !P.wait) scheduleAuto(); return; }
   if (c === "skip") { // 선택지·끝까지 건너뛰기
     while (P.i < P.ep.lines.length - 1) {
@@ -256,6 +263,7 @@ function ctrl(c) {
     const lg = P.root.querySelector(".sp-log");
     lg.querySelector(".sp-log-in").innerHTML = P.log.map((x) => `<p>${x.who ? `<b>${esc(x.who)}</b>` : ""}${esc(x.t)}</p>`).join("") || "<p>아직 대사가 없어요.</p>";
     lg.classList.remove("hidden");
+    const inn = lg.querySelector(".sp-log-in"); inn.scrollTop = inn.scrollHeight; // 가장 최근 대사부터
     return;
   }
   if (c === "logclose") P.root.querySelector(".sp-log").classList.add("hidden");
@@ -270,6 +278,69 @@ function silentApply(L) {
   P.skipping = 0;
   if (L.out) leave(L.out);
   if (L.s || L.n) P.log.push({ who: L.s ? nameOf(L.s) : "", t: fmtT(L.t || L.n) });
+}
+/* ◀ 이전 대사: 0번 줄부터 그 앞까지 무대 상태(배경·CG·사도)를 다시 계산해 맞추고, 그 대사를 다시 보여 줌 */
+function back() {
+  if (!P || P.done) return;
+  const L = P.ep.lines, cur = Math.min(P.i, L.length - 1);
+  let target = -1;
+  for (let j = cur - 1; j >= 0; j--) if (L[j].s || L[j].n) { target = j; break; }
+  if (target < 0) return TS.toast && TS.toast("첫 대사예요");
+  clearTimeout(P.typing); P.typing = null; clearTimeout(P.autoT);
+  P.wait = false;
+  P.root.querySelector(".sp-choice").classList.add("hidden");
+  P.root.querySelector(".sp-titlecard").classList.add("hidden");
+  P.root.querySelector(".sp-fade").classList.remove("on");
+  // 0 ~ target-1 까지 무대 상태 계산
+  let bg = null, cg = "", cast = new Map();
+  const log = [];
+  for (let j = 0; j < target; j++) {
+    const x = L[j];
+    if (x.bg) bg = x.bg;
+    if (x.clear) cast = new Map();
+    if (x.cg != null) cg = x.cg;
+    if (x.in) cast.set(x.in, { at: x.at || "C", flip: x.flip });
+    if (x.out) cast.delete(x.out);
+    if (x.s || x.n) log.push({ who: x.s ? nameOf(x.s) : "", t: fmtT(x.t || x.n) });
+  }
+  // 그 대사 줄 자체의 등장·CG는 run 이 다시 처리하므로, 그 줄에서 새로 나오는 사도는 빼 둠
+  P.skipping = 1;
+  if (bg) { setBg(bg, true); P.hadBg = true; }
+  showCg(cg);
+  Object.keys(P.actors).forEach((id) => { if (!cast.has(id)) leave(id); });
+  cast.forEach((v, id) => enter(id, v.at, null, v.flip));
+  P.skipping = 0;
+  P.log = log;
+  P.i = target - 1;
+  // 배경이 바뀌는 줄로 되돌아가면 페이드 없이 바로
+  const t = L[target];
+  if (t.bg) { setBg(t.bg, true); P.hadBg = true; P.i = target; run({ ...t, bg: null }); }
+  else advance();
+  TS.sfx && TS.sfx("click");
+}
+/* 등장 사도 미리 받아 두기: 이 화 + 다음 화에 나오는 움직이는 사도 파일을 먼저 불러 둠 (등장할 때 빈 화면으로 기다리지 않게) */
+const PREFETCHED = new Set();
+function prefetchActors(ep) {
+  if (typeof SPINE_DATA === "undefined" || typeof SPINE_HOSTS === "undefined" || !window.Live) return;
+  const all = allEps(), k = all.findIndex((e) => e.id === ep.id);
+  const ids = new Set();
+  [ep, all[k + 1]].filter(Boolean).forEach((e) => e.lines.forEach((l) => { if (l.in) ids.add(l.in); }));
+  let delay = 0;
+  ids.forEach((id) => {
+    const d = SPINE_DATA[id]; if (!d || PREFETCHED.has(id)) return;
+    PREFETCHED.add(id);
+    const skin = d.skins[Math.min(window.Live.curSkin ? window.Live.curSkin(id) : 0, d.skins.length - 1)][0];
+    const h = SPINE_HOSTS[0], base = h.url + h.dir(d.dir) + "/" + skin;
+    // 앞쪽 사도부터 조금씩 나눠서 (한꺼번에 몰리지 않게)
+    setTimeout(() => {
+      fetch(encodeURI(base + ".atlas.asset")).then((r) => r.ok ? r.text() : "").then((t) => {
+        const tex = (t.split("\n").find((x) => /\.(webp|png)\s*$/.test(x)) || "").trim();
+        if (tex) { const im = new Image(); im.src = encodeURI(h.url + h.dir(d.dir) + "/" + tex); }
+      }).catch(() => {});
+      fetch(encodeURI(base + ".skel.asset")).catch(() => {});
+    }, delay);
+    delay += 120;
+  });
 }
 function syncBtns() {
   P.root.querySelector('[data-c="auto"]').classList.toggle("on", P.auto);
@@ -307,6 +378,7 @@ function run(L) {
   if (L.sfx) sfxPlay(L.sfx);
   if (L.clear) Object.keys(P.actors).forEach(leave); // 무대 비우기
   if (L.cg != null) showCg(L.cg);
+  if (!P.skipping) setTimeout(() => preMount(P ? P.i : 0), 60);
   if (L.in) enter(L.in, L.at || "C", L.f, L.flip);
   else if (L.flip != null && L.s && P.actors[L.s]) { P.actors[L.s].flip = L.flip; P.actors[L.s].el.classList.toggle("flip", !!L.flip); } // 말하면서 돌아보기
   if (L.out) leave(L.out);
@@ -506,7 +578,34 @@ function layout() {
     a.el.classList.toggle("flip", a.flip != null ? !!a.flip : x < 45);
   });
 }
+/* 미리 무대 뒤에 세워 두기: 앞으로 몇 줄 안에 등장할 사도를 보이지 않게 먼저 불러 둠 → 등장하는 순간 바로 움직임 */
+function preMount(fromIdx) {
+  if (!P || !window.Live) return;
+  if (!P.pre) P.pre = {};
+  const L = P.ep.lines;
+  for (let j = fromIdx + 1, n = 0; j < L.length && n < 8; j++, n++) {
+    const id = L[j].in;
+    if (!id || P.actors[id] || P.pre[id] || !TS.SADO_MAP[id]) continue;
+    const el = document.createElement("div");
+    el.className = "sp-actor pre";
+    P.root.querySelector(".sp-stage").appendChild(el);
+    el.innerHTML = `<div class="sp-sticker"></div>`;
+    const a = { id, el, live: null, want: 50, flip: null, seq: 0, pre: true };
+    a.live = window.Live.mount(el, id, { frame: "story", onReady: (ctrl) => { a.ctrl = ctrl; if (a.f && a.live) a.live.play(a.f); }, onFail: () => { a.failed = true; } });
+    if (a.live) P.pre[id] = a; else el.remove();
+  }
+}
 function enter(id, at, f, flip) {
+  if (!P.actors[id] && P.pre && P.pre[id]) { // 미리 불러 둔 사도를 무대로
+    const a = P.pre[id]; delete P.pre[id];
+    a.pre = false; a.want = slotPct(at); a.flip = flip; a.seq = ++P.seq;
+    a.el.classList.remove("pre"); a.el.style.left = SLOTS[at] || at; a.el.classList.toggle("flip", faceFlip(at, flip));
+    if (a.failed && !a.el.querySelector(".sp-img")) a.el.insertAdjacentHTML("beforeend", `<img class="sp-img" src="${picOf(id)}" alt="">`);
+    if (f) { if (a.ctrl) a.live.play(f); else a.f = f; }
+    P.actors[id] = a; layout();
+    requestAnimationFrame(() => a.el.classList.add("in"));
+    return;
+  }
   if (P.actors[id]) { const a0 = P.actors[id]; a0.want = slotPct(at); a0.flip = flip; a0.seq = ++P.seq; layout(); return; }
   const c = TS.SADO_MAP[id], N = npc(id);
   if (!c && !N) return;
@@ -593,6 +692,7 @@ function close() {
   if (!P) return;
   clearTimeout(P.typing); clearTimeout(P.autoT);
   Object.values(P.actors).forEach((a) => a.live && a.live.dispose());
+  Object.values(P.pre || {}).forEach((a) => a.live && a.live.dispose());
   P.root.remove();
   P = null;
   document.body.classList.remove("story-open");

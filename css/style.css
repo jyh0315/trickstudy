@@ -2638,3 +2638,7 @@ a.icon-btn { text-decoration: none; display: inline-grid; place-items: center; }
 .pr-pet, .pr-snack, .pr-ball { bottom: 15vh; } .pr-sado { bottom: 15vh; }
 @media (max-width: 600px) { .pr-pet, .pr-snack, .pr-ball { bottom: 19vh; } .pr-sado { bottom: 31vh; } }
 .g-card.wait { animation: gWait .5s ease-in-out infinite alternate; pointer-events: none; } @keyframes gWait { to { transform: scale(1.06); filter: brightness(1.25); } }
+/* 이야기: 미리 불러 둔 사도는 안 보이게 · 등장은 조금 더 빠르게 */
+.sp-actor.pre { opacity: 0 !important; pointer-events: none; transition: none; left: 50%; }
+.sp-actor { transition: left .4s ease, filter .25s, opacity .28s, transform .3s cubic-bezier(.2,1.2,.4,1); }
+.sp-log-in { scroll-behavior: auto; }
