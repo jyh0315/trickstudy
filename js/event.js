@@ -69,6 +69,11 @@ const EVENTS = [
       cheer: ["이번 기말은 우리가 정복한다!", "합격 부적 모으는 중~ 집중 집중!", "시험장에서 웃는 건 교주님이에요!"],
       done:  ["원정대가 시험장에 한 걸음 더 가까워졌어요!", "이 기세면 전교 1등도 꿈이 아니에요!"],
     },
+    preLines: { // 시작 전(예고 기간) 대사
+      idle:  ["곧 기말고사 대작전이 시작돼요! 시험 시간표부터 미리 적어 둘까요?", "이벤트 시작 전에 시험 범위를 정리해 두면 원정대가 바로 출발할 수 있어요!", "기말고사 대작전 D-day가 다가와요. 두근두근!"],
+      cheer: ["이벤트 전에 미리 몸풀기! 집중 집중!", "시작하자마자 달릴 수 있게 지금부터 준비해요!"],
+      done:  ["준비 완료! 시작하면 원정대가 바로 출발할 거예요!"],
+    },
     examLines: { // 시험 기간(12/1~12/4) 응원 대사
       idle:  ["오늘 시험 잘 봐요, 교주님! 준비한 만큼 다 나올 거예요!", "시험 끝난 과목은 잊고, 다음 과목에 집중!", "긴장되면 심호흡! 후~ 하~"],
       cheer: ["내일 시험 과목 마지막 정리 화이팅!", "틀렸던 문제 한 번만 더 훑어봐요!"],
@@ -187,7 +192,7 @@ TS.on("focus", ({ min, eff, full, tag, subject, extras }) => {
   if (rd) extras.push(`🔥 레이드 -${Math.round(rd).toLocaleString()}`);
   TS.save();
 });
-TS.lineHooks.push((c, kind) => (inExam() && status() !== "none" ? EV.examLines[kind] || [] : status() === "on" || status() === "pre" ? EV.lines[kind] || [] : []));
+TS.lineHooks.push((c, kind) => (inExam() && status() !== "none" ? EV.examLines[kind] || [] : status() === "on" ? EV.lines[kind] || [] : status() === "pre" ? EV.preLines[kind] || [] : []));
 window.RANK_EXTRA && window.RANK_EXTRA.push(() => (status() !== "none" ? { ev: { id: EV.id, c: ev().earned } } : {}));
 window.RANK_TABS && window.RANK_TABS.push({ id: "event", label: "🎉 이벤트", val: (e) => (e.ev && e.ev.id === EV.id ? e.ev.c : 0), fmt: "charm", show: () => status() !== "none" });
 
