@@ -163,12 +163,13 @@ function setupLook(p) {
   const sk = p.skeleton;
   const head = ["Head", "S1_Head", "S2_Head", "S3_Head", "Head_Root", "S1_Head_Root", "S3_Head_Root"].map((n) => sk.findBone(n)).find(Boolean);
   if (!head) return;
-  const st = p.animationState, ap = st.apply.bind(st);
-  st.apply = (s2) => {
-    const r = ap(s2);
+  // 각도를 잠깐 더해서 위치를 계산한 뒤 바로 되돌림 (머리를 안 움직이는 애니메이션에서 각도가 계속 쌓이며 빙글빙글 도는 문제 방지)
+  const uw = sk.updateWorldTransform.bind(sk);
+  sk.updateWorldTransform = (...a) => {
     lookA += (lookT - lookA) * 0.12;
-    if (Math.abs(lookA) > 0.05) head.rotation += lookA;
-    return r;
+    if (Math.abs(lookA) < 0.05) return uw(...a);
+    head.rotation += lookA;
+    try { return uw(...a); } finally { head.rotation -= lookA; }
   };
 }
 function setLook(v) {

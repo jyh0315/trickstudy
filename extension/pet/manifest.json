@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "트릭스터디 펫",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "트릭스터디 대표 사도가 크롬 화면 아래를 돌아다녀요.",
   "icons": { "16": "icon16.png", "48": "icon48.png", "128": "icon128.png" },
   "action": { "default_popup": "popup.html", "default_title": "트릭스터디 펫" },
