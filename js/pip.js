@@ -116,13 +116,15 @@ function pipLive(w, stage) {
           if (sk) { p.skeleton.setSkin(sk); p.skeleton.setSlotsToSetupPose(); }
           p.animationState.setAnimation(0, idles[0] || anims[0], true);
           p.animationState.apply(p.skeleton); p.skeleton.updateWorldTransform();
-          // 전신이 다 들어오게: 발(0) ~ 머리 위, 가로는 몸 폭 기준 (무기·날개는 조금 잘려도 됨)
-          const off = new w.spine.Vector2(), size = new w.spine.Vector2();
-          p.skeleton.getBounds(off, size);
-          const ok = Number.isFinite(off.x) && size.x > 0 && size.x < 5000;
-          const top = ok ? Math.min(Math.max(off.y + size.y + 20, 650), 1100) : 820;
-          const H = top + 30, W = Math.max(H * 0.72, 520);
-          Object.assign(p.config.viewport, { x: -W / 2, y: -30, width: W, height: H });
+          // 로비 대표 사도처럼 얼굴 위주 (머리 뼈 기준, live.js 의 face 와 같은 틀)
+          const HB = ["Head", "S1_Head", "S3_Head", "S2_Head", "Head_Root", "S3_Head_Root", "S1_Head_Root"];
+          let hb = null;
+          for (const n of HB) if ((hb = p.skeleton.findBone(n))) break;
+          if (!hb) hb = p.skeleton.bones.find((x) => /^(S\d+_)?Head(_Root)?$/i.test(x.data.name));
+          let hx = hb ? hb.worldX : 0, hy = hb ? hb.worldY : 430;
+          if (!Number.isFinite(hx) || !Number.isFinite(hy)) { hx = 0; hy = 430; }
+          const S = 430;
+          Object.assign(p.config.viewport, { x: hx - S / 2, y: hy - 140, width: S, height: S });
           p.setViewport(p.animationState.getCurrent(0).animation.name);
           if (p.paused) p.play();
           stage.classList.add("on");
