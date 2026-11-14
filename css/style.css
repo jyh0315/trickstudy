@@ -1779,7 +1779,7 @@ body.story-open { overflow: hidden; }
 .sp-fade.on { opacity: 1; }
 .story-eps li { display: flex; gap: 8px; align-items: stretch; }
 .story-eps li > button:first-child { flex: 1; }
-.story-script { border: 3px solid var(--ink); border-radius: 14px; background: #fff7d6; font: inherit; font-weight: 700; padding: 0 12px; cursor: pointer; white-space: nowrap; }
+.story-script { width: auto !important; flex: 0 0 auto; border: 3px solid var(--ink); border-radius: 14px; background: #fff7d6; font: inherit; font-weight: 700; padding: 0 12px; cursor: pointer; white-space: nowrap; }
 .story-preview-note { background: #e9f4ff; }
 .story-sc { max-height: 60vh; overflow-y: auto; text-align: left; margin: 8px 0; padding-left: 26px; font-size: 14px; }
 .story-sc li { margin-bottom: 8px; } .story-sc p { margin: 2px 0 0; }
@@ -2642,3 +2642,41 @@ a.icon-btn { text-decoration: none; display: inline-grid; place-items: center; }
 .sp-actor.pre { opacity: 0 !important; pointer-events: none; transition: none; left: 50%; }
 .sp-actor { transition: left .4s ease, filter .25s, opacity .28s, transform .3s cubic-bezier(.2,1.2,.4,1); }
 .sp-log-in { scroll-behavior: auto; }
+
+/* ───── 이야기 탭 구분 + 🎭 테마극장 카드 ───── */
+.story-tabs { display: flex; width: 100%; margin: 0 0 14px; }
+.story-tabs button { flex: 1; position: relative; }
+.st-badge { font-style: normal; display: inline-block; margin-left: 6px; min-width: 20px; padding: 0 6px; border-radius: 99px; background: var(--pink-d); color: #fff; font-size: 12px; line-height: 20px; font-family: var(--font-body); font-weight: 700; vertical-align: 2px; }
+.tt-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 12px 14px; }
+.tt-bar .tt-search { flex: 1 1 220px; min-width: 0; padding: 9px 14px; border: var(--line); border-radius: 14px; background: var(--paper); font: inherit; color: var(--ink); }
+.tt-bar .hint { margin: 0; flex-basis: 100%; }
+.tt-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; margin: 0 0 16px; }
+.tt-card { display: flex; flex-direction: column; gap: 4px; padding: 0 0 10px; text-align: left; font: inherit; color: inherit; cursor: pointer;
+  background: var(--paper); border: 3px solid var(--ink); border-radius: 18px; box-shadow: 0 4px 0 var(--ink); overflow: hidden; transition: transform .15s; }
+.tt-card:hover { transform: translateY(-3px) rotate(-.6deg); }
+.tt-card[hidden] { display: none; }
+.tt-thumb { position: relative; display: block; aspect-ratio: 16 / 9; background: var(--cream-2); border-bottom: 3px solid var(--ink); overflow: hidden; }
+.tt-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.tt-no { position: absolute; left: 8px; top: 8px; font-style: normal; font-family: var(--font-title); font-size: 14px; background: var(--ink); color: #fff; border-radius: 10px; padding: 1px 8px; }
+.tt-new { position: absolute; right: 8px; top: 8px; font-style: normal; font-size: 11px; font-weight: 800; background: var(--pink-d); color: #fff; border: 2px solid #fff; border-radius: 99px; padding: 1px 8px; }
+.tt-name { padding: 4px 12px 0; font-family: var(--font-title); font-weight: normal; font-size: 16px; line-height: 1.3; }
+.tt-cast { padding: 0 12px; color: var(--ink-soft); font-size: 12px; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 2.7em; }
+.tt-foot { display: flex; align-items: center; gap: 8px; padding: 4px 12px 0; }
+.tt-foot .bar { height: 10px; border-width: 2px; }
+.tt-foot em { font-style: normal; font-size: 12px; font-weight: 700; white-space: nowrap; color: var(--ink-soft); }
+.tt-card.done .tt-foot em { color: #3d9a41; }
+.tt-card.lock { opacity: .62; }
+.tt-card.lock .tt-thumb img { filter: grayscale(.8) blur(1px); }
+.modal.tt-modal-wrap { width: min(620px, 100%); text-align: left; }
+.tt-hero { position: relative; margin: -8px -4px 14px; border: 3px solid var(--ink); border-radius: 18px; overflow: hidden; }
+.tt-hero img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; display: block; }
+.tt-hero span { position: absolute; inset: auto 0 0 0; padding: 30px 14px 10px; display: flex; flex-direction: column; gap: 2px; color: #fff; background: linear-gradient(transparent, rgba(0,0,0,.72)); }
+.tt-hero i { font-style: normal; font-size: 12px; opacity: .9; }
+.tt-hero b { font-family: var(--font-title); font-weight: normal; font-size: 22px; line-height: 1.2; }
+.tt-hero small { font-size: 12px; opacity: .9; }
+.tt-go { width: 100%; margin: 0 0 12px; }
+@media (max-width: 520px) {
+  .tt-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .tt-name { font-size: 14px; }
+  .story-tabs button { padding: 6px 4px; font-size: 14px; }
+}

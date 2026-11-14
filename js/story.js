@@ -46,10 +46,105 @@ const nextIn = () => { const x = nextEp(); return x ? Math.max(0, x.need - studi
 const hm = (m) => (m >= 60 ? `${Math.floor(m / 60)}시간${m % 60 ? ` ${m % 60}분` : ""}` : `${m}분`);
 
 /* ───── 스토리 탭 ───── */
+// 탭: 메인 스토리 / 테마극장 / 사도 이야기 (마지막으로 본 탭을 기억)
+const TAB_KEY = "story-tab";
+const tabOf = (ch) => (/^시즌/.test(ch.season) ? "main" : ch.season === "테마극장" ? "theme" : "side");
+const getTab = () => { try { return localStorage.getItem(TAB_KEY) || "main"; } catch (e) { return "main"; } };
+const setTab = (t) => { try { localStorage.setItem(TAB_KEY, t); } catch (e) { /* 무시 */ } };
+const ttNum = (ch) => { const m = /^tt(\d+)$/.exec(ch.id); return m ? +m[1] : 0; };
+const thumbOf = (ch) => { for (const ep of ch.eps) for (const L of ep.lines) if (typeof L.cg === "string" && L.cg && !/\.webm$/.test(L.cg)) return L.cg; for (const ep of ch.eps) for (const L of ep.lines) if (L.bg) return L.bg; return ""; };
+let themeFilter = "all", themeQuery = "";
+
+function epItems(ch, eps, seen, list) {
+  return (list || ch.eps).map((ep) => {
+    const i = eps.findIndex((x) => x.id === ep.id), lock = !isOpen(eps[i], i);
+    return `<li class="${lock ? "lock" : ""} ${seen.has(ep.id) ? "seen" : ""}">
+      <button ${lock ? "disabled" : ""} data-play="${ep.id}">
+        <b>${ch.eps.indexOf(ep) + 1}화</b><span>${esc(ep.title)}</span>
+        <em>${lock ? `🔒 공부 ${hm(Math.max(0, needOf(ep, i) - studied()))} 더` : seen.has(ep.id) ? "✔ 다시 보기" : "NEW"}</em>
+      </button>${PREVIEW ? `<button class="story-script" data-script="${ep.id}">📜 대본</button>` : ""}</li>`;
+  }).join("");
+}
+function chInfo(ch, eps, seen) {
+  const idx = ch.eps.map((ep) => eps.findIndex((x) => x.id === ep.id));
+  const nOpen = idx.filter((k) => isOpen(eps[k], k)).length, nSeen = ch.eps.filter((ep) => seen.has(ep.id)).length;
+  return { idx, nOpen, nSeen, state: !nOpen ? "🔒" : nSeen === ch.eps.length ? "✔ 다 봄" : `${nSeen} / ${ch.eps.length}화` };
+}
+// 접는 카드 (메인 스토리 · 사도 이야기 · 예고편)
+function chDetails(ch, eps, seen, firstNew, isCur) {
+  const { nOpen, state } = chInfo(ch, eps, seen);
+  const list = ch.fold ? ch.eps.filter((ep, n) => { const k = eps.findIndex((x) => x.id === ep.id); return isOpen(eps[k], k) || ch.eps.slice(0, n).filter((q) => { const r = eps.findIndex((x) => x.id === q.id); return !isOpen(eps[r], r); }).length < 3; }) : ch.eps;
+  return `<details class="card story-ch story-chd" ${isCur && !ch.fold ? "open" : ""}>
+    <summary class="card-title">${esc(ch.season)} · ${esc(ch.name)} <small>${esc(ch.title)}</small><em>${state}</em></summary>
+    ${ch.fold ? `<details class="story-fold" open><summary>${nOpen} / ${ch.eps.length}화 열림 · 눌러서 펼치기</summary>` : ""}
+    <ol class="story-eps">${epItems(ch, eps, seen, list)}</ol>${ch.fold ? "</details>" : ""}
+  </details>`;
+}
+// 테마극장: 썸네일 카드 그리드 → 누르면 화 목록 창
+function themeCard(ch, eps, seen) {
+  const { nOpen, nSeen, state } = chInfo(ch, eps, seen);
+  const n = ttNum(ch), th = thumbOf(ch), cast = (ch.title || "").replace(/^주연:\s*/, "");
+  const hasNew = nOpen > nSeen;
+  const kind = !nOpen ? "lock" : nSeen === ch.eps.length ? "done" : nSeen ? "ing" : "new";
+  return `<button class="tt-card ${kind}" data-tt="${ch.id}" data-kind="${kind}" data-q="${esc((ch.name + " " + cast + " " + n).toLowerCase())}">
+    <span class="tt-thumb">${th ? `<img src="${th}" alt="" loading="lazy">` : ""}<i class="tt-no">#${String(n).padStart(2, "0")}</i>${hasNew ? '<i class="tt-new">NEW</i>' : ""}</span>
+    <b class="tt-name">${esc(ch.name)}</b>
+    <small class="tt-cast">${esc(cast)}</small>
+    <span class="tt-foot"><span class="bar"><i style="width:${(nSeen / ch.eps.length) * 100}%"></i></span><em>${state}</em></span>
+  </button>`;
+}
+function openTheme(id) {
+  const ch = chapters().find((c) => c.id === id); if (!ch) return;
+  const eps = allEps(), seen = new Set(st().seen), th = thumbOf(ch);
+  const first = ch.eps.find((ep) => { const k = eps.findIndex((x) => x.id === ep.id); return isOpen(eps[k], k) && !seen.has(ep.id); });
+  TS.modal(`<div class="tt-modal">
+    ${th ? `<div class="tt-hero"><img src="${th}" alt=""><span><i>🎭 테마극장 #${String(ttNum(ch)).padStart(2, "0")}</i><b>${esc(ch.name)}</b><small>${esc(ch.title)}</small></span></div>` : `<h2>${esc(ch.name)}</h2>`}
+    ${first ? `<button class="btn yellow tt-go" data-play="${first.id}">▶ 이어 보기 — ${ch.eps.indexOf(first) + 1}화 ${esc(first.title)}</button>` : ""}
+    <ol class="story-eps">${epItems(ch, eps, seen)}</ol>
+    <div class="modal-actions"><button class="btn" data-close>닫기</button></div></div>`, (m, close) => {
+    m.querySelectorAll("[data-play]").forEach((b) => (b.onclick = () => { close(); play(b.dataset.play); }));
+    m.querySelectorAll("[data-script]").forEach((b) => (b.onclick = () => showScript(b.dataset.script)));
+  }, { cls: "tt-modal-wrap" });
+}
+function applyThemeFilter(el) {
+  const q = themeQuery.trim().toLowerCase();
+  let shown = 0;
+  el.querySelectorAll(".tt-card").forEach((c) => {
+    const k = c.dataset.kind;
+    const okF = themeFilter === "all" || (themeFilter === "todo" ? k === "new" || k === "ing" : themeFilter === "done" ? k === "done" : k === "lock");
+    const ok = okF && (!q || c.dataset.q.includes(q));
+    c.hidden = !ok; if (ok) shown++;
+  });
+  const e = el.querySelector(".tt-empty"); if (e) e.hidden = shown > 0;
+}
+
 function render() {
   const el = $("view-story");
   const eps = allEps(), open = unlockedN(), seen = new Set(st().seen);
   const firstNew = eps.findIndex((e, i) => isOpen(e, i) && !seen.has(e.id));
+  const tab = getTab();
+  const chs = chapters();
+  const count = (t) => { const L = chs.filter((c) => tabOf(c) === t); const n = L.reduce((a, c) => a + c.eps.filter((ep) => { const k = eps.findIndex((x) => x.id === ep.id); return isOpen(eps[k], k) && !seen.has(ep.id); }).length, 0); return n; };
+  const badge = (t) => { const n = count(t); return n ? `<i class="st-badge">${n}</i>` : ""; };
+  // 지금 볼 차례 챕터 (메인/사도 탭에서 펼쳐 둘 것)
+  const curCh = (() => { if (firstNew >= 0) return eps[firstNew].ch.id; const L = chs.filter((c) => c.eps.some((ep) => { const k = eps.findIndex((x) => x.id === ep.id); return isOpen(eps[k], k); })); return L.length ? L[L.length - 1].id : ""; })();
+  let body = "";
+  if (tab === "theme") {
+    const L = chs.filter((c) => tabOf(c) === "theme");
+    const full = L.filter((c) => ttNum(c)).sort((a, b) => ttNum(a) - ttNum(b)), rest = L.filter((c) => !ttNum(c));
+    const fb = (k, label) => `<button data-ttf="${k}" class="${themeFilter === k ? "on" : ""}">${label}</button>`;
+    body = `<div class="card tt-bar">
+        <input type="search" class="tt-search" placeholder="🔍 사도 이름이나 제목으로 찾기" value="${esc(themeQuery)}">
+        <div class="seg small">${fb("all", "전체")}${fb("todo", "볼 거리")}${fb("done", "다 본 것")}${fb("lock", "잠김")}</div>
+        <small class="hint">전체 ${full.length}편 · 카드를 누르면 화 목록이 열려요</small>
+      </div>
+      <div class="tt-grid">${full.map((c) => themeCard(c, eps, seen)).join("")}</div>
+      <p class="hint tt-empty" hidden>조건에 맞는 테마극장이 없어요.</p>
+      ${rest.map((c) => chDetails(c, eps, seen, firstNew, false)).join("")}`;
+  } else {
+    body = chs.filter((c) => tabOf(c) === tab).map((c) => chDetails(c, eps, seen, firstNew, c.id === curCh)).join("") || '<div class="card"><p class="hint">이야기를 준비하고 있어요!</p></div>';
+  }
+  el.dataset.tab = tab;
   el.innerHTML = `
     <div class="card story-head">
       <h2 class="ribbon">사도 이야기</h2>
@@ -59,28 +154,20 @@ function render() {
         <small>${Math.min(open, eps.length)} / ${eps.length}화 열림 · 본 화 ${seen.size}</small></div>
       ${firstNew >= 0 ? `<button class="btn yellow" data-play="${eps[firstNew].id}">▶ 이어 보기 — ${esc(eps[firstNew].title)}</button>` : ""}
     </div>
-    ${chapters().map((ch, ci, all) => {
-      // 챕터가 많아져서: 지금 볼 차례인 챕터만 펼치고 나머지는 접어 둠 (제목을 누르면 펼쳐짐)
-      const idx = ch.eps.map((ep) => eps.findIndex((x) => x.id === ep.id));
-      const nOpen = idx.filter((k) => isOpen(eps[k], k)).length, nSeen = ch.eps.filter((ep) => seen.has(ep.id)).length;
-      const cur = firstNew >= 0 ? idx.includes(firstNew) : ci === all.map((c) => c.eps.some((ep) => { const k = eps.findIndex((x) => x.id === ep.id); return isOpen(eps[k], k); })).lastIndexOf(true);
-      const state = !nOpen ? "🔒" : nSeen === ch.eps.length ? "✔ 다 봄" : `${nSeen} / ${ch.eps.length}화`;
-      return `<details class="card story-ch story-chd" ${cur && !ch.fold ? "open" : ""}>
-      <summary class="card-title">${esc(ch.season)} · ${esc(ch.name)} <small>${esc(ch.title)}</small><em>${state}</em></summary>
-      ${ch.fold ? `<details class="story-fold" open><summary>${ch.eps.filter((ep) => { const k = eps.findIndex((x) => x.id === ep.id); return isOpen(eps[k], k); }).length} / ${ch.eps.length}화 열림 · 눌러서 펼치기</summary>` : ""}
-      <ol class="story-eps">${(ch.fold ? ch.eps.filter((ep, n) => { const k = eps.findIndex((x) => x.id === ep.id); return isOpen(eps[k], k) || ch.eps.slice(0, n).filter((p) => { const q = eps.findIndex((x) => x.id === p.id); return !isOpen(eps[q], q); }).length < 3; }) : ch.eps).map((ep) => {
-        const i = eps.findIndex((x) => x.id === ep.id), lock = !isOpen(eps[i], i);
-        return `<li class="${lock ? "lock" : ""} ${seen.has(ep.id) ? "seen" : ""}">
-          <button ${lock ? "disabled" : ""} data-play="${ep.id}">
-            <b>${ch.eps.indexOf(ep) + 1}화</b><span>${esc(ep.title)}</span>
-            <em>${lock ? `🔒 공부 ${hm(Math.max(0, needOf(ep, i) - studied()))} 더` : seen.has(ep.id) ? "✔ 다시 보기" : "NEW"}</em>
-          </button>${PREVIEW ? `<button class="story-script" data-script="${ep.id}">📜 대본</button>` : ""}</li>`;
-      }).join("")}</ol>${ch.fold ? "</details>" : ""}
-    </details>`; }).join("")}
-    ${chapters().length ? "" : '<div class="card"><p class="hint">이야기를 준비하고 있어요!</p></div>'}
+    <div class="seg story-tabs">
+      <button data-stab="main" class="${tab === "main" ? "on" : ""}">📖 메인 스토리${badge("main")}</button>
+      <button data-stab="theme" class="${tab === "theme" ? "on" : ""}">🎭 테마극장${badge("theme")}</button>
+      <button data-stab="side" class="${tab === "side" ? "on" : ""}">💬 사도 이야기${badge("side")}</button>
+    </div>
+    ${body}
     <p class="hint">시즌 1은 원작 메인 스토리 줄거리(「트릭컬 스토리 정리」)를, 사도 이야기는 「트릭컬 사도 정리」의 대사·말투를 바탕으로 새로 쓴 팬 창작이에요.</p>`;
   el.querySelectorAll("[data-play]").forEach((b) => (b.onclick = () => play(b.dataset.play)));
   el.querySelectorAll("[data-script]").forEach((b) => (b.onclick = () => showScript(b.dataset.script)));
+  el.querySelectorAll("[data-stab]").forEach((b) => (b.onclick = () => { setTab(b.dataset.stab); TS.refresh(); }));
+  el.querySelectorAll("[data-tt]").forEach((b) => (b.onclick = () => openTheme(b.dataset.tt)));
+  el.querySelectorAll("[data-ttf]").forEach((b) => (b.onclick = () => { themeFilter = b.dataset.ttf; el.querySelectorAll("[data-ttf]").forEach((x) => x.classList.toggle("on", x === b)); applyThemeFilter(el); }));
+  const sq = el.querySelector(".tt-search"); if (sq) sq.oninput = () => { themeQuery = sq.value; applyThemeFilter(el); };
+  if (tab === "theme") applyThemeFilter(el);
   if (PREVIEW) el.insertAdjacentHTML("afterbegin", '<div class="card story-preview-note">🔍 <b>미리보기 모드</b> — 모든 화가 열려 있고 📜 대본으로 구성을 볼 수 있어요. 여기서 본 건 기록·보상에 반영되지 않아요.</div>');
 }
 /* 대본 보기 (미리보기 모드) */
@@ -145,7 +232,7 @@ function playVideo(id) {
 }
 TS.on("refresh", (view) => {
   if (view !== "story") return;
-  const el = $("view-story"); if (!el || el.querySelector(".cgv-grid")) return;
+  const el = $("view-story"); if (!el || el.querySelector(".cgv-grid") || el.dataset.tab === "theme") return;
   const hint = el.querySelector(":scope > p.hint");
   (hint || el.lastElementChild).insertAdjacentHTML("beforebegin", videoCard());
   el.querySelectorAll("[data-cgv]").forEach((b) => (b.onclick = () => playVideo(b.dataset.cgv)));
