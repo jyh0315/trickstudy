@@ -273,7 +273,7 @@ function silentApply(L) {
   if (L.bg) setBg(L.bg, true);
   P.skipping = 1;
   if (L.clear) Object.keys(P.actors).forEach(leave);
-  if (L.cg != null) showCg(L.cg);
+  if (L.cg != null) showCg(L.cg); else if (L.clear) showCg(""); // 장면이 바뀌면 남은 CG도 치움
   if (L.in) enter(L.in, L.at || "C", null, L.flip);
   P.skipping = 0;
   if (L.out) leave(L.out);
@@ -297,7 +297,7 @@ function back() {
   for (let j = 0; j < target; j++) {
     const x = L[j];
     if (x.bg) bg = x.bg;
-    if (x.clear) cast = new Map();
+    if (x.clear) { cast = new Map(); if (x.cg == null) cg = ""; }
     if (x.cg != null) cg = x.cg;
     if (x.in) cast.set(x.in, { at: x.at || "C", flip: x.flip });
     if (x.out) cast.delete(x.out);
@@ -377,7 +377,7 @@ function run(L) {
   if (L.music != null && S().settings.sound !== false) setMusic(L.music);
   if (L.sfx) sfxPlay(L.sfx);
   if (L.clear) Object.keys(P.actors).forEach(leave); // 무대 비우기
-  if (L.cg != null) showCg(L.cg);
+  if (L.cg != null) showCg(L.cg); else if (L.clear) showCg(""); // 장면이 바뀌면 남은 CG도 치움
   if (!P.skipping) setTimeout(() => preMount(P ? P.i : 0), 60);
   if (L.in) enter(L.in, L.at || "C", L.f, L.flip);
   else if (L.flip != null && L.s && P.actors[L.s]) { P.actors[L.s].flip = L.flip; P.actors[L.s].el.classList.toggle("flip", !!L.flip); } // 말하면서 돌아보기
