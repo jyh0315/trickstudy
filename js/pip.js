@@ -30,7 +30,7 @@ function info() {
 /* ───── 1) Document PiP ───── */
 let pipWin = null;
 async function openDocPip() {
-  pipWin = await window.documentPictureInPicture.requestWindow({ width: 260, height: 330 });
+  pipWin = await window.documentPictureInPicture.requestWindow({ width: 280, height: 380 });
   const d = pipWin.document;
   document.querySelectorAll('link[rel="stylesheet"], style').forEach((n) => {
     const k = n.cloneNode(true);
@@ -40,7 +40,7 @@ async function openDocPip() {
   d.title = "미니 타이머";
   d.body.className = "pip-body";
   d.body.innerHTML = `<div class="pip">
-    <img class="pip-img" id="p-img" alt="">
+    <div class="pip-stage" id="p-stage"><img class="pip-img" id="p-img" alt=""></div>
     <div class="pip-mode" id="p-mode"></div>
     <div class="pip-time" id="p-time"></div>
     <div class="pip-bar"><i id="p-bar"></i></div>
@@ -64,7 +64,95 @@ async function openDocPip() {
   q("p-back").onclick = () => { window.focus(); pipWin.close(); };
   draw();
   pipWin.setInterval(draw, 500); // PiP 창 쪽 타이머라 메인 탭이 숨겨져도 안 느려짐
+  pipLive(pipWin, q("p-stage"));
   pipWin.addEventListener("pagehide", () => { pipWin = null; });
+}
+
+
+/* ───── 미니 창 안에서 움직이는 사도 (Spine) ─────
+   메인 탭이 가려지거나 다른 앱을 써도 계속 움직이도록, spine 런타임을 미니 창 쪽에 따로 불러와
+   그 창의 requestAnimationFrame 으로 돌림. 못 불러오면 원래 그림 그대로 */
+function pipLive(w, stage) {
+  try {
+    const id = TS.state.partner;
+    if (!window.Live || !window.Live.canLive(id) || typeof SPINE_DATA === "undefined") return;
+    const d = SPINE_DATA[id], idx = Math.min(window.Live.curSkin(id), d.skins.length - 1);
+    const bases = SPINE_HOSTS.map((h) => encodeURI(h.url + h.dir(d.dir) + "/" + d.skins[idx][0]));
+    const doc = w.document;
+    const sc = doc.createElement("script");
+    sc.src = new URL("js/vendor/spine-player.min.js", location.href).href;
+    sc.onload = () => start(0);
+    doc.head.appendChild(sc);
+    let player = null, anims = [], idles = [];
+    function patch() { // 이음새 선 방지 (live.js 와 같은 방식: 텍스처 알파 미리 곱하기)
+      const T = w.spine && w.spine.GLTexture;
+      if (!T || T.__pma) return;
+      T.__pma = true; T.DISABLE_UNPACK_PREMULTIPLIED_ALPHA_WEBGL = false;
+      const up = T.prototype.update;
+      T.prototype.update = function (mip) {
+        const gl = this.context.gl;
+        gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+        try { up.call(this, mip); } finally { gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false); }
+      };
+    }
+    function start(hi) {
+      if (hi >= bases.length || w.closed) return;
+      patch();
+      const host = doc.createElement("div");
+      host.className = "pip-live";
+      stage.appendChild(host);
+      let done = false;
+      const giveUp = w.setTimeout(() => { if (done) return; done = true; try { player.dispose(); } catch (e) { /* 무시 */ } host.remove(); start(hi + 1); }, 15000);
+      player = new w.spine.SpinePlayer(host, {
+        skelUrl: bases[hi] + ".skel.asset", atlasUrl: bases[hi] + ".atlas.asset",
+        showControls: false, showLoading: false, alpha: true, backgroundColor: "#00000000", premultipliedAlpha: true,
+        viewport: { padLeft: 0, padRight: 0, padTop: 0, padBottom: 0, transitionTime: 0 },
+        success: (p) => {
+          if (done) return; done = true; w.clearTimeout(giveUp);
+          const data = p.skeleton.data;
+          anims = data.animations.map((a) => a.name);
+          idles = anims.filter((n) => /^Idle_/.test(n));
+          const sk = data.skins.find((x) => x.name === "Normal") || data.skins.find((x) => x.name !== "default");
+          if (sk) { p.skeleton.setSkin(sk); p.skeleton.setSlotsToSetupPose(); }
+          p.animationState.setAnimation(0, idles[0] || anims[0], true);
+          p.animationState.apply(p.skeleton); p.skeleton.updateWorldTransform();
+          // 전신이 다 들어오게: 발(0) ~ 머리 위, 가로는 몸 폭 기준 (무기·날개는 조금 잘려도 됨)
+          const off = new w.spine.Vector2(), size = new w.spine.Vector2();
+          p.skeleton.getBounds(off, size);
+          const ok = Number.isFinite(off.x) && size.x > 0 && size.x < 5000;
+          const top = ok ? Math.min(Math.max(off.y + size.y + 20, 650), 1100) : 820;
+          const H = top + 30, W = Math.max(H * 0.72, 520);
+          Object.assign(p.config.viewport, { x: -W / 2, y: -30, width: W, height: H });
+          p.setViewport(p.animationState.getCurrent(0).animation.name);
+          if (p.paused) p.play();
+          stage.classList.add("on");
+        },
+        error: () => { if (done) return; done = true; w.clearTimeout(giveUp); try { player.dispose(); } catch (e) { /* 무시 */ } host.remove(); start(hi + 1); },
+      });
+    }
+    // 누르면 반응 (콕 찌르기 → 기쁨 → 다시 대기)
+    const pick = (re) => anims.filter((n) => re.test(n));
+    stage.addEventListener("click", () => {
+      if (!player || !anims.length) return;
+      const st = player.animationState;
+      const seq = anims.includes("Touch_Idle") && anims.includes("Touch_End") ? ["Touch_Idle", "Touch_End"] : [pick(/^(Happy|Shy|Proud)_/)[0]].filter(Boolean);
+      if (!seq.length) return;
+      st.data.defaultMix = 0.18;
+      st.setAnimation(0, seq[0], false);
+      seq.slice(1).forEach((n) => st.addAnimation(0, n, false, 0));
+      st.addAnimation(0, idles[Math.floor(Math.random() * idles.length)] || anims[0], true, 0);
+    });
+    // 집중이 끝나면 기뻐하기
+    let wasRunning = TS.timer.t.running;
+    w.setInterval(() => {
+      const r = TS.timer.t.running;
+      if (wasRunning && !r && player && anims.length && TS.timer.left() <= 0) {
+        const h = pick(/^(Happy|Dance|Proud)_/);
+        if (h.length) { const st = player.animationState; st.setAnimation(0, h[0], false); st.addAnimation(0, idles[0] || anims[0], true, 0); }
+      }
+      wasRunning = r;
+    }, 1000);
+  } catch (e) { console.warn("pip live", e); }
 }
 
 /* ───── 2) 영상 PiP (캔버스) ───── */
@@ -115,5 +203,5 @@ async function openPip() {
 }
 $("pip-btn").onclick = openPip;
 $("t-pip").onclick = openPip;
-window.MiniTimer = { open: openPip };
+window.MiniTimer = { open: openPip, _live: pipLive };
 })();

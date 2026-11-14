@@ -2680,3 +2680,8 @@ a.icon-btn { text-decoration: none; display: inline-grid; place-items: center; }
   .tt-name { font-size: 14px; }
   .story-tabs button { padding: 6px 4px; font-size: 14px; }
 }
+/* 미니 타이머 안의 움직이는 사도 */
+.pip-stage { position: relative; width: 100%; height: 52vh; min-height: 120px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.pip-live { position: absolute; inset: 0; }
+.pip-live canvas { width: 100% !important; height: 100% !important; }
+.pip-stage.on .pip-img { visibility: hidden; }
