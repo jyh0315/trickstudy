@@ -96,7 +96,8 @@ function load(id, skinIdx) {
         const H = top + 150, W = H * (innerWidth / Math.max(1, innerHeight)); // 위쪽은 말풍선 자리
         Object.assign(p.config.viewport, { x: -W / 2, y: -20, width: W, height: H });
         p.setViewport(p.animationState.getCurrent(0).animation.name);
-        p.skeleton.scaleX = dir;
+        p.skeleton.scaleX = -dir; // 사도 그림은 원래 왼쪽을 봄
+        setupLook(p);
         if (p.paused) p.play();
         ready = true; parentPost({ pet: "ready" });
       },
@@ -156,10 +157,29 @@ function wakeUp(talk) {
   if (player) player.animationState.setAnimation(0, rand(idles.length ? idles : [anims[0]]), true);
   if (talk) { say(line("wake")); react("surprise"); }
 }
+/* 마우스 바라보기: 애니메이션 위에 머리 뼈 각도를 살짝 더함 */
+let lookT = 0, lookA = 0;
+function setupLook(p) {
+  const sk = p.skeleton;
+  const head = ["Head", "S1_Head", "S2_Head", "S3_Head", "Head_Root", "S1_Head_Root", "S3_Head_Root"].map((n) => sk.findBone(n)).find(Boolean);
+  if (!head) return;
+  const st = p.animationState, ap = st.apply.bind(st);
+  st.apply = (s2) => {
+    const r = ap(s2);
+    lookA += (lookT - lookA) * 0.12;
+    if (Math.abs(lookA) > 0.05) head.rotation += lookA;
+    return r;
+  };
+}
+function setLook(v) {
+  if (!v || sleeping) { lookT = 0; return; }
+  const up = Math.atan2(-v.dy, Math.max(60, Math.abs(v.dx))) * 180 / Math.PI; // 위쪽이면 +
+  lookT = Math.max(-14, Math.min(16, up * 0.35)); // + = 고개 들기
+}
 function setDir(d) {
   dir = d;
-  if (player && player.skeleton) player.skeleton.scaleX = d;
-  fb.style.transform = `translateX(-50%) scaleX(${d})`;
+  if (player && player.skeleton) player.skeleton.scaleX = -d;
+  fb.style.transform = `translateX(-50%) scaleX(${-d})`;
 }
 
 window.addEventListener("message", (e) => {
@@ -169,6 +189,7 @@ window.addEventListener("message", (e) => {
   if (m.walk != null) walking = m.walk;
   if (m.react) react(m.react);
   if (m.say) say(m.say);
+  if ("look" in m) setLook(m.look);
   if (m.event && EVENTS[m.event]) EVENTS[m.event]();
 });
 
@@ -187,8 +208,9 @@ stage.addEventListener("pointerdown", (e) => {
     sleepT = setTimeout(() => { if (down && down.pat && !moved) { say(line("sleepyPat"), 3500); react("sleep"); parentPost({ pet: "sleep" }); } }, 2200);
   }, 600);
 });
+let lookSent = 0;
 stage.addEventListener("pointermove", (e) => {
-  if (!down) return;
+  if (!down) { const t = performance.now(); if (t - lookSent > 80) { lookSent = t; parentPost({ pet: "look", x: e.clientX, y: e.clientY }); } return; }
   const dx = e.screenX - down.x, dy = e.screenY - down.y;
   if (!moved && Math.hypot(dx, dy) < 5) return;
   if (!moved) {

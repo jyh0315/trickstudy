@@ -27,7 +27,7 @@
       background: "transparent", colorScheme: "light", zIndex: "2147483646", pointerEvents: "auto", display: "block",
       transition: "opacity .3s", opacity: "1", maxWidth: "none", maxHeight: "none",
     });
-    (document.body || document.documentElement).appendChild(frame);
+    document.documentElement.appendChild(frame); // body 에 transform 이 걸린 사이트에서도 화면 기준으로 고정
     x = cfg.x != null ? Math.min(maxX(), Math.max(0, cfg.x)) : Math.random() * maxX();
     y = 0; place();
     last = performance.now();
@@ -38,16 +38,12 @@
     if (frame) frame.remove();
     frame = null;
   }
-  function place() {
-    if (!frame) return;
-    frame.style.transform = `translate(${x}px, ${-y}px)`;
-  }
   function setDir(d) { if (d !== dir) { dir = d; post({ dir }); } }
   function choose(now) {
     if (sleeping) { mode = "idle"; until = now + 5000; return; }
     if (!cfg.walk) { mode = "idle"; until = now + 4000; post({ walk: false }); return; }
     if (Math.random() < 0.55) {
-      mode = "walk";
+      mode = "walk"; lastLook = "off"; post({ look: null });
       target = Math.random() * maxX();
       if (Math.abs(target - x) < 60) target = x < maxX() / 2 ? x + 200 : x - 200;
       target = Math.min(maxX(), Math.max(0, target));
@@ -61,37 +57,55 @@
       else if (Math.random() < 0.2) post({ react: "happy" });
     }
   }
-  let hop = 0, saved = 0;
+  let hop = 0, hopY = 0, saved = 0;
+  function place() {
+    if (!frame) return;
+    frame.style.transform = `translate(${Math.round(x)}px, ${-Math.round(y + hopY)}px)`;
+  }
   function tick(now) {
     raf = requestAnimationFrame(tick);
     const dt = Math.min(0.05, (now - last) / 1000); last = now;
     if (!frame) return;
     // 전체 화면(영상 등)일 땐 숨김
-    frame.style.display = document.fullscreenElement ? "none" : "block";
+    const fs = document.fullscreenElement ? "none" : "block";
+    if (frame.style.display !== fs) frame.style.display = fs;
     if (grabbed) return;
-    if (falling || y > 0) { // 놓으면 떨어짐
+    if (falling) { // 놓으면 떨어짐 (걸을 때 통통 뛰는 건 hopY 로 따로 처리)
       vy -= 1800 * dt; y += vy * dt;
-      if (y <= floor()) { y = 0; vy = 0; if (falling) { falling = false; post({ react: "dizzy" }); until = now + 2500; mode = "idle"; } }
+      if (y <= floor()) { y = 0; vy = 0; falling = false; post({ react: "dizzy" }); until = now + 2500; mode = "idle"; }
       place(); return;
     }
     if (mode === "walk") {
-      const speed = 55; // px/초
-      const step = speed * dt * dir;
-      x += step;
+      x += 55 * dt * dir; // px/초
       hop += dt * 9;
-      y = Math.abs(Math.sin(hop)) * 7; // 통통 뛰는 걸음
-      if ((dir > 0 && x >= target) || (dir < 0 && x <= target)) { x = target; y = 0; hop = 0; choose(now); }
-    } else if (now > until) choose(now);
+      hopY = Math.abs(Math.sin(hop)) * 6;
+      if ((dir > 0 && x >= target) || (dir < 0 && x <= target) || x <= 0 || x >= maxX()) { x = Math.min(maxX(), Math.max(0, target)); hopY = 0; hop = 0; choose(now); }
+    } else {
+      hopY = 0;
+      if (now > until) choose(now);
+      else look(now);
+    }
     x = Math.min(maxX(), Math.max(0, x));
     place();
     if (now - saved > 3000) { saved = now; chrome.storage.local.set({ x: Math.round(x) }); }
+  }
+  /* 마우스 바라보기: 서 있을 때 마우스 쪽으로 몸을 돌리고, 고개를 위아래로 */
+  let mx = null, my = null, mAt = 0, flipAt = 0, lastLook = "";
+  function look(now) {
+    if (mx == null || !frame) return;
+    const cx = x + W / 2, cy = innerHeight - y - H * 0.55;
+    const fresh = Date.now() - mAt < 6000;
+    if (fresh && !sleeping && Math.abs(mx - cx) > 40 && now - flipAt > 700) { const d = mx > cx ? 1 : -1; if (d !== dir) { flipAt = now; setDir(d); } }
+    const msg = fresh && !sleeping ? Math.round(mx - cx) + "," + Math.round(my - cy) : "off";
+    if (msg !== lastLook) { lastLook = msg; post({ look: fresh && !sleeping ? { dx: mx - cx, dy: my - cy } : null }); }
   }
   // 펫 창에서 오는 신호 (끌기·놓기)
   window.addEventListener("message", (e) => {
     if (!frame || e.source !== frame.contentWindow || !e.data || !e.data.__trickpet) return;
     const m = e.data;
-    if (m.pet === "grab") { grabbed = true; mode = "idle"; }
+    if (m.pet === "grab") { grabbed = true; mode = "idle"; hopY = 0; falling = false; }
     if (m.pet === "drag") { x = Math.min(maxX(), Math.max(0, x + m.dx)); y = Math.max(0, Math.min(innerHeight - H, y - m.dy)); place(); }
+    if (m.pet === "look") { const r = frame.getBoundingClientRect(); mx = r.left + m.x; my = r.top + m.y; mAt = Date.now(); }
     if (m.pet === "drop") { grabbed = false; falling = y > 0; vy = 0; chrome.storage.local.set({ x: Math.round(x) }); }
     if (m.pet === "poke") { mode = "idle"; until = performance.now() + 3500; post({ walk: false }); }
     if (m.pet === "sulk") { mode = "idle"; until = performance.now() + 15000; setDir(-dir); post({ walk: false }); }
@@ -121,7 +135,7 @@
   setInterval(() => { // 3분 동안 아무것도 안 하면 꾸벅꾸벅
     if (frame && !sleeping && !grabbed && Date.now() - lastAct > 180000) { sleeping = true; mode = "idle"; post({ walk: false, event: "sleep" }); }
   }, 5000);
-  addEventListener("mousemove", () => { if (Date.now() - lastAct > 1000) active(); }, { passive: true });
+  addEventListener("mousemove", (e) => { mx = e.clientX; my = e.clientY; mAt = Date.now(); if (Date.now() - lastAct > 1000) active(); }, { passive: true });
   addEventListener("keydown", (e) => {
     active();
     const t = e.target, typing = t && (t.isContentEditable || /^(INPUT|TEXTAREA)$/.test(t.tagName));
