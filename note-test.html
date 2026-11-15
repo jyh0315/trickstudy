@@ -115,7 +115,7 @@ mark.uns { background: #ffe08a; border-bottom: 2px dotted #d8483b; color: inheri
   
   <label class="opt">묶기 간격 <input type="range" id="gap" min="10" max="80" value="34"></label>
   <label class="opt"><input type="checkbox" id="penOnly" checked> 펜만 쓰기(손바닥 무시)</label>
-  <label class="opt" title="같은 자리를 펜으로 빠르게 2번 = 펜↔직접 묶기, 3번 = 그 덩어리 글↔그림"><input type="checkbox" id="tapKeys" checked> 따닥 단축키</label>
+  <label class="opt" title="같은 자리를 펜으로 빠르게 2번 = 펜↔선택, 3번 = 그 덩어리 글↔그림"><input type="checkbox" id="tapKeys" checked> 따닥 단축키</label>
   
   <button class="btn" id="clear">🗑 전부 지우기</button>
   
@@ -143,7 +143,7 @@ mark.uns { background: #ffe08a; border-bottom: 2px dotted #d8483b; color: inheri
 </details>
 </div>
 <div class="tb" id="tb">
-  <span class="seg" id="tool"><button data-v="pen" class="on">✏️ 펜</button><button data-v="erase">🧽 지우개</button><button data-v="move">✋ 옮기기</button><button data-v="lasso" title="직접 묶기 (펜으로 따닥)">🪢 묶기</button></span>
+  <span class="seg" id="tool"><button data-v="pen" class="on">✏️ 펜</button><button data-v="erase">🧽 지우개</button><button data-v="move" title="선택: 덩어리를 끌면 옮기기 · 빈 곳에서 빙 둘러 그리면 묶기 · 노란 손잡이로 크기 (펜으로 따닥 = 펜↔선택)">✋ 선택</button></span>
   <span class="seg" id="view"><button data-v="ink">원본</button><button data-v="both" class="on">겹쳐</button><button data-v="clean">정리본</button></span>
   <span class="seg" id="color"><button data-v="#3b2a20" class="on">⚫</button><button data-v="#d8483b">🔴</button><button data-v="#2f7fd0">🔵</button><button data-v="#2e9e6a">🟢</button></span>
   <button class="btn" id="undo" title="되돌리기 (Ctrl+Z)">↶</button>
@@ -248,11 +248,11 @@ svg.addEventListener("pointerdown", (e) => {
       lines: group.map((g) => ({ g, ls: (g.m.lines || []).map((l) => ({ l, box: { ...l.box } })) })) };
     return;
   }
-  if (tool === "lasso") { dragging = { lasso: [p] }; $("gLive").innerHTML = ""; dragging.el = el("path", { fill: "rgba(183,124,255,.12)", stroke: "#b77cff", "stroke-width": 2, "stroke-dasharray": "5 4" }, $("gLive")); return; }
-  if (tool === "move") {
+  if (tool === "move" || tool === "lasso") { // ✋ 선택: 덩어리 위 = 옮기기, 빈 곳 = 올가미 묶기
     const b = blockAt(p);
-    if (b) { snapshot(); sel = b.key; const group = [b, ...blocks.filter((x) => x.parent === b.key)]; dragging = { b, group, x: p.x, y: p.y, moved: false }; svg.style.cursor = "grabbing"; render(); }
-    else { sel = null; render(); }
+    if (b) { snapshot(); sel = b.key; const group = [b, ...blocks.filter((x) => x.parent === b.key)]; dragging = { b, group, x: p.x, y: p.y, moved: false }; svg.style.cursor = "grabbing"; render(); return; }
+    if (sel) { sel = null; render(); }
+    dragging = { lasso: [p] }; $("gLive").innerHTML = ""; dragging.el = el("path", { fill: "rgba(183,124,255,.12)", stroke: "#b77cff", "stroke-width": 2, "stroke-dasharray": "5 4" }, $("gLive"));
     return;
   }
   clearTimeout(recT);
@@ -302,8 +302,8 @@ function onTap(x, y, sid) {
     const ids = ts.map((t) => t.sid).filter(Boolean); // 톡톡 찍힌 점은 지움
     if (ids.length) { strokes = strokes.filter((s) => !ids.includes(s.id)); regroup(); }
     if (ts.length === 2) {
-      setTool(tool === "lasso" ? "pen" : "lasso");
-      toast(tool === "lasso" ? "🪢 직접 묶기 (따닥 → 펜)" : "✏️ 펜 (따닥 → 직접 묶기)");
+      setTool(tool === "move" ? "pen" : "move");
+      toast(tool === "move" ? "✋ 선택 — 끌면 옮기기, 빈 곳 빙 둘러 묶기 (따닥 → 펜)" : "✏️ 펜 (따닥 → 선택)");
     } else {
       const b = blockAt(ts[0]);
       if (b) { b.m.type = b.type === "text" ? "draw" : "text"; b.m.stale = true; regroup(); scheduleRecognize(); toast(b.m.type === "text" ? "📝 글로 바꿨어요" : "🖼 그림으로 바꿨어요"); }
@@ -857,7 +857,7 @@ function render(fast) {
         dv.innerHTML = richHTML(l); fo.appendChild(dv);
         // 정리 글씨를 원래 필기와 비슷한 크기로: 필기 줄 폭에 맞춰 키우거나 줄이되, 줄 높이의 45~100% 안에서
         const got = dv.scrollWidth || 1, f2 = Math.max(11, Math.min(64, lb.h * 1.0, Math.max(lb.h * 0.45, fs * (lb.w * 0.96) / got)));
-        dv.style.fontSize = f2.toFixed(1) + "px"; dv.style.lineHeight = (f2 * 1.6).toFixed(1) + "px";
+        dv.style.fontSize = f2.toFixed(1) + "px"; dv.style.lineHeight = (f2 * 1.6).toFixed(1) + "px"; l._f = +f2.toFixed(1); // 배치 때 정리 글씨 크기 기준으로 씀
         fo.setAttribute("y", lb.y + lb.h / 2 - f2 * 0.8); fo.setAttribute("height", f2 * 1.8);
       }
     }
@@ -1028,7 +1028,34 @@ function renderHeads() {
 /* ───────── ✨ 자동 배치 (AI 없이) ─────────
    그림 + 이름표는 한 묶음으로, 읽는 순서(위→아래, 왼→오른)대로 왼쪽부터 가지런히.
    좁은 것끼리는 옆으로 나란히, 넓은 글은 한 줄 통째로. 페이지 모드면 장을 넘지 않게. */
-const M = 28, GAP = 22, LINE = 40;
+const M = 28, GAP = 22, LINE = 40, CLEAN_FS = 22;
+// 정리본 기준 배치: 글 덩어리마다 "바뀐 글씨" 크기가 CLEAN_FS 가 되도록 덩어리 전체(필기 포함)를 키우거나 줄임
+function scaleBlocks(gs, k, ax, ay) {
+  for (const g of gs) {
+    for (const st of g.strokes) st.pts.forEach((q) => { q.x = +(ax + (q.x - ax) * k).toFixed(1); q.y = +(ay + (q.y - ay) * k).toFixed(1); });
+    (g.m.lines || []).forEach((l) => { if (l.rel) l.box = { x: l.box.x * k, y: l.box.y * k, w: l.box.w * k, h: l.box.h * k }; if (l._f) l._f *= k; });
+    g.box = bbox(g.strokes.flatMap((st) => st.pts));
+  }
+}
+function normalizeClean(us) { // 글씨 크기가 폭에도 묶여 있어서 몇 번 반복해 맞춤
+  let n = 0;
+  for (let it = 0; it < 3; it++) { render(true); const c = normalizeOnce(us); n += c; if (!c) break; }
+  return n;
+}
+function normalizeOnce(us) {
+  let n = 0;
+  for (const u of us) {
+    if (u.group.length !== 1 || u.b.type !== "text" || !u.b.m.lines) continue;
+    const fs = u.b.m.lines.map((l) => l._f).filter(Boolean);
+    if (!fs.length) continue;
+    const avg = fs.reduce((a, c) => a + c, 0) / fs.length, k = Math.max(0.35, Math.min(2.5, CLEAN_FS / avg));
+    if (Math.abs(k - 1) < 0.08) continue;
+    scaleBlocks(u.group, k, u.b.box.x, u.b.box.y); n++;
+    const B = u.b.box; u.box = { x: B.x - 6, y: B.y - 6, w: B.w + 12, h: B.h + 12 };
+  }
+  return n;
+}
+function setView(v) { const bt = $("view").querySelector(`[data-v="${v}"]`); if (bt && view !== v) bt.click(); }
 function units() {
   // 이름표인데 그림에서 멀리 떨어져 있으면(예전에 붙은 관계) 따로 배치되도록 떼어 냄 (세트는 유지)
   for (const b of blocks) if (b.parent && !b.m.setp) { const pb = blocks.find((x) => x.key === b.parent); if (!pb || !near(b.box, pb.box, 90)) { b.parent = null; b.m.parent = null; } }
@@ -1106,9 +1133,10 @@ function animateTo(plan, newHeads, done) {
   requestAnimationFrame(step);
 }
 $("layoutBtn").onclick = () => {
-  const us = units();
+  let us = units();
   if (!us.length) return toast("배치할 덩어리가 없어요");
   snapshot();
+  if (view === "clean") { render(); normalizeClean(us); } // 정리본으로 보고 있으면 바뀐 글씨 크기 기준
   // 이미 AI 정리로 소제목이 있으면 그 구역 순서를 유지
   const { plan, newHeads } = planLayout(sectionsFromHeads(readingOrder(us)));
   animateTo(plan, newHeads, () => { toast("✨ 가지런히 놓았어요 (↶ 되돌리기 가능)"); if (mode === "page") goPage(0); else paper.scrollTo({ top: 0, behavior: "smooth" }); });
@@ -1123,9 +1151,10 @@ function sectionsFromHeads(order) {
 /* ───────── 🤖 AI 정리 (Gemini): 내용 흐름대로 순서 + 소제목 ───────── */
 $("tidyBtn").onclick = async () => {
   if (!(gem.key && gem.model)) { toast("🔑 설정에서 Gemini 키를 먼저 넣어 주세요"); if (focusUI) { focusUI = false; applyUI(); } $("aiBox").open = true; return; }
+  if (busy) return toast("지금 글을 읽는 중이에요. 잠시 뒤에 눌러 주세요");
+  if (blocks.some((b) => b.type === "text" && b.m.stale)) { clearTimeout(recT); toast("아직 안 읽은 글부터 읽을게요 📮"); await recognizeAll(true); } // 정리 전에 글을 다 읽어 둠
   const us = readingOrder(units());
   if (us.length < 2) return toast("덩어리가 2개 이상일 때 정리할 수 있어요");
-  if (busy) return toast("지금 글을 읽는 중이에요. 잠시 뒤에 눌러 주세요");
   const btn = $("tidyBtn"); btn.disabled = true; btn.textContent = "🤖 정리 중…";
   say("에르핀이 Gemini 랑 노트 순서를 고민하는 중… 🤔");
   try {
@@ -1151,6 +1180,7 @@ JSON 만 출력: {"title":"...","sections":[{"title":"...","items":[1,2]}]}` }];
     const rest = us.filter((u) => !used.has(u)); // 빠뜨린 건 맨 뒤에
     if (rest.length) sections.push({ title: sections.length ? "기타" : "", items: rest });
     snapshot();
+    setView("clean"); render(); normalizeClean(us); // AI 정리는 바뀐 글씨(정리본) 크기를 고르게 맞춰서 배치
     noteTitle = String(data.title || "").slice(0, 30);
     const { plan, newHeads } = planLayout(sections);
     animateTo(plan, newHeads, () => { if (mode === "page") goPage(0); else paper.scrollTo({ top: 0, behavior: "smooth" }); });
@@ -1223,7 +1253,7 @@ paper.addEventListener("drop", async (e) => {
 
 /* ───────── 도구 ───────── */
 function seg(id, cb) { $(id).querySelectorAll("button").forEach((bt) => (bt.onclick = () => { $(id).querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === bt)); cb(bt.dataset.v); })); }
-seg("tool", (v) => { tool = v; setTimeout(() => render(true)); svg.classList.toggle("move", v === "move"); svg.classList.toggle("erase", v === "erase"); if (v === "lasso") say("묶고 싶은 획들을 올가미처럼 빙 둘러 감싸 보세요. 감싼 것끼리 한 덩어리가 돼요."); if (v !== "move" && v !== "lasso") { sel = null; render(); } });
+seg("tool", (v) => { tool = v; setTimeout(() => render(true)); svg.classList.toggle("move", v === "move"); svg.classList.toggle("erase", v === "erase"); if (v === "move") say("✋ 선택: 덩어리를 끌면 옮기기, 빈 곳에서 빙 둘러 그리면 묶기(그림+글을 감싸면 세트), 노란 손잡이로 크기 조절이에요."); if (v !== "move") { sel = null; render(); } });
 seg("view", (v) => { view = v; render(); });
 seg("color", (v) => (color = v));
 $("gap").oninput = () => { regroup(); };
@@ -1232,7 +1262,7 @@ $("undo").onclick = () => { const s = undoStack.pop(); if (!s) return toast("더
 $("clear").onclick = () => { if (!strokes.length && !heads.length) return; snapshot(); strokes = []; meta = {}; heads = []; sel = null; regroup(); fitBoard(); save(); toast("다 지웠어요 (되돌리기 가능)"); };
 $("copy").onclick = async () => {
   const report = {
-    page: "note-test v9", engine: gem.model || "chrome", usedToday: usage().n, mode, pages: pageCount(), heads: heads.map((h) => h.text), noteTitle, ua: navigator.userAgent, api: env.api, ko: !!env.ko, en: !!env.en,
+    page: "note-test v11", engine: gem.model || "chrome", usedToday: usage().n, mode, pages: pageCount(), heads: heads.map((h) => h.text), noteTitle, ua: navigator.userAgent, api: env.api, ko: !!env.ko, en: !!env.en,
     koInfo: env.ko || null, inputs: [...env.inputs], topic: topic, fixes: fixes.length, ctxCheck: $("gCheck").checked, gap: +$("gap").value,
     blocks: blocks.map((b, i) => ({ n: i + 1, type: b.type, strokes: b.strokes.length, size: [Math.round(b.box.w), Math.round(b.box.h)], ms: b.m.ms, edited: !!b.m.edited, parent: b.parent ? blocks.findIndex((x) => x.key === b.parent) + 1 : null, lines: (b.m.lines || []).map((l) => ({ text: l.text, alts: l.alts })) })),
   };
