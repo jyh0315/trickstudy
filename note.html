@@ -719,7 +719,7 @@ function gemContext(list) {
   if (fixes.length) t += `\n\n[이 학생 글씨를 예전에 잘못 읽었다가 학생이 고친 예 (잘못 읽은 것 → 실제). 글씨 버릇 참고용]\n` + fixes.slice(-25).map((f) => `- ${f.from} → ${f.to}`).join("\n");
   const check = $("gCheck").checked;
   t += check
-    ? `\n\n각 block 에 "check" 도 넣으세요: 옮긴 내용 중 생명과학·수학 개념상 틀렸을 가능성이 있는 부분이 있으면 한 문장으로 짧게 (한국어), 없으면 "".`
+    ? `\n\n각 block 에 "check" 도 넣으세요: 옮긴 내용 중 개념상 틀렸을 가능성이 있는 부분이 있으면 한 문장으로 짧게 (한국어), 없으면 빈 문자열 "" (none·없음 같은 말 쓰지 말 것).`
     : "";
   t += `\n\n출력 형식: {"blocks":[{"lines":[{"text":"...","alts":["..."],"unsure":["..."]}]${check ? ',"check":""' : ""}}]}`;
   return t;
@@ -905,7 +905,7 @@ async function recognizeAll(manual, onlyKey) {
         const r = res[i], b = blocks.find((x) => x.m.sig === sigs[i]);
         if (!b) return; // 그새 묶음이 바뀜 → 새 묶음은 다시 읽음
         b.m.stale = false;
-        if (r && r.lines) { b.m.merged = false; b.m.hint = ""; b.m.reread = ""; b.m.check = r.check || ""; b.m.lines = applyLines(b, r.lines); b.m.ms = ms; b.m.edited = false; b.m.engine = gemRecognize.used; }
+        if (r && r.lines) { b.m.merged = false; b.m.hint = ""; b.m.reread = ""; b.m.check = realCheck(r.check); b.m.lines = applyLines(b, r.lines); b.m.ms = ms; b.m.edited = false; b.m.engine = gemRecognize.used; }
       });
       if (blocks.some((b) => b.type === "text" && b.m.stale)) scheduleRecognize();
       aiStat("ok", "🤖"); lastMs = ms; say(`글 덩어리 ${list.length}개를 읽었어요! (${(ms / 1000).toFixed(1)}초${gemRecognize.used !== gem.model ? " · 붐벼서 " + gemRecognize.used + " 사용" : ""}) 틀린 건 오른쪽에서 고치거나 후보를 골라요.`);
@@ -952,6 +952,11 @@ async function recognizeStrokes(rec, ss) {
 }
 
 /* ───────── 그리기(화면) ───────── */
+// 개념 메모: "none"·"없음" 처럼 '문제 없음'이란 답은 메모로 안 띄움
+function realCheck(t) {
+  t = String(t || "").trim();
+  return !t || /^(none|null|n\/?a|no|nothing|ok|없음|없습니다|없어요|해당\s*없음|문제\s*없(음|습니다|어요)|틀린\s*(곳|부분)?\s*없(음|습니다|어요)|-+|—+|\.)\.?$/i.test(t) ? "" : t;
+}
 // 펜 색: 획 길이로 가장 많이 쓴 색 (정리 글씨도 그 색으로)
 const INK = "#3b2a20";
 function mainColor(ss) {
@@ -1062,7 +1067,7 @@ function renderSide() {
       };
       c.appendChild(t);
       if (b.m.lines && b.m.lines.some((l) => l.unsure && l.unsure.length)) { const u = document.createElement("div"); u.className = "meta"; u.innerHTML = '<mark class="uns">노란 글자</mark> = 자신 없거나 문맥으로 고른 글자예요. 맞으면 그냥 두고, 틀리면 눌러서 고쳐요.'; c.appendChild(u); }
-      if (b.m.check) { const k2 = document.createElement("div"); k2.className = "chk"; k2.textContent = "💡 확인해 보세요: " + b.m.check; c.appendChild(k2); }
+      if (realCheck(b.m.check)) { const k2 = document.createElement("div"); k2.className = "chk"; k2.textContent = "💡 확인해 보세요: " + b.m.check; c.appendChild(k2); }
       if (b.m.lines) b.m.lines.forEach((l, k) => {
         if (!l.alts.length) return;
         const a = document.createElement("div"); a.className = "alts";
