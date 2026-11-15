@@ -441,12 +441,24 @@ const GPROMPT = `학생의 손글씨 필기 조각들을 글자로 옮겨 주세
 async function gemRecognize(list) {
   const parts = [{ text: GPROMPT + `\n이미지는 모두 ${list.length}개예요.` }];
   list.forEach((b, i) => { parts.push({ text: `이미지 ${i + 1}` }); parts.push({ inline_data: { mime_type: "image/png", data: blockPng(b) } }); });
-  const r = await fetch(GAPI + "models/" + encodeURIComponent(gem.model) + ":generateContent", {
-    method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": gem.key },
-    body: JSON.stringify({ contents: [{ role: "user", parts }], generationConfig: { temperature: 0, responseMimeType: "application/json" } }),
-  });
-  if (r.status === 429) { const e = new Error("무료 사용량을 잠깐 다 썼어요. 30초 뒤에 다시 읽을게요"); e.retry = true; throw e; }
-  if (!r.ok) throw new Error(await gemErr(r));
+  const body = JSON.stringify({ contents: [{ role: "user", parts }], generationConfig: { temperature: 0, responseMimeType: "application/json" } });
+  // 고른 모델이 붐비거나(503) 한도에 걸리면(429) 다른 flash 모델로 바꿔서 시도
+  const order = [gem.model, ...(gem.models || []).filter((m) => m !== gem.model)].slice(0, 4);
+  let r = null, used = null, busyHit = false, quotaHit = false, lastErr = "";
+  for (const m of order) {
+    r = await fetch(GAPI + "models/" + encodeURIComponent(m) + ":generateContent", { method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": gem.key }, body });
+    if (r.ok) { used = m; break; }
+    lastErr = await gemErr(r);
+    if (r.status === 503 || r.status === 500 || /high demand|overloaded|unavailable/i.test(lastErr)) { busyHit = true; continue; }
+    if (r.status === 429) { quotaHit = true; continue; }
+    if (r.status === 404) continue; // 없어진 모델
+    throw new Error(lastErr);
+  }
+  if (!used) {
+    const e = new Error(quotaHit && !busyHit ? "무료 사용량을 잠깐 다 썼어요. 30초 뒤에 다시 읽을게요" : "구글 서버가 붐벼요. 잠시 뒤 자동으로 다시 읽을게요");
+    e.retry = true; e.wait = quotaHit && !busyHit ? 30000 : 12000; throw e;
+  }
+  gemRecognize.used = used;
   const j = await r.json();
   const txt = (((j.candidates || [])[0] || {}).content || { parts: [] }).parts.map((p) => p.text || "").join("");
   const data = JSON.parse(txt.replace(/^```(json)?|```$/g, "").trim());
@@ -475,10 +487,10 @@ async function recognizeAll() {
     try {
       const res = await gemRecognize(list);
       const ms = Math.round(performance.now() - t0);
-      list.forEach((b, i) => { const r = res[i]; b.m.stale = false; if (r && r.lines) { b.m.lines = applyLines(b, r.lines); b.m.ms = ms; b.m.edited = false; b.m.engine = gem.model; } });
-      say(`글 덩어리 ${list.length}개를 읽었어요! (${(ms / 1000).toFixed(1)}초) 틀린 건 오른쪽에서 고치거나 후보를 골라요.`);
+      list.forEach((b, i) => { const r = res[i]; b.m.stale = false; if (r && r.lines) { b.m.lines = applyLines(b, r.lines); b.m.ms = ms; b.m.edited = false; b.m.engine = gemRecognize.used; } });
+      say(`글 덩어리 ${list.length}개를 읽었어요! (${(ms / 1000).toFixed(1)}초${gemRecognize.used !== gem.model ? " · 붐벼서 " + gemRecognize.used + " 사용" : ""}) 틀린 건 오른쪽에서 고치거나 후보를 골라요.`);
     } catch (e) {
-      if (e.retry) { gemWaitUntil = Date.now() + 30000; scheduleRecognize(30500); }
+      if (e.retry) { gemWaitUntil = Date.now() + e.wait; scheduleRecognize(e.wait + 500); }
       say("읽기 실패: " + e.message);
     } finally { busy = false; }
     render(); save(); return;
