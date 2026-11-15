@@ -76,8 +76,8 @@ body.noside .side { display: none; }
 .clean { font-family: var(--font-body); fill: var(--ink); }
 .cleanF { display: inline-block; font-family: var(--font-body); color: var(--ink); white-space: nowrap; overflow: visible; }
 .cleanF .katex { font-size: 1em; }
-.cleanB { font-family: var(--font-body); color: var(--ink); line-height: 1.55; white-space: normal; word-break: keep-all; overflow-wrap: anywhere; }
-.cleanB > div { white-space: normal; width: fit-content; max-width: 100%; }
+.cleanB { display: inline-block; font-family: var(--font-body); color: var(--ink); line-height: 1.55; white-space: nowrap; }
+.cleanB > div { white-space: nowrap; width: max-content; }
 .cleanB .katex { font-size: 1.05em; }
 .card .txt .katex { font-size: 1.05em; }
 .ai { background: var(--paper); border: 2px solid var(--ink); border-radius: 14px; padding: 6px 12px; margin-bottom: 10px; }
@@ -860,15 +860,16 @@ function render(fast) {
       }
       el("path", { class: "stroke", d: pathD(s.pts), stroke: s.c, "stroke-width": widthOf(s), opacity: inkOp }, gInk);
     }
-    const pad = 6, bx0 = b.box, bx = view === "clean" && cleanText && b.m._ch ? { x: bx0.x, y: bx0.y, w: Math.min(bx0.w, (b.m._cw || bx0.w) + 6), h: Math.max(b.m._ch - 4, 20) } : bx0;
+    const pad = 6, bx0 = b.box, bx = view === "clean" && cleanText && b.m._ch ? { x: bx0.x, y: bx0.y, w: (b.m._cw || bx0.w) + 6, h: Math.max(b.m._ch - 4, 20) } : bx0;
     el("rect", { class: "box " + b.type + (b.parent ? " label" : "") + (sel === b.key ? " sel" : ""), x: bx.x - pad, y: bx.y - pad, width: bx.w + pad * 2, height: bx.h + pad * 2, rx: 10 }, gBox);
     const tag = el("text", { class: "tag", x: bx.x - pad + 2, y: bx.y - pad - 4, fill: b.type === "text" ? "#2f7fd0" : "#c23f68" }, gBox);
     tag.textContent = b.parent ? (b.m.setp ? (b.type === "text" ? "설명" : "그림") : "이름표") : b.type === "text" ? "글" : "그림";
     if (view !== "ink" && cleanText) {
-      // 정리 글씨: 노트 전체가 같은 크기로, 덩어리 왼쪽 위부터 줄줄이 (덩어리 폭에서 줄바꿈)
-      const fsz = cleanFS(), W = Math.max(bx0.w, 140);
+      // 정리 글씨: 노트 전체가 같은 크기로, 덩어리 왼쪽 위부터 줄줄이. 쓴 줄은 꺾지 않고 한 줄 그대로
+      //  (종이 오른쪽 끝을 넘을 때만 그 줄을 줄임) → 덩어리가 넓어지면 배치가 그 크기로 자리를 잡음
+      const fsz = cleanFS(), W = Math.max(bx0.w, (svg.clientWidth || 800) - bx0.x - 16);
       const fo = el("foreignObject", { x: bx.x, y: bx.y - 2, width: W + 30, height: 10 }, gClean);
-      const dv = document.createElement("div"); dv.className = "cleanB"; dv.style.cssText = `font-size:${fsz}px;width:${W}px`;
+      const dv = document.createElement("div"); dv.className = "cleanB"; dv.style.cssText = `font-size:${fsz}px;max-width:${W}px`;
       dv.innerHTML = b.m.lines.filter((l) => l.text).map((l) => `<div>${richHTML(l)}</div>`).join("");
       fo.appendChild(dv);
       for (const row of dv.children) if (row.scrollWidth > W + 2) row.style.fontSize = Math.max(0.55, W / row.scrollWidth).toFixed(3) + "em"; // 줄바꿈 안 되는 긴 수식만 그 줄만 줄임
@@ -1085,7 +1086,7 @@ function units() {
   return blocks.filter((b) => !b.parent).map((b) => {
     const group = [b, ...blocks.filter((x) => x.parent === b.key)];
     const box = bbox(group.flatMap((g) => g.strokes.flatMap((s) => s.pts)));
-    if (view === "clean" && group.length === 1 && b.type === "text" && b.m.lines && !b.m.stale && b.m._ch) { box.h = b.m._ch; box.w = Math.max(b.m._cw || box.w, 60); } // 정리본으로 볼 땐 정리 글씨 크기로 배치
+    if (view === "clean" && group.length === 1 && b.type === "text" && b.m.lines && !b.m.stale && b.m._ch) { box.h = b.m._ch; box.w = Math.max((b.m._cw || box.w) + 6, 60); } // 정리본으로 볼 땐 정리 글씨 크기로 배치
     return { b, group, box: { x: box.x - 6, y: box.y - 6, w: box.w + 12, h: box.h + 12 } };
   });
 }
