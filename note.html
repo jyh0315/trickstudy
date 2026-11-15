@@ -95,6 +95,10 @@ select { font: 14px var(--font-body); border: 2px solid var(--ink); border-radiu
 .stk-op img { width: 104px; height: 104px; object-fit: contain; }
 .stk-op.live { background: linear-gradient(#fff, #ffe9b8); justify-content: center; }
 .stk-cam { font-size: 44px; height: 104px; display: grid; place-items: center; }
+.selBar { position: absolute; z-index: 4; display: flex; gap: 4px; padding: 4px; background: var(--paper); border: 2px solid var(--ink); border-radius: 12px; box-shadow: 0 3px 0 var(--ink); }
+.selBar[hidden] { display: none; }
+.selBar button { font: 15px var(--font-title); width: 34px; height: 30px; border: 2px solid var(--ink); border-radius: 9px; background: #fff; cursor: pointer; color: var(--ink); }
+.selBar button[data-a="del"] { background: #ffe1dc; }
 .cvp-ctl { display: flex; align-items: center; gap: 8px; }
 .cvp-ctl input { flex: 1; accent-color: var(--pink-d); }
 .cvp-foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
@@ -215,7 +219,7 @@ mark.uns { background: #ffe08a; border-bottom: 2px dotted #d8483b; color: inheri
 </div>
 
 <div class="wrap">
-  <div class="paper" id="paper"><svg id="board" xmlns="http://www.w3.org/2000/svg"><g id="world"><g id="gPages"></g><g id="gBoxes"></g><g id="gHeads"></g><g id="gInk"></g><g id="gClean"></g><g id="gLive"></g></g></svg></div>
+  <div class="paper" id="paper"><svg id="board" xmlns="http://www.w3.org/2000/svg"><g id="world"><g id="gPages"></g><g id="gBoxes"></g><g id="gHeads"></g><g id="gInk"></g><g id="gClean"></g><g id="gLive"></g></g></svg><div class="selBar" id="selBar" hidden><button data-a="del" title="지우기 (Delete 키)">🗑</button><button data-a="out" title="작게">－</button><button data-a="in" title="크게">＋</button></div></div>
   <div class="side" id="side"><div class="card empty">아직 덩어리가 없어요. 써 보세요!</div></div>
 </div>
 <div id="toast"></div>
@@ -1065,6 +1069,7 @@ function render(fast) {
       const h = dv.scrollHeight; fo.setAttribute("height", h + 8); b.m._ch = h; b.m._cw = Math.min(W, Math.max(...[...dv.children].map((r) => r.scrollWidth), 40));
     }
   }
+  placeSelBar();
   if (!fast) renderSide();
 }
 // 노트 전체 정리 글씨 크기 = 필기한 글 줄 높이의 중간값 기준 (16~26px), 모든 덩어리 같은 크기
@@ -1284,6 +1289,42 @@ function renderHeads() {
    좁은 것끼리는 옆으로 나란히, 넓은 글은 한 줄 통째로. 페이지 모드면 장을 넘지 않게. */
 const M = 28, GAP = 22, LINE = 40, CLEAN_FS = 22;
 // 정리본 기준 배치: 글 덩어리마다 "바뀐 글씨" 크기가 CLEAN_FS 가 되도록 덩어리 전체(필기 포함)를 키우거나 줄임
+/* 고른 덩어리 옆 작은 버튼: 🗑 지우기 · － ＋ 크기 (스티커·사진·글·그림 모두) */
+function selUnit() {
+  const b = tool === "move" && view !== "final" && sel && blocks.find((x) => x.key === sel);
+  if (!b) return null;
+  const main = b.parent ? blocks.find((x) => x.key === b.parent) || b : b; // 세트·이름표면 대표 기준
+  return { b, main, group: [main, ...blocks.filter((x) => x.parent === main.key)] };
+}
+function placeSelBar() {
+  const bar = $("selBar"), u = selUnit();
+  if (!u || dragging) { bar.hidden = true; return; }
+  const B = bbox(u.group.flatMap((g) => [{ x: g.box.x, y: g.box.y }, { x: g.box.x + g.box.w, y: g.box.y + g.box.h }]));
+  bar.hidden = false;
+  const sr = svg.getBoundingClientRect(), pr = paper.getBoundingClientRect(); // (SVG 에는 offsetLeft 가 없어서 화면 위치로 계산)
+  const left = sr.left - pr.left + paper.scrollLeft + B.x * Z, top = sr.top - pr.top + paper.scrollTop + (B.y - offY()) * Z - 44;
+  bar.style.left = Math.max(4, left) + "px"; bar.style.top = Math.max(4, top) + "px";
+}
+function deleteSel() {
+  const u = selUnit(); if (!u) return;
+  snapshot();
+  const gone = new Set(u.b.strokes); // 고른 것만 (세트의 다른 덩어리는 남김)
+  strokes = strokes.filter((st) => !gone.has(st));
+  sel = null; regroup(); fitBoard(); save(); toast("🗑 지웠어요 (↶ 되돌리기 가능)");
+}
+function zoomSel(k) {
+  const u = selUnit(); if (!u) return;
+  snapshot();
+  const B = bbox(u.group.flatMap((g) => g.strokes.flatMap((st) => st.pts)));
+  scaleBlocks(u.group, k, B.x, B.y);
+  for (const g of u.group) lockBlock(g, "L");
+  sel = u.main.key[0] === "S" ? "L" + u.main.strokes[0].id : u.main.key;
+  regroup(); fitBoard(); save();
+}
+$("selBar").addEventListener("pointerdown", (e) => e.stopPropagation());
+$("selBar").onclick = (e) => { const a = e.target.closest("button") && e.target.closest("button").dataset.a; if (a === "del") deleteSel(); if (a === "in") zoomSel(1.15); if (a === "out") zoomSel(1 / 1.15); };
+document.addEventListener("keydown", (e) => { if ((e.key === "Delete" || e.key === "Backspace") && selUnit() && !e.target.closest("input,textarea,[contenteditable]")) { e.preventDefault(); deleteSel(); } });
+paper.addEventListener("scroll", placeSelBar, { passive: true });
 function scaleBlocks(gs, k, ax, ay) {
   for (const g of gs) {
     for (const st of g.strokes) st.pts.forEach((q) => { q.x = +(ax + (q.x - ax) * k).toFixed(1); q.y = +(ay + (q.y - ay) * k).toFixed(1); });
