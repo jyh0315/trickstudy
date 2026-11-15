@@ -1678,7 +1678,7 @@ function snapSpine(base) {
         p.animationState.update(Math.random() * dur); p.animationState.apply(p.skeleton); p.skeleton.updateWorldTransform();
         Object.assign(p.config.viewport, { x: -W / 2, y: -30, width: W, height: H }); p.setViewport(pick);
         if (p.paused) p.play();
-        setTimeout(() => { try { if (p.drawFrame) p.drawFrame(false); fin(host.querySelector("canvas").toDataURL("image/png")); } catch (e) { fin(null); } }, 500 + Math.random() * 900);
+        setTimeout(async () => { const u = await grabSpine(p, host); fin(u && !(await isBlankImg(u)) ? u : null); }, 500 + Math.random() * 900);
       },
       error: () => { clearTimeout(to); fin(null); },
     });
@@ -1687,6 +1687,23 @@ function snapSpine(base) {
 /* 📸 표지 사진 찍기: 움직이는 대표 사도를 보면서 표정을 고르고, 찰칵 누른 순간이 표지 */
 const MOODS = [["대기", /^Idle_/], ["기쁨", /^(Happy|Smile|Laugh)_/], ["뿌듯", /^(Proud|Pride)_/], ["부끄럼", /^Shy_/], ["춤", /^Dance_/], ["놀람", /^(Surprise|Panic)_/], ["삐짐", /^(Sulky|Angry|Mad)_/], ["슬픔", /^(Sad|Sorry|Tear)_/], ["졸림", /^(Sleep|Tired|Close)_/], ["냠냠", /^Eat_/], ["터치", /^Touch_/], ["쓰다듬", /^Pat_/], ["간지럼", /^Tickle_/]];
 const gameState = () => { try { return JSON.parse(localStorage.getItem("trickcal-study") || "{}") || {}; } catch (e) { return {}; } };
+// 움직이는 사도 찍기: 그래픽 카드 화면은 그린 직후가 아니면 비어 있을 수 있어서, 다음 화면을 그리는 그 순간에 찍음
+function grabSpine(p, host) {
+  return new Promise((ok) => requestAnimationFrame(() => {
+    try { if (p.drawFrame) p.drawFrame(false); ok(host.querySelector("canvas").toDataURL("image/png")); } catch (e) { ok(null); }
+  }));
+}
+// 찍은 사진이 거의 투명(빈 사진)인지 확인
+async function isBlankImg(url) {
+  try {
+    const im = new Image(); im.src = url; await im.decode();
+    const c = document.createElement("canvas"); c.width = 60; c.height = 80;
+    const g = c.getContext("2d"); g.drawImage(im, 0, 0, 60, 80);
+    const d = g.getImageData(0, 0, 60, 80).data;
+    let n = 0; for (let i = 3; i < d.length; i += 4) if (d[i] > 20) n++;
+    return n < 40; // 보이는 점이 거의 없으면 빈 사진
+  } catch (e) { return false; }
+}
 function coverPick() { return spinePick(gameState().partner || "erpin", { title: "📸 표지 사진 찍기", ok: "이 사진으로 PDF 만들기 →" }); }
 // 움직이는 사도를 보면서 표정을 고르고 찰칵 → { name, src(그림 주소) } / 취소면 null
 function spinePick(id, opts) {
@@ -1767,8 +1784,13 @@ function spinePick(id, opts) {
           };
           slider.oninput = () => { const e = cur(); if (!e) return; e.trackTime = (slider.value / 1000) * (e.animation.duration || 1); showPose(); };
           const shotBtn = ov.querySelector("#cvp-shot"); shotBtn.disabled = false;
-          shotBtn.onclick = () => {
-            try { if (p.drawFrame) p.drawFrame(false); shot = host.querySelector("canvas").toDataURL("image/png"); } catch (e) { return toast("사진을 못 찍었어요"); }
+          shotBtn.onclick = async () => {
+            shotBtn.disabled = true;
+            let got = null;
+            for (let tryN = 0; tryN < 3 && !got; tryN++) { const u = await grabSpine(p, host); if (u && !(await isBlankImg(u))) got = u; } // 빈 사진이면 다시
+            shotBtn.disabled = false;
+            if (!got) return toast("사진이 비어서 찍히지 않았어요 😢 한 번 더 눌러 보세요");
+            shot = got;
             ov.querySelector("#cvp-img").src = shot; ov.querySelector("#cvp-ok").disabled = false;
             stage.classList.remove("flash"); void stage.offsetWidth; stage.classList.add("flash");
           };
