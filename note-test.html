@@ -1,0 +1,409 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>필기 인식 테스트 · 트릭스터디</title>
+<link rel="icon" href="assets/chibi/erpin.webp">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Jua&family=Gowun+Dodum&display=swap" rel="stylesheet">
+<style>
+:root {
+  --ink: #3b2a20; --ink-soft: #7a6253; --cream: #fff8e6; --cream-2: #fdecc8; --paper: #fffdf6;
+  --yellow: #ffd34e; --pink: #ff8fb1; --pink-d: #e0577f; --mint: #7fd6c2; --sky: #8fd3ff; --red: #ff7b6e; --purple: #b77cff;
+  --line: 3px solid var(--ink); --shadow: 0 4px 0 var(--ink); --radius: 18px;
+  --font-title: "Jua", "Gowun Dodum", system-ui, sans-serif; --font-body: "Gowun Dodum", "Jua", system-ui, sans-serif;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--cream); color: var(--ink); font: 15px/1.45 var(--font-body); padding: 12px 16px 40px; }
+h1 { font: 22px var(--font-title); margin: 0; }
+.top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+.top img { width: 46px; height: 46px; border: var(--line); border-radius: 14px; background: var(--paper); }
+.top a { margin-left: auto; color: var(--ink-soft); font-size: 13px; }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.chip { font: 13px var(--font-title); padding: 3px 10px; border: 2px solid var(--ink); border-radius: 999px; background: var(--paper); }
+.chip.ok { background: var(--mint); } .chip.no { background: var(--red); color: #fff; } .chip.wait { background: var(--cream-2); }
+.say { display: flex; gap: 8px; align-items: flex-start; margin: 8px 0 10px; }
+.say p { margin: 0; padding: 8px 12px; background: var(--paper); border: 2px solid var(--ink); border-radius: 14px; font-size: 14px; flex: 1; }
+.bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 8px; }
+.seg { display: inline-flex; border: 2px solid var(--ink); border-radius: 12px; overflow: hidden; background: var(--paper); }
+.seg button { font: 14px var(--font-title); border: 0; background: transparent; padding: 6px 12px; cursor: pointer; color: var(--ink); }
+.seg button + button { border-left: 2px solid var(--ink); }
+.seg button.on { background: var(--yellow); }
+.btn { font: 14px var(--font-title); border: 2px solid var(--ink); border-radius: 12px; background: var(--paper); padding: 6px 12px; cursor: pointer; color: var(--ink); box-shadow: 0 3px 0 var(--ink); }
+.btn:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--ink); }
+.btn.pink { background: var(--pink); }
+label.opt { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; }
+select { font: 14px var(--font-body); border: 2px solid var(--ink); border-radius: 10px; padding: 4px 6px; background: var(--paper); }
+.wrap { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 12px; align-items: start; }
+@media (max-width: 820px) { .wrap { grid-template-columns: 1fr; } }
+.paper { position: relative; border: var(--line); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden;
+  background: var(--paper) repeating-linear-gradient(transparent 0 39px, #f0dcb4 39px 40px); }
+#board { display: block; width: 100%; height: min(72vh, 900px); touch-action: none; cursor: crosshair; }
+#board.move { cursor: grab; } #board.erase { cursor: cell; }
+.stroke { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.box { fill: none; stroke-width: 2; stroke-dasharray: 6 5; rx: 10; }
+.box.text { stroke: #4aa3df; fill: rgba(143, 211, 255, .08); } .box.draw { stroke: #e0577f; fill: rgba(255, 143, 177, .08); }
+.box.sel { stroke-dasharray: none; stroke-width: 3; }
+.tag { font: 12px var(--font-title); }
+.clean { font-family: var(--font-body); fill: var(--ink); }
+.side { display: flex; flex-direction: column; gap: 8px; }
+.card { background: var(--paper); border: 2px solid var(--ink); border-radius: 14px; padding: 8px 10px; }
+.card h3 { margin: 0 0 4px; font: 15px var(--font-title); display: flex; align-items: center; gap: 6px; }
+.card .k { font: 12px var(--font-title); padding: 1px 8px; border-radius: 999px; border: 2px solid var(--ink); cursor: pointer; }
+.card .k.text { background: var(--sky); } .card .k.draw { background: var(--pink); }
+.card .txt { white-space: pre-wrap; font-size: 16px; min-height: 1.4em; outline: none; border-radius: 8px; padding: 2px 4px; }
+.card .txt:focus { background: var(--cream-2); }
+.alts { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.alts button { font: 12px var(--font-body); border: 1.5px solid var(--ink-soft); background: #fff; border-radius: 8px; padding: 1px 6px; cursor: pointer; }
+.meta { font-size: 11px; color: var(--ink-soft); }
+.card.sel { background: var(--cream-2); }
+.empty { color: var(--ink-soft); font-size: 13px; }
+#toast { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); background: var(--ink); color: #fff; padding: 8px 14px; border-radius: 12px; font: 14px var(--font-title); opacity: 0; transition: opacity .25s; pointer-events: none; }
+#toast.on { opacity: 1; }
+</style>
+</head>
+<body>
+<div class="top">
+  <img src="assets/chibi/erpin.webp" alt="">
+  <h1>필기 인식 테스트</h1>
+  <div class="chips" id="chips"><span class="chip wait">손글씨 인식 확인 중…</span></div>
+  <a href="./">← 트릭스터디로</a>
+</div>
+<div class="say"><p id="say">스타일러스로 아무거나 써 보세요! 잠깐 멈추면 에르핀이 글은 읽고, 그림은 따로 묶어 둘게요.</p></div>
+
+<div class="bar">
+  <span class="seg" id="tool"><button data-v="pen" class="on">✏️ 펜</button><button data-v="erase">🧽 지우개</button><button data-v="move">✋ 옮기기</button></span>
+  <span class="seg" id="view"><button data-v="ink">원본</button><button data-v="both" class="on">겹쳐 보기</button><button data-v="clean">정리본</button></span>
+  <span class="seg" id="color"><button data-v="#3b2a20" class="on">⚫</button><button data-v="#d8483b">🔴</button><button data-v="#2f7fd0">🔵</button><button data-v="#2e9e6a">🟢</button></span>
+  <label class="opt">언어 <select id="lang"><option value="ko">한국어</option><option value="en">영어</option></select></label>
+  <label class="opt">묶기 간격 <input type="range" id="gap" min="10" max="80" value="34"></label>
+  <label class="opt"><input type="checkbox" id="penOnly" checked> 펜만 쓰기(손바닥 무시)</label>
+  <button class="btn" id="undo">↶ 되돌리기</button>
+  <button class="btn" id="clear">🗑 전부 지우기</button>
+  <button class="btn pink" id="copy">📋 결과 복사</button>
+</div>
+
+<div class="wrap">
+  <div class="paper"><svg id="board" xmlns="http://www.w3.org/2000/svg"><g id="gBoxes"></g><g id="gInk"></g><g id="gClean"></g><g id="gLive"></g></svg></div>
+  <div class="side" id="side"><div class="card empty">아직 덩어리가 없어요. 써 보세요!</div></div>
+</div>
+<div id="toast"></div>
+
+<script>
+"use strict";
+/* ───────── 상태 ───────── */
+const $ = (id) => document.getElementById(id);
+const svg = $("board"), NS = "http://www.w3.org/2000/svg";
+const KEY = "trickstudy-note-test";
+let strokes = [], meta = {}, nextId = 1, tool = "pen", view = "both", color = "#3b2a20", sel = null;
+let blocks = [];
+const undoStack = [];
+const env = { api: "none", ko: null, en: null, inputs: new Set() };
+let recognizer = null, recLang = null;
+
+function save() { try { localStorage.setItem(KEY, JSON.stringify({ strokes, meta, nextId })); } catch (e) { /* 저장 불가 */ } }
+function load() {
+  try { const d = JSON.parse(localStorage.getItem(KEY) || "null"); if (d) { strokes = d.strokes || []; meta = d.meta || {}; nextId = d.nextId || 1; } } catch (e) { /* 무시 */ }
+}
+function snapshot() { undoStack.push(JSON.stringify({ strokes, meta })); if (undoStack.length > 60) undoStack.shift(); }
+function toast(t) { const el = $("toast"); el.textContent = t; el.classList.add("on"); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove("on"), 1800); }
+function say(t) { $("say").textContent = t; }
+
+/* ───────── 손글씨 인식 API 확인 ───────── */
+async function query(lang) {
+  const n = navigator;
+  try {
+    if (n.queryHandwritingRecognizer) return await n.queryHandwritingRecognizer({ languages: [lang] });
+    if (n.queryHandwritingRecognizerSupport) { const r = await n.queryHandwritingRecognizerSupport({ languages: [lang] }); return r && r.languages ? r : null; }
+  } catch (e) { return null; }
+  return null;
+}
+async function checkApi() {
+  if (!("createHandwritingRecognizer" in navigator)) env.api = "none";
+  else { env.api = "yes"; env.ko = await query("ko"); env.en = await query("en"); }
+  const chips = [];
+  if (env.api === "none") chips.push('<span class="chip no">손글씨 인식 기능 없음</span>');
+  else {
+    chips.push(`<span class="chip ${env.ko ? "ok" : "no"}">한국어 ${env.ko ? "인식 가능" : "미지원"}</span>`);
+    chips.push(`<span class="chip ${env.en ? "ok" : "no"}">영어 ${env.en ? "인식 가능" : "미지원"}</span>`);
+  }
+  $("chips").innerHTML = chips.join("");
+  if (env.api === "none") say("이 브라우저엔 크롬 손글씨 인식 기능이 없어요. (크롬북 크롬에서 열어 보세요) 묶기·옮기기 테스트는 그대로 할 수 있어요!");
+  else if (!env.ko && env.en) say("한국어 인식은 안 되고 영어만 돼요… 결과를 복사해서 알려 주세요!");
+  else if (!env.ko && !env.en) say("인식 기능은 있는데 언어 지원이 확인되지 않아요. 그래도 한 번 써 볼게요!");
+  if (!env.ko && env.en) $("lang").value = "en";
+}
+async function getRecognizer() {
+  const lang = $("lang").value;
+  if (recognizer && recLang === lang) return recognizer;
+  if (env.api !== "yes") return null;
+  try { if (recognizer && recognizer.finish) recognizer.finish(); } catch (e) { /* 무시 */ }
+  try { recognizer = await navigator.createHandwritingRecognizer({ languages: [lang] }); recLang = lang; }
+  catch (e) { recognizer = null; recLang = null; toast("인식기를 못 만들었어요: " + (e.message || e.name)); }
+  return recognizer;
+}
+
+/* ───────── 그리기 ───────── */
+function pt(e) { const r = svg.getBoundingClientRect(); return { x: +(e.clientX - r.left).toFixed(1), y: +(e.clientY - r.top).toFixed(1), t: Math.round(e.timeStamp), p: e.pointerType === "pen" ? +(e.pressure || 0.5).toFixed(2) : 0.5 }; }
+function pathD(pts) {
+  if (!pts.length) return "";
+  if (pts.length < 3) return `M${pts[0].x} ${pts[0].y}` + pts.slice(1).map((q) => ` L${q.x} ${q.y}`).join("") + (pts.length === 1 ? ` l0.1 0.1` : "");
+  let d = `M${pts[0].x} ${pts[0].y}`;
+  for (let i = 1; i < pts.length - 1; i++) { const a = pts[i], b = pts[i + 1]; d += ` Q${a.x} ${a.y} ${((a.x + b.x) / 2).toFixed(1)} ${((a.y + b.y) / 2).toFixed(1)}`; }
+  const l = pts[pts.length - 1]; return d + ` L${l.x} ${l.y}`;
+}
+function widthOf(s) { const ps = s.pts.map((q) => q.p); const avg = ps.reduce((a, b) => a + b, 0) / Math.max(1, ps.length); return +(s.w * (0.55 + avg * 0.9)).toFixed(2); }
+function el(tag, attrs, parent) { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (parent) parent.appendChild(e); return e; }
+
+let live = null, liveEl = null, activePointer = null, dragging = null;
+svg.addEventListener("pointerdown", (e) => {
+  env.inputs.add(e.pointerType);
+  if (e.pointerType === "touch" && $("penOnly").checked && env.inputs.has("pen")) return; // 손바닥 무시
+  if (activePointer != null) return;
+  activePointer = e.pointerId; svg.setPointerCapture(e.pointerId);
+  const p = pt(e);
+  const erasing = tool === "erase" || (e.buttons & 32); // 펜 뒤쪽 지우개 버튼
+  if (erasing) { snapshot(); eraseAt(p); dragging = { erase: true }; return; }
+  if (tool === "move") {
+    const b = blockAt(p);
+    if (b) { snapshot(); sel = b.key; dragging = { b, x: p.x, y: p.y, moved: false }; svg.style.cursor = "grabbing"; render(); }
+    else { sel = null; render(); }
+    return;
+  }
+  clearTimeout(recT);
+  live = { id: nextId++, pts: [p], w: e.pointerType === "pen" ? 2.6 : 3, c: color };
+  liveEl = el("path", { class: "stroke", stroke: color, "stroke-width": live.w }, $("gLive"));
+  liveEl.setAttribute("d", pathD(live.pts));
+});
+svg.addEventListener("pointermove", (e) => {
+  if (e.pointerId !== activePointer) return;
+  const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
+  if (dragging && dragging.erase) { evs.forEach((ev) => eraseAt(pt(ev))); return; }
+  if (dragging && dragging.b) {
+    const p = pt(e), dx = p.x - dragging.x, dy = p.y - dragging.y;
+    dragging.x = p.x; dragging.y = p.y; dragging.moved = true;
+    for (const s of dragging.b.strokes) { for (const q of s.pts) { q.x = +(q.x + dx).toFixed(1); q.y = +(q.y + dy).toFixed(1); } }
+    dragging.b.box.x += dx; dragging.b.box.y += dy;
+    (dragging.b.m.lines || []).forEach((l) => { l.box.x += dx; l.box.y += dy; });
+    render(true); return;
+  }
+  if (!live) return;
+  for (const ev of evs) { const p = pt(ev); const l = live.pts[live.pts.length - 1]; if (Math.hypot(p.x - l.x, p.y - l.y) >= 1.2) live.pts.push(p); }
+  liveEl.setAttribute("d", pathD(live.pts));
+});
+function endPointer(e) {
+  if (e.pointerId !== activePointer) return;
+  activePointer = null; svg.style.cursor = "";
+  if (dragging) {
+    const d = dragging; dragging = null;
+    if (d.b && d.moved) { // 옮긴 덩어리는 다른 덩어리와 섞이지 않게 고정
+      const lock = "L" + d.b.strokes[0].id;
+      d.b.strokes.forEach((s) => { s.lock = lock; s.lockAt = nextId; });
+      const old = meta[d.b.key]; if (old) { meta[lock] = old; }
+      regroup(); save();
+    } else if (d.erase) { regroup(); save(); scheduleRecognize(); }
+    return;
+  }
+  if (!live) return;
+  snapshot();
+  strokes.push(live); live = null; $("gLive").innerHTML = "";
+  regroup(); save(); scheduleRecognize();
+}
+svg.addEventListener("pointerup", endPointer);
+svg.addEventListener("pointercancel", endPointer);
+
+function eraseAt(p) {
+  const r = 12, before = strokes.length;
+  strokes = strokes.filter((s) => !s.pts.some((q) => Math.hypot(q.x - p.x, q.y - p.y) < r + s.w));
+  if (strokes.length !== before) { regroup(); render(); }
+}
+
+/* ───────── 덩어리 묶기 ───────── */
+function bbox(pts) { let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9; for (const q of pts) { x0 = Math.min(x0, q.x); y0 = Math.min(y0, q.y); x1 = Math.max(x1, q.x); y1 = Math.max(y1, q.y); } return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 }; }
+function near(a, b, g) { return a.x - g < b.x + b.w && b.x - g < a.x + a.w && a.y - g < b.y + b.h && b.y - g < a.y + a.h; }
+function regroup() {
+  const g = +$("gap").value;
+  const n = strokes.length, par = [...Array(n).keys()];
+  const find = (i) => (par[i] === i ? i : (par[i] = find(par[i])));
+  const bb = strokes.map((s) => bbox(s.pts));
+  for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) {
+    const a = strokes[i], b = strokes[j];
+    const same = a.lock && a.lock === b.lock;
+    if (same) { par[find(i)] = find(j); continue; }
+    if (a.lock && b.lock) continue; // 서로 다른 고정 덩어리는 안 섞음
+    // 옮겨 둔 덩어리는 원래 있던 획과 섞이지 않고, 옮긴 뒤에 그 옆에 새로 쓴 획만 붙음
+    const L = a.lock ? a : b.lock ? b : null, o = L === a ? b : a;
+    if (L && o.id < L.lockAt) continue;
+    if (near(bb[i], bb[j], g)) par[find(i)] = find(j);
+  }
+  const groups = new Map();
+  strokes.forEach((s, i) => { const r = find(i); if (!groups.has(r)) groups.set(r, []); groups.get(r).push(s); });
+  blocks = [...groups.values()].map((ss) => {
+    ss.sort((a, b) => a.id - b.id);
+    const lock = (ss.find((s) => s.lock) || {}).lock;
+    if (lock) { const at = ss.find((s) => s.lock).lockAt; ss.forEach((s) => { s.lock = lock; s.lockAt = at; }); } // 고정 덩어리 옆에 새로 쓴 획은 그 덩어리에 들어감
+    const key = lock || "S" + ss[0].id;
+    const box = bbox(ss.flatMap((s) => s.pts));
+    const m = meta[key] || (meta[key] = {});
+    const sig = ss.map((s) => s.id).join(",");
+    if (m.sig !== sig) { m.sig = sig; m.stale = true; }
+    return { key, strokes: ss, box, m, type: m.type || guessType(ss, box) };
+  });
+  blocks.sort((a, b) => a.box.y - b.box.y || a.box.x - b.box.x);
+  for (const k of Object.keys(meta)) if (!blocks.some((b) => b.key === k)) delete meta[k];
+  render();
+}
+// 획이 작고 여러 개면 글, 크고 긴 획이 있으면 그림 (나중에 직접 바꿀 수 있음)
+function guessType(ss, box) {
+  const sizes = ss.map((s) => { const b = bbox(s.pts); return Math.hypot(b.w, b.h); }).sort((a, b) => a - b);
+  const med = sizes[Math.floor(sizes.length / 2)], big = sizes[sizes.length - 1];
+  if (ss.length === 1 && big > 90) return "draw";
+  if (med > 85 || big > 260) return "draw";
+  if (box.h > 220 && box.w > 220 && ss.length < 12) return "draw";
+  return "text";
+}
+function blockAt(p) { for (let i = blocks.length - 1; i >= 0; i--) { const b = blocks[i].box; if (p.x >= b.x - 8 && p.x <= b.x + b.w + 8 && p.y >= b.y - 8 && p.y <= b.y + b.h + 8) return blocks[i]; } return null; }
+
+/* 글 덩어리를 줄로 나누기 (세로 중심이 겹치는 획끼리 한 줄) */
+function linesOf(b) {
+  const items = b.strokes.map((s) => ({ s, bb: bbox(s.pts) })).sort((a, c) => (a.bb.y + a.bb.h / 2) - (c.bb.y + c.bb.h / 2));
+  const lines = [];
+  for (const it of items) {
+    const cy = it.bb.y + it.bb.h / 2;
+    const L = lines.find((l) => cy >= l.y0 - 4 && cy <= l.y1 + 4);
+    if (L && it.bb.h < (L.y1 - L.y0) * 3 + 40) { L.items.push(it); L.y0 = Math.min(L.y0, it.bb.y); L.y1 = Math.max(L.y1, it.bb.y + it.bb.h); }
+    else lines.push({ y0: it.bb.y, y1: it.bb.y + it.bb.h, items: [it] });
+  }
+  lines.sort((a, c) => a.y0 - c.y0);
+  return lines.map((l) => { l.items.sort((a, c) => a.bb.x - c.bb.x); const bx = bbox(l.items.flatMap((i) => i.s.pts)); return { strokes: l.items.map((i) => i.s), box: bx }; });
+}
+
+/* ───────── 인식 ───────── */
+let recT = 0, busy = false;
+function scheduleRecognize() { clearTimeout(recT); recT = setTimeout(recognizeAll, 900); }
+async function recognizeAll() {
+  if (busy) return scheduleRecognize();
+  const rec = await getRecognizer();
+  busy = true;
+  try {
+    for (const b of blocks) {
+      if (b.type !== "text" || !b.m.stale) continue;
+      b.m.stale = false;
+      if (!rec) { b.m.lines = null; continue; }
+      const t0 = performance.now();
+      const lines = linesOf(b), out = [];
+      for (const ln of lines) {
+        const r = await recognizeStrokes(rec, ln.strokes);
+        out.push({ text: r[0] || "", alts: r.slice(1, 5), box: ln.box });
+      }
+      b.m.lines = out; b.m.ms = Math.round(performance.now() - t0); b.m.edited = false;
+    }
+  } finally { busy = false; }
+  render(); save();
+  const done = blocks.filter((b) => b.type === "text" && b.m.lines);
+  if (done.length) say(`글 덩어리 ${done.length}개를 읽었어요! 틀린 글자는 오른쪽 목록에서 눌러서 고치거나 다른 후보를 골라 보세요.`);
+}
+async function recognizeStrokes(rec, ss) {
+  try {
+    const hints = { recognitionType: "text", inputType: "stylus", alternatives: 5 };
+    const drawing = rec.startDrawing(hints);
+    const t0 = ss[0].pts[0].t;
+    for (const s of ss) {
+      const st = new HandwritingStroke();
+      for (const q of s.pts) st.addPoint({ x: q.x, y: q.y, t: Math.max(0, q.t - t0) });
+      drawing.addStroke(st);
+    }
+    const preds = await drawing.getPrediction();
+    try { drawing.clear && drawing.clear(); } catch (e) { /* 무시 */ }
+    return (preds || []).map((p) => p.text);
+  } catch (e) { console.warn(e); return ["(인식 오류: " + (e.message || e.name) + ")"]; }
+}
+
+/* ───────── 그리기(화면) ───────── */
+function render(fast) {
+  const gInk = $("gInk"), gBox = $("gBoxes"), gClean = $("gClean");
+  gInk.innerHTML = ""; gBox.innerHTML = ""; gClean.innerHTML = "";
+  for (const b of blocks) {
+    const cleanText = b.type === "text" && b.m.lines && b.m.lines.some((l) => l.text);
+    const inkOp = view === "ink" ? 1 : view === "both" ? (cleanText ? 0.22 : 1) : (cleanText ? 0 : 1);
+    if (inkOp > 0) for (const s of b.strokes) el("path", { class: "stroke", d: pathD(s.pts), stroke: s.c, "stroke-width": widthOf(s), opacity: inkOp }, gInk);
+    const pad = 6, bx = b.box;
+    el("rect", { class: "box " + b.type + (sel === b.key ? " sel" : ""), x: bx.x - pad, y: bx.y - pad, width: bx.w + pad * 2, height: bx.h + pad * 2, rx: 10 }, gBox);
+    const tag = el("text", { class: "tag", x: bx.x - pad + 2, y: bx.y - pad - 4, fill: b.type === "text" ? "#2f7fd0" : "#c23f68" }, gBox);
+    tag.textContent = b.type === "text" ? "글" : "그림";
+    if (view !== "ink" && cleanText) {
+      for (const l of b.m.lines) {
+        if (!l.text) continue;
+        const fs = Math.max(14, Math.min(44, l.box.h * 0.78));
+        const t = el("text", { class: "clean", x: l.box.x, y: l.box.y + l.box.h * 0.5 + fs * 0.36, "font-size": fs.toFixed(1) }, gClean);
+        t.textContent = l.text;
+      }
+    }
+  }
+  if (!fast) renderSide();
+}
+function renderSide() {
+  const side = $("side");
+  if (!blocks.length) { side.innerHTML = '<div class="card empty">아직 덩어리가 없어요. 써 보세요!</div>'; return; }
+  side.innerHTML = "";
+  blocks.forEach((b, i) => {
+    const c = document.createElement("div");
+    c.className = "card" + (sel === b.key ? " sel" : "");
+    const text = b.m.lines ? b.m.lines.map((l) => l.text).join("\n") : "";
+    c.innerHTML = `<h3>#${i + 1} <span class="k ${b.type}" title="눌러서 글/그림 바꾸기">${b.type === "text" ? "글" : "그림"}</span><span class="meta">획 ${b.strokes.length}개${b.m.ms != null && b.type === "text" ? " · " + b.m.ms + "ms" : ""}${b.key[0] === "L" ? " · 📌옮김" : ""}</span></h3>`;
+    if (b.type === "text") {
+      const t = document.createElement("div");
+      t.className = "txt"; t.contentEditable = "true"; t.spellcheck = false;
+      t.textContent = text || (env.api === "yes" ? "(읽는 중…)" : "(이 기기에선 인식 불가)");
+      t.onblur = () => {
+        const v = t.textContent.split("\n");
+        if (!b.m.lines) return;
+        b.m.lines.forEach((l, k) => (l.text = v[k] != null ? v[k] : l.text));
+        b.m.edited = true; render(); save();
+      };
+      c.appendChild(t);
+      if (b.m.lines) b.m.lines.forEach((l, k) => {
+        if (!l.alts.length) return;
+        const a = document.createElement("div"); a.className = "alts";
+        a.innerHTML = `<span class="meta">${b.m.lines.length > 1 ? k + 1 + "줄 " : ""}후보:</span>`;
+        l.alts.forEach((alt) => { const bt = document.createElement("button"); bt.textContent = alt; bt.onclick = () => { const cur = l.text; l.text = alt; l.alts = l.alts.map((x) => (x === alt ? cur : x)); render(); save(); }; a.appendChild(bt); });
+        c.appendChild(a);
+      });
+    } else {
+      const p = document.createElement("div"); p.className = "meta"; p.textContent = `크기 ${Math.round(b.box.w)}×${Math.round(b.box.h)} — 그림은 글자로 안 바꾸고 덩어리째 옮길 수 있어요.`; c.appendChild(p);
+    }
+    c.querySelector(".k").onclick = () => { b.m.type = b.type === "text" ? "draw" : "text"; b.m.stale = true; regroup(); save(); scheduleRecognize(); };
+    c.onclick = (e) => { if (e.target.closest(".txt,.alts,.k")) return; sel = b.key; render(); };
+    side.appendChild(c);
+  });
+}
+
+/* ───────── 도구 ───────── */
+function seg(id, cb) { $(id).querySelectorAll("button").forEach((bt) => (bt.onclick = () => { $(id).querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === bt)); cb(bt.dataset.v); })); }
+seg("tool", (v) => { tool = v; svg.classList.toggle("move", v === "move"); svg.classList.toggle("erase", v === "erase"); if (v !== "move") { sel = null; render(); } });
+seg("view", (v) => { view = v; render(); });
+seg("color", (v) => (color = v));
+$("lang").onchange = () => { blocks.forEach((b) => (b.m.stale = true)); scheduleRecognize(); };
+$("gap").oninput = () => { regroup(); };
+$("gap").onchange = () => { save(); scheduleRecognize(); };
+$("undo").onclick = () => { const s = undoStack.pop(); if (!s) return toast("더 되돌릴 게 없어요"); const d = JSON.parse(s); strokes = d.strokes; meta = d.meta; regroup(); save(); scheduleRecognize(); };
+$("clear").onclick = () => { if (!strokes.length) return; snapshot(); strokes = []; meta = {}; sel = null; regroup(); save(); toast("다 지웠어요 (되돌리기 가능)"); };
+$("copy").onclick = async () => {
+  const report = {
+    page: "note-test v1", ua: navigator.userAgent, api: env.api, ko: !!env.ko, en: !!env.en,
+    koInfo: env.ko || null, inputs: [...env.inputs], lang: $("lang").value, gap: +$("gap").value,
+    blocks: blocks.map((b, i) => ({ n: i + 1, type: b.type, strokes: b.strokes.length, size: [Math.round(b.box.w), Math.round(b.box.h)], ms: b.m.ms, edited: !!b.m.edited, lines: (b.m.lines || []).map((l) => ({ text: l.text, alts: l.alts })) })),
+  };
+  const txt = JSON.stringify(report, null, 1);
+  try { await navigator.clipboard.writeText(txt); toast("복사했어요! 채팅에 붙여 넣어 주세요"); }
+  catch (e) { const w = window.open("", "_blank"); if (w) { w.document.body.innerText = txt; } else toast("복사 실패"); }
+};
+document.addEventListener("keydown", (e) => { if ((e.ctrlKey || e.metaKey) && e.key === "z") { e.preventDefault(); $("undo").click(); } });
+
+load(); regroup(); checkApi().then(() => { blocks.forEach((b) => (b.m.stale = b.m.stale || !b.m.lines)); scheduleRecognize(); });
+</script>
+</body>
+</html>
