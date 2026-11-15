@@ -95,6 +95,8 @@ select { font: 14px var(--font-body); border: 2px solid var(--ink); border-radiu
 .stk-op img { width: 104px; height: 104px; object-fit: contain; }
 .stk-op.live { background: linear-gradient(#fff, #ffe9b8); justify-content: center; }
 .stk-cam { font-size: 44px; height: 104px; display: grid; place-items: center; }
+.cvp-ctl { display: flex; align-items: center; gap: 8px; }
+.cvp-ctl input { flex: 1; accent-color: var(--pink-d); }
 .cvp-foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
 @media print {
   @page { size: A4; margin: 0; }
@@ -1642,7 +1644,7 @@ function snapSpine(base) {
   });
 }
 /* 📸 표지 사진 찍기: 움직이는 대표 사도를 보면서 표정을 고르고, 찰칵 누른 순간이 표지 */
-const MOODS = [["대기", /^Idle_/], ["기쁨", /^(Happy|Smile|Laugh)_/], ["뿌듯", /^(Proud|Pride)_/], ["부끄럼", /^Shy_/], ["춤", /^Dance_/], ["놀람", /^(Surprise|Panic)_/], ["삐짐", /^(Sulky|Angry|Mad)_/], ["슬픔", /^(Sad|Sorry|Tear)_/], ["졸림", /^(Sleep|Tired)_/], ["냠냠", /^Eat_/]];
+const MOODS = [["대기", /^Idle_/], ["기쁨", /^(Happy|Smile|Laugh)_/], ["뿌듯", /^(Proud|Pride)_/], ["부끄럼", /^Shy_/], ["춤", /^Dance_/], ["놀람", /^(Surprise|Panic)_/], ["삐짐", /^(Sulky|Angry|Mad)_/], ["슬픔", /^(Sad|Sorry|Tear)_/], ["졸림", /^(Sleep|Tired|Close)_/], ["냠냠", /^Eat_/], ["터치", /^Touch_/], ["쓰다듬", /^Pat_/], ["간지럼", /^Tickle_/]];
 const gameState = () => { try { return JSON.parse(localStorage.getItem("trickcal-study") || "{}") || {}; } catch (e) { return {}; } };
 function coverPick() { return spinePick(gameState().partner || "erpin", { title: "📸 표지 사진 찍기", ok: "이 사진으로 PDF 만들기 →" }); }
 // 움직이는 사도를 보면서 표정을 고르고 찰칵 → { name, src(그림 주소) } / 취소면 null
@@ -1656,6 +1658,8 @@ function spinePick(id, opts) {
       <div class="cvp-row"><div class="cvp-stage" id="cvp-stage"><div class="cvp-msg">${esc(res.name || "대표 사도")} 부르는 중…</div></div>
         <div class="cvp-side"><div class="cvp-moods" id="cvp-moods"></div>
           <button class="btn pink cvp-shot" id="cvp-shot" disabled>📸 찰칵!</button>
+          <div class="cvp-ctl"><button class="btn small" id="cvp-pause" disabled>⏸ 멈추기</button><input type="range" id="cvp-t" min="0" max="1000" value="0" disabled title="멈춘 뒤 끌어서 원하는 순간 고르기"></div>
+          <div class="meta" id="cvp-an"></div>
           <div class="cvp-prev"><img id="cvp-img" alt=""><span>찍은 사진</span></div></div></div>
       <div class="cvp-foot"><button class="btn" id="cvp-cancel">취소</button><button class="btn mint" id="cvp-ok" disabled>${opts.ok || "이 사진 쓰기 →"}</button></div></div>`;
     document.body.appendChild(ov);
@@ -1695,13 +1699,32 @@ function spinePick(id, opts) {
           if (p.paused) p.play();
           // 표정 버튼: 그 사도에게 있는 동작만, 누를 때마다 같은 종류의 다음 동작
           const box = ov.querySelector("#cvp-moods"), at = {};
-          box.innerHTML = MOODS.map(([lb, re]) => { const list = anims.filter((n) => re.test(n)); return list.length ? `<button class="btn" data-m="${lb}">${lb}${list.length > 1 ? ` <small>${list.length}</small>` : ""}</button>` : ""; }).join("");
+          const known = (n) => MOODS.some(([, re]) => re.test(n));
+          const groups = MOODS.map(([lb, re]) => [lb, anims.filter((n) => re.test(n))]).concat([["그 밖의 포즈", anims.filter((n) => !known(n))]]).filter(([, l]) => l.length);
+          box.innerHTML = groups.map(([lb, l]) => `<button class="btn" data-m="${lb}">${lb}${l.length > 1 ? ` <small>${l.length}</small>` : ""}</button>`).join("");
+          // 멈추기 + 슬라이더로 원하는 순간 고르기
+          const pauseBtn = ov.querySelector("#cvp-pause"), slider = ov.querySelector("#cvp-t"), anLb = ov.querySelector("#cvp-an");
+          const cur = () => p.animationState.getCurrent(0);
+          const showPose = () => { p.animationState.apply(p.skeleton); p.skeleton.updateWorldTransform(); if (p.drawFrame) p.drawFrame(false); };
+          const setAnim = (name) => {
+            p.animationState.setAnimation(0, name, true); p.setViewport(name);
+            const k = groups.find(([, l]) => l.includes(name)), idx = k ? k[1].indexOf(name) + 1 : 0;
+            anLb.textContent = k ? `${k[0]} ${idx}/${k[1].length}` : "";
+            if (p.paused) { slider.value = 0; showPose(); }
+          };
           box.querySelectorAll("button").forEach((bt) => (bt.onclick = () => {
-            const re = MOODS.find((m) => m[0] === bt.dataset.m)[1], list = anims.filter((n) => re.test(n));
+            const list = groups.find((g) => g[0] === bt.dataset.m)[1];
             at[bt.dataset.m] = ((at[bt.dataset.m] ?? -1) + 1) % list.length;
-            p.animationState.setAnimation(0, list[at[bt.dataset.m]], true); p.setViewport(list[at[bt.dataset.m]]);
+            setAnim(list[at[bt.dataset.m]]);
             box.querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === bt));
           }));
+          pauseBtn.disabled = false;
+          pauseBtn.onclick = () => {
+            if (p.paused) { p.play(); pauseBtn.textContent = "⏸ 멈추기"; slider.disabled = true; return; }
+            p.pause(); pauseBtn.textContent = "▶ 다시 움직이기"; slider.disabled = false;
+            const e = cur(), dur = (e && e.animation.duration) || 1; slider.value = Math.round(((e ? e.trackTime : 0) % dur) / dur * 1000);
+          };
+          slider.oninput = () => { const e = cur(); if (!e) return; e.trackTime = (slider.value / 1000) * (e.animation.duration || 1); showPose(); };
           const shotBtn = ov.querySelector("#cvp-shot"); shotBtn.disabled = false;
           shotBtn.onclick = () => {
             try { if (p.drawFrame) p.drawFrame(false); shot = host.querySelector("canvas").toDataURL("image/png"); } catch (e) { return toast("사진을 못 찍었어요"); }
