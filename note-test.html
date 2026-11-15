@@ -148,6 +148,7 @@ mark.uns { background: #ffe08a; border-bottom: 2px dotted #d8483b; color: inheri
   <span class="seg" id="color"><button data-v="#3b2a20" class="on">⚫</button><button data-v="#d8483b">🔴</button><button data-v="#2f7fd0">🔵</button><button data-v="#2e9e6a">🟢</button></span>
   <button class="btn" id="undo" title="되돌리기 (Ctrl+Z)">↶</button>
   <button class="btn" id="gNow" title="지금 읽기 — 자동 읽기를 껐을 때 이 버튼으로 한 번에 읽어요">📖 읽기</button>
+  <button class="btn" id="photoBtn" title="사진 올리기 (붙여넣기 Ctrl+V, 끌어다 놓기도 돼요)">🖼 사진</button><input type="file" id="photoIn" accept="image/*" multiple hidden>
   <button class="btn mint" id="layoutBtn" title="덩어리들을 읽는 순서대로 가지런히 (AI 안 씀)">✨ 배치</button>
   <button class="btn sky" id="tidyBtn" title="Gemini 가 내용 흐름을 보고 순서·소제목을 정해서 배치">🤖 AI 정리</button>
   <span class="seg" id="mode"><button data-v="inf" class="on" title="아래로 계속 늘어나는 노트">📜 무한</button><button data-v="page" title="한 장씩 넘기는 노트">📄 페이지</button></span>
@@ -388,7 +389,7 @@ function unlock(key) {
 }
 function eraseAt(p) {
   const r = 12, before = strokes.length;
-  strokes = strokes.filter((s) => !s.pts.some((q) => Math.hypot(q.x - p.x, q.y - p.y) < r + s.w));
+  strokes = strokes.filter((s) => { if (s.img) { const B = bbox(s.pts); return !(p.x >= B.x && p.x <= B.x + B.w && p.y >= B.y && p.y <= B.y + B.h); } return !s.pts.some((q) => Math.hypot(q.x - p.x, q.y - p.y) < r + s.w); });
   if (strokes.length !== before) { regroup(); render(); }
 }
 
@@ -397,6 +398,7 @@ function bbox(pts) { let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9; for (const q 
 function near(a, b, g) { return a.x - g < b.x + b.w && b.x - g < a.x + a.w && a.y - g < b.y + b.h && b.y - g < a.y + a.h; }
 // 획 하나의 모양: 크거나, 길고 곧은 비스듬한 선(화살표)이면 그림 획
 function kindOf(s) {
+  if (s.img) return "big"; // 사진은 늘 그림
   if (s.k) return s.k;
   const b = bbox(s.pts), diag = Math.hypot(b.w, b.h), f = s.pts[0], l = s.pts[s.pts.length - 1];
   let len = 0; for (let i = 1; i < s.pts.length; i++) len += Math.hypot(s.pts[i].x - s.pts[i - 1].x, s.pts[i].y - s.pts[i - 1].y);
@@ -510,8 +512,10 @@ function regroup() {
     if (b.type !== "text") { b.m.parent = null; continue; }
     if (b.key[0] !== "S") { const pb = resolve(b.m.parent); b.parent = pb && pb.type === "draw" ? pb.key : null; b.m.parent = b.parent; continue; }
     let best = g * 2, pb = null;
+    const bMax = Math.max(...b.strokes.map((st) => st.id));
     for (const d of blocks) {
       if (d.type !== "draw" || !near(b.box, d.box, best)) continue;
+      if (Math.min(...d.strokes.map((st) => st.id)) > bMax) continue; // 글보다 나중에 생긴 그림·사진은 그 글을 이름표로 안 가져감
       for (const s of b.strokes) for (const t of d.strokes) { const v = sdist(s, t, 0); if (v < best) { best = v; pb = d; } }
     }
     if (pb) b.parent = pb.key;
@@ -621,6 +625,7 @@ function blockPng(b, max) {
   g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height);
   g.lineCap = "round"; g.lineJoin = "round"; g.strokeStyle = "#000";
   for (const s of b.strokes) {
+    if (s.img) { const B = bbox(s.pts), im = imgCache.get(s.img); if (im && im.el.complete) g.drawImage(im.el, (B.x - bx.x + pad) * k, (B.y - bx.y + pad) * k, B.w * k, B.h * k); continue; }
     g.lineWidth = Math.max(2, widthOf(s) * k);
     g.beginPath();
     s.pts.forEach((q, i) => { const x = (q.x - bx.x + pad) * k, y = (q.y - bx.y + pad) * k; i ? g.lineTo(x, y) : g.moveTo(x, y); });
@@ -635,7 +640,8 @@ const GPROMPT = `학생의 손글씨 필기 조각들을 글자로 옮겨 주세
 - 글자 모양이 분명하면 문맥과 달라도 쓴 그대로 옮기세요. 문맥(과목·단원, 같은 페이지의 다른 글, 예전에 고친 예)은 모양이 애매한 글자를 고를 때만 참고하세요.
 - 학생이 쓴 내용이 개념상 틀려 보여도 절대 고치지 마세요.
 - 줄은 위에서 아래 순서로, 이미지 속 실제 줄 수와 같게 나누세요.
-- 수식은 LaTeX 로 $...$ 안에 (예: $x^2+1$). JSON 문자열 안이므로 역슬래시는 두 번 (예: "$\\frac{1}{2}$").
+- 화살표는 LaTeX 말고 글자 → ← ↑ ↓ ⇒ 를 그대로 쓰세요.
+- 수식(분수·지수·근호·그리스 문자 등)만 LaTeX 로 $...$ 안에 (예: $x^2+1$). JSON 문자열 안이므로 역슬래시는 두 번 (예: "$\\frac{1}{2}$").
 - unsure: 이 줄에서 모양만으로는 확실하지 않아서 문맥으로 고른 낱말, 또는 자신 없는 낱말을 text 에 나온 그대로 넣으세요. 없으면 [].
 - alts: 그 줄 전체의 다른 후보 0~3개.
 - 이미지 순서대로 blocks 배열에 넣고, JSON 만 출력.`;
@@ -659,6 +665,12 @@ function fixTex(v) {
   if (v && typeof v === "object") { for (const k in v) v[k] = fixTex(v[k]); return v; }
   return v;
 }
+// 글 속 화살표 LaTeX → 진짜 화살표 글자 (수식 밖에서도 보이게)
+function fixArrow(t) {
+  const A = { rightarrow: "→", to: "→", leftarrow: "←", Rightarrow: "⇒", Leftarrow: "⇐", uparrow: "↑", downarrow: "↓", leftrightarrow: "↔", Leftrightarrow: "⇔" };
+  return String(t).replace(/\$\\(rightarrow|leftarrow|Rightarrow|Leftarrow|uparrow|downarrow|leftrightarrow|Leftrightarrow|to)\$/g, (m, k) => A[k])
+    .replace(/\\(rightarrow|leftarrow|Rightarrow|Leftarrow|uparrow|downarrow|leftrightarrow|Leftrightarrow)(?![a-zA-Z])/g, (m, k) => A[k]);
+}
 // Gemini 답이 형식(JSON)을 살짝 어겨도 최대한 살려서 읽기
 function parseLoose(txt) { return fixTex(parseLoose0(txt)); }
 function parseLoose0(txt) {
@@ -677,8 +689,8 @@ const SCHEMA_READ = S("OBJECT", { properties: { blocks: S("ARRAY", { items: S("O
   check: S("STRING") }, required: ["lines"] }) }) }, required: ["blocks"] });
 const SCHEMA_TIDY = S("OBJECT", { properties: { title: S("STRING"), sections: S("ARRAY", { items: S("OBJECT", { properties: { title: S("STRING"), items: S("ARRAY", { items: S("INTEGER") }) }, required: ["title", "items"] }) }) }, required: ["sections"] });
 // 공통 호출: 형식(스키마)을 정해서 요청 → 붐비면 다른 모델 → 형식이 깨지면 한 번 더
-async function gemCall(parts, schema) {
-  const cfg = { temperature: 0, responseMimeType: "application/json" };
+async function gemCall(parts, schema, temp) {
+  const cfg = { temperature: temp || 0, responseMimeType: "application/json" };
   if (schema) cfg.responseSchema = schema;
   const body = JSON.stringify({ contents: [{ role: "user", parts }], generationConfig: cfg });
   const order = [gem.model, ...(gem.models || []).filter((m) => m !== gem.model)].slice(0, 4);
@@ -692,7 +704,7 @@ async function gemCall(parts, schema) {
       if (r.status === 503 || r.status === 500 || /high demand|overloaded|unavailable/i.test(lastErr)) { busyHit = true; continue; }
       if (r.status === 429) { quotaHit = true; continue; }
       if (r.status === 404) continue;
-      if (r.status === 400 && schema && /schema|responseSchema/i.test(lastErr)) return gemCall(parts, null); // 스키마를 못 받는 모델이면 없이
+      if (r.status === 400 && schema && /schema|responseSchema/i.test(lastErr)) return gemCall(parts, null, temp); // 스키마를 못 받는 모델이면 없이
       throw new Error(lastErr);
     }
     const j = await r.json();
@@ -705,8 +717,8 @@ async function gemCall(parts, schema) {
 }
 async function gemRecognize(list) {
   const parts = [{ text: GPROMPT + gemContext(list) + `\n\n이미지는 모두 ${list.length}개예요.` }];
-  list.forEach((b, i) => { parts.push({ text: `이미지 ${i + 1}` + (b.m.hint ? ` (참고: 이 덩어리의 일부는 전에 "${b.m.hint.slice(0, 300)}" 로 읽혔어요. 그 뒤 획이 더해지거나 바뀌었을 수 있으니 이미지를 기준으로 읽으세요)` : "") }); parts.push({ inline_data: { mime_type: "image/png", data: blockPng(b) } }); });
-  const data = await gemCall(parts, SCHEMA_READ);
+  list.forEach((b, i) => { parts.push({ text: `이미지 ${i + 1}` + (b.m.reread ? ` (학생이 다시 읽어 달라고 했어요. 전에는 "${b.m.reread.slice(0, 300)}" 로 읽었는데 틀린 곳이 있을 수 있으니 글자 하나하나 더 꼼꼼히 다시 보세요)` : "") + (b.m.hint ? ` (참고: 이 덩어리의 일부는 전에 "${b.m.hint.slice(0, 300)}" 로 읽혔어요. 그 뒤 획이 더해지거나 바뀌었을 수 있으니 이미지를 기준으로 읽으세요)` : "") }); parts.push({ inline_data: { mime_type: "image/png", data: blockPng(b) } }); });
+  const data = await gemCall(parts, SCHEMA_READ, list.some((b) => b.m.reread) ? 0.5 : 0);
   gemRecognize.used = gemCall.used;
   return data.blocks || [];
 }
@@ -724,7 +736,7 @@ function applyLines(b, glines) {
     ls = glines.map((_, i) => ({ box: { x: b.box.x, y: b.box.y + h * i, w: b.box.w, h } }));
   }
   const out = glines.map((g, i) => {
-    const text = String(g.text || "");
+    const text = fixArrow(String(g.text || ""));
     return { text, orig: text, alts: (g.alts || []).map(String).filter((a) => a && a !== text).slice(0, 4), unsure: (g.unsure || []).map(String).filter((u) => u && text.includes(u)), box: { ...ls[i].box } };
   });
   return relLines(b, out);
@@ -737,10 +749,10 @@ function scheduleRecognize(ms) {
   if (gem.model && !$("gAuto").checked) { const n = blocks.filter((b) => b.type === "text" && b.m.stale).length; if (n) say(`읽을 글 덩어리 ${n}개가 기다리는 중이에요. 📖 지금 읽기를 누르면 한 번에 읽어요.`); return; }
   recT = setTimeout(recognizeAll, ms || (gem.model ? 2500 : 900));
 }
-async function recognizeAll(manual) {
+async function recognizeAll(manual, onlyKey) {
   if (busy) return scheduleRecognize();
   if (gem.key && gem.model) {
-    const list = blocks.filter((b) => b.type === "text" && b.m.stale);
+    const list = blocks.filter((b) => b.type === "text" && b.m.stale && (!onlyKey || b.key === onlyKey));
     if (!list.length) return;
     if (Date.now() < gemWaitUntil) return scheduleRecognize(gemWaitUntil - Date.now() + 200);
     busy = true; say("에르핀이 Gemini 한테 읽어 달라고 하는 중… 📮");
@@ -753,7 +765,7 @@ async function recognizeAll(manual) {
         const r = res[i], b = blocks.find((x) => x.m.sig === sigs[i]);
         if (!b) return; // 그새 묶음이 바뀜 → 새 묶음은 다시 읽음
         b.m.stale = false;
-        if (r && r.lines) { b.m.merged = false; b.m.hint = ""; b.m.check = r.check || ""; b.m.lines = applyLines(b, r.lines); b.m.ms = ms; b.m.edited = false; b.m.engine = gemRecognize.used; }
+        if (r && r.lines) { b.m.merged = false; b.m.hint = ""; b.m.reread = ""; b.m.check = r.check || ""; b.m.lines = applyLines(b, r.lines); b.m.ms = ms; b.m.edited = false; b.m.engine = gemRecognize.used; }
       });
       if (blocks.some((b) => b.type === "text" && b.m.stale)) scheduleRecognize();
       say(`글 덩어리 ${list.length}개를 읽었어요! (${(ms / 1000).toFixed(1)}초${gemRecognize.used !== gem.model ? " · 붐벼서 " + gemRecognize.used + " 사용" : ""}) 틀린 건 오른쪽에서 고치거나 후보를 골라요.`);
@@ -821,7 +833,15 @@ function render(fast) {
   for (const b of blocks) {
     const cleanText = b.type === "text" && !b.m.stale && b.m.lines && b.m.lines.some((l) => l.text); // 묶음이 바뀌어 다시 읽는 중엔 원본 표시
     const inkOp = view === "ink" ? 1 : view === "both" ? (cleanText ? 0.22 : 1) : (cleanText ? 0 : 1);
-    if (inkOp > 0) for (const s of b.strokes) el("path", { class: "stroke", d: pathD(s.pts), stroke: s.c, "stroke-width": widthOf(s), opacity: inkOp }, gInk);
+    if (inkOp > 0) for (const s of b.strokes) {
+      if (s.img) { // 사진
+        const B = bbox(s.pts), im = imgCache.get(s.img);
+        if (im) el("image", { href: im.url, x: B.x, y: B.y, width: B.w, height: B.h, preserveAspectRatio: "none" }, gInk);
+        else { el("rect", { x: B.x, y: B.y, width: B.w, height: B.h, fill: "#eee", stroke: "#bbb" }, gInk); loadImg(s.img).then((o) => o && render(true)); }
+        continue;
+      }
+      el("path", { class: "stroke", d: pathD(s.pts), stroke: s.c, "stroke-width": widthOf(s), opacity: inkOp }, gInk);
+    }
     const pad = 6, bx = b.box;
     el("rect", { class: "box " + b.type + (b.parent ? " label" : "") + (sel === b.key ? " sel" : ""), x: bx.x - pad, y: bx.y - pad, width: bx.w + pad * 2, height: bx.h + pad * 2, rx: 10 }, gBox);
     const tag = el("text", { class: "tag", x: bx.x - pad + 2, y: bx.y - pad - 4, fill: b.type === "text" ? "#2f7fd0" : "#c23f68" }, gBox);
@@ -835,8 +855,10 @@ function render(fast) {
         const dv = document.createElement("div"); dv.className = "cleanF";
         dv.style.cssText = `font-size:${fs.toFixed(1)}px;line-height:${(fs * 1.6).toFixed(1)}px`;
         dv.innerHTML = richHTML(l); fo.appendChild(dv);
-        const want = Math.max(lb.w * 1.12, 40), got = dv.scrollWidth; // 정리 글씨가 원래 필기 폭을 넘지 않게 줄임
-        if (got > want) { const f2 = Math.max(11, fs * want / got); dv.style.fontSize = f2.toFixed(1) + "px"; fo.setAttribute("y", lb.y + lb.h / 2 - f2 * 0.8); fo.setAttribute("height", f2 * 1.8); dv.style.lineHeight = (f2 * 1.6).toFixed(1) + "px"; }
+        // 정리 글씨를 원래 필기와 비슷한 크기로: 필기 줄 폭에 맞춰 키우거나 줄이되, 줄 높이의 45~100% 안에서
+        const got = dv.scrollWidth || 1, f2 = Math.max(11, Math.min(64, lb.h * 1.0, Math.max(lb.h * 0.45, fs * (lb.w * 0.96) / got)));
+        dv.style.fontSize = f2.toFixed(1) + "px"; dv.style.lineHeight = (f2 * 1.6).toFixed(1) + "px";
+        fo.setAttribute("y", lb.y + lb.h / 2 - f2 * 0.8); fo.setAttribute("height", f2 * 1.8);
       }
     }
   }
@@ -896,6 +918,18 @@ function renderSide() {
       const p = document.createElement("div"); p.className = "meta"; p.textContent = `크기 ${Math.round(b.box.w)}×${Math.round(b.box.h)} — 그림은 글자로 안 바꾸고 덩어리째 옮길 수 있어요.`; c.appendChild(p);
     }
     const ub = c.querySelector(".unl"); if (ub) ub.onclick = () => unlock(b.key);
+    if (gem.key && gem.model) { // 이 덩어리 하나만 AI 로 다시 읽기
+      const rb = document.createElement("button"); rb.className = "btn"; rb.style.cssText = "padding:1px 8px;font-size:12px;margin:4px 4px 0 0";
+      rb.textContent = b.type === "text" ? "🤖 이것만 다시 읽기" : "🤖 글로 바꿔서 읽기";
+      rb.onclick = async () => {
+        if (busy) return toast("지금 다른 걸 읽는 중이에요. 잠시 뒤에 눌러 주세요");
+        if (b.type !== "text") { b.m.type = "text"; regroup(); }
+        const cur = blocks.find((x) => x.m === b.m) || b;
+        cur.m.stale = true; cur.m.hint = ""; cur.m.reread = (cur.m.lines || []).map((l) => l.text).join(" ");
+        clearTimeout(recT); toast("이 덩어리만 다시 읽어요 📮"); await recognizeAll(true, cur.key);
+      };
+      c.appendChild(rb);
+    }
     const kids = blocks.filter((x) => x.parent === b.key && x.m.setp);
     if (kids.length) {
       const sb = document.createElement("button"); sb.className = "btn"; sb.style.cssText = "padding:1px 8px;font-size:12px;margin-top:4px";
@@ -996,6 +1030,8 @@ function renderHeads() {
    좁은 것끼리는 옆으로 나란히, 넓은 글은 한 줄 통째로. 페이지 모드면 장을 넘지 않게. */
 const M = 28, GAP = 22, LINE = 40;
 function units() {
+  // 이름표인데 그림에서 멀리 떨어져 있으면(예전에 붙은 관계) 따로 배치되도록 떼어 냄 (세트는 유지)
+  for (const b of blocks) if (b.parent && !b.m.setp) { const pb = blocks.find((x) => x.key === b.parent); if (!pb || !near(b.box, pb.box, 90)) { b.parent = null; b.m.parent = null; } }
   return blocks.filter((b) => !b.parent).map((b) => {
     const group = [b, ...blocks.filter((x) => x.parent === b.key)];
     const box = bbox(group.flatMap((g) => g.strokes.flatMap((s) => s.pts)));
@@ -1124,6 +1160,67 @@ JSON 만 출력: {"title":"...","sections":[{"title":"...","items":[1,2]}]}` }];
   finally { btn.disabled = false; btn.textContent = "🤖 AI 정리"; }
 };
 
+/* ───────── 🖼 사진: 브라우저 저장소(IndexedDB)에 넣고, 노트엔 "사진 획"으로 ─────────
+   사진도 테두리 점들로 된 획처럼 다뤄서 옮기기·크기 조절·세트·배치·AI 정리가 그대로 됨 */
+let idbP = null;
+function idb() { return idbP || (idbP = new Promise((ok, no) => { const r = indexedDB.open("trickstudy-note-img", 1); r.onupgradeneeded = () => r.result.createObjectStore("img"); r.onsuccess = () => ok(r.result); r.onerror = () => no(r.error); })); }
+async function imgPut(id, blob) { const db = await idb(); return new Promise((ok, no) => { const t = db.transaction("img", "readwrite"); t.objectStore("img").put(blob, id); t.oncomplete = ok; t.onerror = () => no(t.error); }); }
+async function imgGet(id) { const db = await idb(); return new Promise((ok) => { const r = db.transaction("img").objectStore("img").get(id); r.onsuccess = () => ok(r.result); r.onerror = () => ok(null); }); }
+const imgCache = new Map(), imgLoading = new Map();
+function loadImg(id) {
+  if (imgCache.has(id)) return Promise.resolve(imgCache.get(id));
+  if (!imgLoading.has(id)) imgLoading.set(id, (async () => {
+    try { const blob = await imgGet(id); if (!blob) return null; const url = URL.createObjectURL(blob), im = new Image(); im.src = url; try { await im.decode(); } catch (e) { /* 무시 */ } const o = { url, el: im }; imgCache.set(id, o); return o; }
+    catch (e) { return null; }
+  })());
+  return imgLoading.get(id);
+}
+function imgPts(x, y, w, h) {
+  const n = Math.max(2, Math.round((w + h) / 24)), pts = [];
+  for (let i = 0; i <= n; i++) { const t = i / n; pts.push({ x: x + w * t, y }, { x: x + w * t, y: y + h }, { x, y: y + h * t }, { x: x + w, y: y + h * t }); }
+  return pts.map((q) => ({ x: +q.x.toFixed(1), y: +q.y.toFixed(1), t: 0, p: 0.5 }));
+}
+async function addPhoto(file, at) {
+  if (!file || !/^image\//.test(file.type)) return toast("사진 파일만 올릴 수 있어요");
+  try {
+    const bmp = await createImageBitmap(file);
+    const k = Math.min(1, 1600 / Math.max(bmp.width, bmp.height)); // 긴 변 1600px 로 줄여서 저장 공간 아끼기
+    const c = document.createElement("canvas"); c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+    c.getContext("2d").drawImage(bmp, 0, 0, c.width, c.height);
+    const blob = await new Promise((ok) => c.toBlob(ok, "image/jpeg", 0.85));
+    const id = "img" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    await imgPut(id, blob); await loadImg(id);
+    const W = svg.clientWidth || 800, w = Math.min(420, W * 0.45, c.width), h = (w * c.height) / c.width;
+    const top = mode === "page" ? page * pageH : paper.scrollTop;
+    let x = M, y = top + 40;
+    if (at) { x = at.x; y = at.y; }
+    else { // 지금 보이는 곳에서 다른 덩어리와 안 겹치는 빈자리 찾기
+      const free = (xx, yy) => !blocks.some((b) => near({ x: xx, y: yy, w, h }, b.box, 14)) && !heads.some((hd) => near({ x: xx, y: yy, w, h }, headBox(hd), 8));
+      let found = false;
+      for (let yy = top + 40; yy < top + paper.clientHeight * 2 && !found; yy += 40) for (let xx = M; xx + w <= W - M && !found; xx += 40) if (free(xx, yy)) { x = xx; y = yy; found = true; }
+      if (!found) { x = M; y = contentBottom() + 40; }
+    }
+    snapshot();
+    const st = { id: nextId++, img: id, pts: imgPts(x, y, w, h), w: 1, c: "#000" };
+    st.lock = "L" + st.id; st.lockAt = nextId; // 사진은 처음부터 따로 (그 뒤 옆에 쓴 설명은 붙을 수 있음)
+    strokes.push(st); regroup(); fitBoard(); save();
+    sel = st.lock; setTool("move"); toast("🖼 사진을 넣었어요 — 노란 손잡이로 크기, 끌어서 위치를 바꿔요");
+  } catch (e) { toast("사진을 못 넣었어요: " + (e.message || e)); }
+}
+$("photoBtn").onclick = () => $("photoIn").click();
+$("photoIn").onchange = async (e) => { for (const f of e.target.files) await addPhoto(f); e.target.value = ""; };
+document.addEventListener("paste", async (e) => {
+  if (e.target.closest && e.target.closest("input,textarea,[contenteditable]")) return;
+  const fs = [...(e.clipboardData ? e.clipboardData.files : [])].filter((f) => /^image\//.test(f.type));
+  if (fs.length) { e.preventDefault(); for (const f of fs) await addPhoto(f); }
+});
+paper.addEventListener("dragover", (e) => { e.preventDefault(); });
+paper.addEventListener("drop", async (e) => {
+  e.preventDefault();
+  const r = svg.getBoundingClientRect(), at = { x: e.clientX - r.left, y: e.clientY - r.top + offY() };
+  for (const f of e.dataTransfer.files) { await addPhoto(f, at); at.x += 30; at.y += 30; }
+});
+
 /* ───────── 도구 ───────── */
 function seg(id, cb) { $(id).querySelectorAll("button").forEach((bt) => (bt.onclick = () => { $(id).querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === bt)); cb(bt.dataset.v); })); }
 seg("tool", (v) => { tool = v; setTimeout(() => render(true)); svg.classList.toggle("move", v === "move"); svg.classList.toggle("erase", v === "erase"); if (v === "lasso") say("묶고 싶은 획들을 올가미처럼 빙 둘러 감싸 보세요. 감싼 것끼리 한 덩어리가 돼요."); if (v !== "move" && v !== "lasso") { sel = null; render(); } });
@@ -1148,9 +1245,10 @@ document.addEventListener("keydown", (e) => {
   if (mode === "page" && !e.target.closest("input,textarea,[contenteditable]")) { if (e.key === "PageDown" || e.key === "ArrowRight") goPage(page + 1); if (e.key === "PageUp" || e.key === "ArrowLeft") goPage(page - 1); }
 });
 
-renderAi(); saveFixes(); showUse(); load(); Object.values(meta).forEach((m) => { if (m.lines && m.lines.some((l) => !l.rel)) { m.lines = null; m.stale = true; } });
+renderAi(); saveFixes(); showUse(); load(); Object.values(meta).forEach((m) => { if (m.lines && m.lines.some((l) => !l.rel)) { m.lines = null; m.stale = true; } if (m.lines) m.lines.forEach((l) => { l.text = fixArrow(fixTex(l.text)); }); });
 $("mode").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x.dataset.v === mode));
-applyUI(); fitPaper(); regroup(); fitBoard(); checkApi().then(() => { blocks.forEach((b) => (b.m.stale = b.m.stale || !b.m.lines)); scheduleRecognize(); });
+applyUI(); fitPaper(); regroup(); fitBoard();
+Promise.all(strokes.filter((s) => s.img).map((s) => loadImg(s.img))).then(() => render(true)); checkApi().then(() => { blocks.forEach((b) => (b.m.stale = b.m.stale || !b.m.lines)); scheduleRecognize(); });
 </script>
 </body>
 </html>
