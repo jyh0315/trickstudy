@@ -76,6 +76,9 @@ body.noside .side { display: none; }
 .clean { font-family: var(--font-body); fill: var(--ink); }
 .cleanF { display: inline-block; font-family: var(--font-body); color: var(--ink); white-space: nowrap; overflow: visible; }
 .cleanF .katex { font-size: 1em; }
+.cleanB { font-family: var(--font-body); color: var(--ink); line-height: 1.55; white-space: normal; word-break: keep-all; overflow-wrap: anywhere; }
+.cleanB > div { white-space: normal; width: fit-content; max-width: 100%; }
+.cleanB .katex { font-size: 1.05em; }
 .card .txt .katex { font-size: 1.05em; }
 .ai { background: var(--paper); border: 2px solid var(--ink); border-radius: 14px; padding: 6px 12px; margin-bottom: 10px; }
 .ai summary { cursor: pointer; font: 15px var(--font-title); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
@@ -364,7 +367,9 @@ function finishLasso(d) {
   const touched = blocks.filter((b) => b.strokes.some((st) => ps.has(st)));
   const whole = touched.filter((b) => b.strokes.filter((st) => ps.has(st)).length >= b.strokes.length * 0.8);
   const draws = whole.filter((b) => b.type === "draw");
-  if (whole.length >= 2 && whole.length === touched.length && draws.length) {
+  const union = bbox(whole.flatMap((b) => [{ x: b.box.x, y: b.box.y }, { x: b.box.x + b.box.w, y: b.box.y + b.box.h }]));
+  const drawStrokes = draws.reduce((a, b) => a + b.strokes.length, 0), bigDraw = draws.some((b) => b.box.w * b.box.h > union.w * union.h * 0.25 || b.strokes.some((st) => st.img));
+  if (whole.length >= 2 && whole.length === touched.length && draws.length && (drawStrokes >= 3 || bigDraw)) { // 선 한두 개(분수선·화살표)뿐이면 세트 말고 그냥 합침
     const main = draws.sort((a, c) => c.box.w * c.box.h - a.box.w * a.box.h)[0];
     // 이미 세트였던 것들도 새 대표 아래로 모음
     const members = new Set(whole);
@@ -377,8 +382,11 @@ function finishLasso(d) {
   }
   const key = "G" + pick[0].id + "_" + nextId;
   pick.forEach((s) => { s.lock = key; s.lockAt = nextId; });
-  const dN = pick.filter((s) => s.r === "D").length;
-  meta[key] = { type: dN > 0 ? "draw" : "text" };
+  // 합친 덩어리의 종류 = 원래 덩어리들 중 더 많은 쪽 (글끼리 합치면 글 → 읽은 결과도 그대로 이어 붙임)
+  //  예전엔 획 하나라도 길면(분수 선·화살표) 그림이 돼서 원래 필기로만 보였음
+  const blockOf = new Map(); for (const b of blocks) for (const st of b.strokes) blockOf.set(st, b);
+  let tN = 0, dN = 0; for (const st of pick) { const b = blockOf.get(st); if ((b ? b.type : st.r === "D" ? "draw" : "text") === "text") tN++; else dN++; }
+  meta[key] = { type: tN >= dN ? "text" : "draw" };
   sel = key; regroup(); save(); scheduleRecognize();
   toast(`획 ${pick.length}개를 한 덩어리로 묶었어요`);
 }
@@ -463,6 +471,16 @@ function regroup() {
       if (!near(bb[i], B, 10)) continue;
       if (sdist(strokes[i], strokes[j], 9) < 9 || (B.w > 60 && B.h > 60 && inside(bb[i], B) && Math.hypot(bb[i].w, bb[i].h) < Math.hypot(B.w, B.h) * 0.45)) { role[i] = "D"; break; }
     }
+  }
+  //    분수 선·밑줄처럼 곧은 가로선은 바로 위나 아래에 글자가 있으면 글(수식의 일부)
+  for (let i = 0; i < n; i++) {
+    if (role[i] !== "D" || strokes[i].img) continue;
+    const s0 = strokes[i], B = bb[i], f = s0.pts[0], l = s0.pts[s0.pts.length - 1];
+    let len = 0; for (let k = 1; k < s0.pts.length; k++) len += Math.hypot(s0.pts[k].x - s0.pts[k - 1].x, s0.pts[k].y - s0.pts[k - 1].y);
+    const straight = Math.hypot(l.x - f.x, l.y - f.y) / Math.max(1, len);
+    if (!(straight > 0.9 && B.h < Math.max(14, B.w * 0.18) && B.w < 700)) continue;
+    const textNear = strokes.some((t, j) => role[j] === "T" && bb[j].x < B.x + B.w && bb[j].x + bb[j].w > B.x && (Math.abs(bb[j].y + bb[j].h - B.y) < 36 || Math.abs(bb[j].y - (B.y + B.h)) < 36));
+    if (textNear) role[i] = "T";
   }
   // 2) 묶기
   for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) {
@@ -842,29 +860,30 @@ function render(fast) {
       }
       el("path", { class: "stroke", d: pathD(s.pts), stroke: s.c, "stroke-width": widthOf(s), opacity: inkOp }, gInk);
     }
-    const pad = 6, bx = b.box;
+    const pad = 6, bx0 = b.box, bx = view === "clean" && cleanText && b.m._ch ? { x: bx0.x, y: bx0.y, w: Math.min(bx0.w, (b.m._cw || bx0.w) + 6), h: Math.max(b.m._ch - 4, 20) } : bx0;
     el("rect", { class: "box " + b.type + (b.parent ? " label" : "") + (sel === b.key ? " sel" : ""), x: bx.x - pad, y: bx.y - pad, width: bx.w + pad * 2, height: bx.h + pad * 2, rx: 10 }, gBox);
     const tag = el("text", { class: "tag", x: bx.x - pad + 2, y: bx.y - pad - 4, fill: b.type === "text" ? "#2f7fd0" : "#c23f68" }, gBox);
     tag.textContent = b.parent ? (b.m.setp ? (b.type === "text" ? "설명" : "그림") : "이름표") : b.type === "text" ? "글" : "그림";
     if (view !== "ink" && cleanText) {
-      for (const l of b.m.lines) {
-        if (!l.text) continue;
-        const lb = lineBox(b, l);
-        const fs = Math.max(14, Math.min(44, lb.h * 0.78));
-        const fo = el("foreignObject", { x: lb.x, y: lb.y + lb.h / 2 - fs * 0.8, width: Math.max(lb.w * 2, 900), height: fs * 1.8 }, gClean);
-        const dv = document.createElement("div"); dv.className = "cleanF";
-        dv.style.cssText = `font-size:${fs.toFixed(1)}px;line-height:${(fs * 1.6).toFixed(1)}px`;
-        dv.innerHTML = richHTML(l); fo.appendChild(dv);
-        // 정리 글씨를 원래 필기 크기에 맞춤: 폭은 절대 안 넘게, 높이는 수식(분수·합 기호)처럼 키가 큰 것까지 재서 줄 안에
-        dv.style.lineHeight = "1.25";
-        const w0 = dv.scrollWidth || 1, r = Math.max(1.25, (dv.scrollHeight || fs) / fs); // r = 글씨 크기 대비 실제 높이
-        const f2 = Math.max(8, Math.min(64, fs * (lb.w * 0.98) / w0, (lb.h * 1.3) / r));
-        dv.style.fontSize = f2.toFixed(1) + "px"; l._f = +f2.toFixed(1); l._math = /\$/.test(l.text); // 배치 때 정리 글씨 크기 기준으로 씀
-        fo.setAttribute("y", lb.y + lb.h / 2 - (f2 * r) / 2 - 2); fo.setAttribute("height", f2 * r + 6);
-      }
+      // 정리 글씨: 노트 전체가 같은 크기로, 덩어리 왼쪽 위부터 줄줄이 (덩어리 폭에서 줄바꿈)
+      const fsz = cleanFS(), W = Math.max(bx0.w, 140);
+      const fo = el("foreignObject", { x: bx.x, y: bx.y - 2, width: W + 30, height: 10 }, gClean);
+      const dv = document.createElement("div"); dv.className = "cleanB"; dv.style.cssText = `font-size:${fsz}px;width:${W}px`;
+      dv.innerHTML = b.m.lines.filter((l) => l.text).map((l) => `<div>${richHTML(l)}</div>`).join("");
+      fo.appendChild(dv);
+      for (const row of dv.children) if (row.scrollWidth > W + 2) row.style.fontSize = Math.max(0.55, W / row.scrollWidth).toFixed(3) + "em"; // 줄바꿈 안 되는 긴 수식만 그 줄만 줄임
+      const h = dv.scrollHeight; fo.setAttribute("height", h + 8); b.m._ch = h; b.m._cw = Math.min(W, Math.max(...[...dv.children].map((r) => r.scrollWidth), 40));
     }
   }
   if (!fast) renderSide();
+}
+// 노트 전체 정리 글씨 크기 = 필기한 글 줄 높이의 중간값 기준 (16~26px), 모든 덩어리 같은 크기
+function cleanFS() {
+  const hs = [];
+  for (const b of blocks) if (b.type === "text" && b.m.lines) for (const l of b.m.lines) if (l.text && l.box && !/\$/.test(l.text)) hs.push(l.box.h);
+  if (!hs.length) return 20;
+  hs.sort((a, c) => a - c);
+  return Math.round(Math.max(16, Math.min(26, hs[hs.length >> 1] * 0.62)));
 }
 const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 // 글 + 수식($...$)을 HTML 로: 수식은 KaTeX 로 진짜 수식 모양, 자신 없는 낱말은 노란 표시
@@ -1066,6 +1085,7 @@ function units() {
   return blocks.filter((b) => !b.parent).map((b) => {
     const group = [b, ...blocks.filter((x) => x.parent === b.key)];
     const box = bbox(group.flatMap((g) => g.strokes.flatMap((s) => s.pts)));
+    if (view === "clean" && group.length === 1 && b.type === "text" && b.m.lines && !b.m.stale && b.m._ch) { box.h = b.m._ch; box.w = Math.max(b.m._cw || box.w, 60); } // 정리본으로 볼 땐 정리 글씨 크기로 배치
     return { b, group, box: { x: box.x - 6, y: box.y - 6, w: box.w + 12, h: box.h + 12 } };
   });
 }
@@ -1140,7 +1160,7 @@ $("layoutBtn").onclick = () => {
   let us = units();
   if (!us.length) return toast("배치할 덩어리가 없어요");
   snapshot();
-  if (view === "clean") { render(); normalizeClean(us); } // 정리본으로 보고 있으면 바뀐 글씨 크기 기준
+  if (view === "clean") { render(); us = units(); } // 정리본으로 보고 있으면 정리 글씨 크기로 배치
   // 이미 AI 정리로 소제목이 있으면 그 구역 순서를 유지
   const { plan, newHeads } = planLayout(sectionsFromHeads(readingOrder(us)));
   animateTo(plan, newHeads, () => { toast("✨ 가지런히 놓았어요 (↶ 되돌리기 가능)"); if (mode === "page") goPage(0); else paper.scrollTo({ top: 0, behavior: "smooth" }); });
@@ -1184,7 +1204,8 @@ JSON 만 출력: {"title":"...","sections":[{"title":"...","items":[1,2]}]}` }];
     const rest = us.filter((u) => !used.has(u)); // 빠뜨린 건 맨 뒤에
     if (rest.length) sections.push({ title: sections.length ? "기타" : "", items: rest });
     snapshot();
-    setView("clean"); render(); normalizeClean(us); // AI 정리는 바뀐 글씨(정리본) 크기를 고르게 맞춰서 배치
+    setView("clean"); render(); // AI 정리는 정리본(같은 크기 글씨) 기준으로 배치
+    const ub = new Map(units().map((x) => [x.b, x.box])); for (const u of us) if (ub.has(u.b)) u.box = ub.get(u.b);
     noteTitle = String(data.title || "").slice(0, 30);
     const { plan, newHeads } = planLayout(sections);
     animateTo(plan, newHeads, () => { if (mode === "page") goPage(0); else paper.scrollTo({ top: 0, behavior: "smooth" }); });
