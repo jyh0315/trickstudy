@@ -51,6 +51,11 @@ select { font: 14px var(--font-body); border: 2px solid var(--ink); border-radiu
 .box.sel { stroke-dasharray: none; stroke-width: 3; }
 .tag { font: 12px var(--font-title); }
 .clean { font-family: var(--font-body); fill: var(--ink); }
+.ai { background: var(--paper); border: 2px solid var(--ink); border-radius: 14px; padding: 6px 12px; margin-bottom: 10px; }
+.ai summary { cursor: pointer; font: 15px var(--font-title); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.aiIn { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0 4px; }
+.aiIn input { flex: 1; min-width: 200px; font: 14px var(--font-body); border: 2px solid var(--ink); border-radius: 10px; padding: 6px 8px; }
+.ai .meta { margin: 4px 0; }
 .side { display: flex; flex-direction: column; gap: 8px; }
 .card { background: var(--paper); border: 2px solid var(--ink); border-radius: 14px; padding: 8px 10px; }
 .card h3 { margin: 0 0 4px; font: 15px var(--font-title); display: flex; align-items: center; gap: 6px; }
@@ -87,6 +92,17 @@ select { font: 14px var(--font-body); border: 2px solid var(--ink); border-radiu
   <button class="btn" id="clear">🗑 전부 지우기</button>
   <button class="btn pink" id="copy">📋 결과 복사</button>
 </div>
+
+<details class="ai" id="aiBox">
+  <summary>🔑 AI 인식 설정 (Gemini) <span id="aiState" class="chip wait">키 없음 — 크롬 내장 인식 사용</span></summary>
+  <div class="aiIn">
+    <input type="password" id="gKey" placeholder="Gemini API 키 붙여 넣기 (AIza…)" autocomplete="off" spellcheck="false">
+    <button class="btn" id="gSave">저장·확인</button>
+    <select id="gModel" hidden></select>
+    <button class="btn" id="gDel">키 지우기</button>
+  </div>
+  <p class="meta">키는 이 크롬북 브라우저에만 저장돼요(사이트·GitHub엔 안 올라감). 글 덩어리를 그림으로 만들어 구글 Gemini 로 보내서 읽어요. 쓰다 멈추고 2.5초 뒤 한 번에 보내요.</p>
+</details>
 
 <div class="wrap">
   <div class="paper"><svg id="board" xmlns="http://www.w3.org/2000/svg"><g id="gBoxes"></g><g id="gInk"></g><g id="gClean"></g><g id="gLive"></g></svg></div>
@@ -352,11 +368,121 @@ function linesOf(b) {
   return lines.map((l) => { l.items.sort((a, c) => a.bb.x - c.bb.x); const bx = bbox(l.items.flatMap((i) => i.s.pts)); return { strokes: l.items.map((i) => i.s), box: bx }; });
 }
 
+/* ───────── Gemini 인식 ───────── */
+const GKEY = "trickstudy-gemini", GAPI = "https://generativelanguage.googleapis.com/v1beta/";
+let gem = {}; try { gem = JSON.parse(localStorage.getItem(GKEY) || "{}") || {}; } catch (e) { gem = {}; }
+let gemWaitUntil = 0;
+function gemSave() { try { localStorage.setItem(GKEY, JSON.stringify(gem)); } catch (e) { /* 무시 */ } }
+async function gemErr(r) { let m = r.status + ""; try { const j = await r.json(); m = (j.error && (j.error.message || j.error.status)) || m; } catch (e) { /* 무시 */ } return m; }
+async function gemModels(key) {
+  const r = await fetch(GAPI + "models?pageSize=200", { headers: { "x-goog-api-key": key } });
+  if (!r.ok) throw new Error(await gemErr(r));
+  const j = await r.json();
+  return (j.models || []).filter((m) => (m.supportedGenerationMethods || []).includes("generateContent")).map((m) => m.name.replace(/^models\//, ""));
+}
+// 빠르고 싼 flash 계열 중: 정식 > 미리보기, flash > flash-lite, 높은 버전 순
+function rankModels(list) {
+  const ok = list.filter((n) => /^gemini-(\d+(\.\d+)?)-flash(-lite)?(-\d{3}|-latest|-preview[\w-]*)?$/.test(n) || /^gemini-flash(-lite)?-latest$/.test(n));
+  const ver = (n) => { const m = n.match(/gemini-(\d+(?:\.\d+)?)/); return m ? parseFloat(m[1]) : 0; };
+  const sc = (n) => (/preview|exp/.test(n) ? 0 : 100) + (/lite/.test(n) ? 0 : 50) + ver(n) * 10 - (/latest/.test(n) ? 5 : 0);
+  return ok.sort((a, b) => sc(b) - sc(a));
+}
+function renderAi() {
+  const st = $("aiState");
+  if (gem.key && gem.model) { st.className = "chip ok"; st.textContent = "Gemini 사용 중 · " + gem.model; }
+  else if (gem.key) { st.className = "chip wait"; st.textContent = "키 확인 필요"; }
+  else { st.className = "chip wait"; st.textContent = "키 없음 — 크롬 내장 인식 사용"; }
+  $("gKey").value = gem.key ? "••••••••" + gem.key.slice(-4) : "";
+  const sel = $("gModel");
+  sel.hidden = !(gem.models && gem.models.length);
+  sel.innerHTML = (gem.models || []).map((m) => `<option ${m === gem.model ? "selected" : ""}>${m}</option>`).join("");
+}
+$("gSave").onclick = async () => {
+  const v = $("gKey").value.trim();
+  const key = v && !v.startsWith("••") ? v : gem.key;
+  if (!key) return toast("키를 붙여 넣어 주세요");
+  $("aiState").className = "chip wait"; $("aiState").textContent = "확인 중…";
+  try {
+    const ms = rankModels(await gemModels(key));
+    if (!ms.length) throw new Error("쓸 수 있는 flash 모델이 없어요");
+    gem = { key, models: ms.slice(0, 8), model: ms[0] }; gemSave(); renderAi();
+    toast("키 확인 완료! " + ms[0] + " 로 읽을게요");
+    blocks.forEach((b) => { if (b.type === "text") b.m.stale = true; }); scheduleRecognize();
+  } catch (e) { gem = { key }; gemSave(); renderAi(); $("aiState").className = "chip no"; $("aiState").textContent = "키 오류"; toast("키 확인 실패: " + e.message); }
+};
+$("gModel").onchange = (e) => { gem.model = e.target.value; gemSave(); renderAi(); };
+$("gDel").onclick = () => { gem = {}; try { localStorage.removeItem(GKEY); } catch (e) { /* 무시 */ } renderAi(); toast("키를 지웠어요"); };
+
+// 덩어리를 흰 바탕 그림(PNG)으로
+function blockPng(b) {
+  const pad = 16, bx = b.box, k = Math.min(2, 1024 / Math.max(bx.w + pad * 2, bx.h + pad * 2));
+  const c = document.createElement("canvas");
+  c.width = Math.ceil((bx.w + pad * 2) * k); c.height = Math.ceil((bx.h + pad * 2) * k);
+  const g = c.getContext("2d");
+  g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height);
+  g.lineCap = "round"; g.lineJoin = "round"; g.strokeStyle = "#000";
+  for (const s of b.strokes) {
+    g.lineWidth = Math.max(2, widthOf(s) * k);
+    g.beginPath();
+    s.pts.forEach((q, i) => { const x = (q.x - bx.x + pad) * k, y = (q.y - bx.y + pad) * k; i ? g.lineTo(x, y) : g.moveTo(x, y); });
+    if (s.pts.length === 1) g.lineTo((s.pts[0].x - bx.x + pad) * k + 0.5, (s.pts[0].y - bx.y + pad) * k);
+    g.stroke();
+  }
+  return c.toDataURL("image/png").split(",")[1];
+}
+const GPROMPT = `학생의 손글씨 필기 조각들을 글자로 옮겨 주세요. 과목은 주로 생명과학·수학이고 한국어와 영어가 섞여 있어요.
+규칙:
+- 이미지마다 보이는 그대로 옮기고, 고치거나 요약하지 마세요. 맞춤법만 명백히 틀린 글자는 원래 쓰려던 글자로.
+- 줄은 위에서 아래 순서로 나눠서, 이미지 속 실제 줄 수와 같게.
+- 수식은 LaTeX 로 $...$ 안에 (예: $x^2+1$).
+- 알아보기 어려운 줄은 alts 에 다른 후보를 2~3개.
+- 이미지 순서대로 blocks 배열에 넣고, JSON 만 출력:
+{"blocks":[{"lines":[{"text":"...","alts":["..."]}]}]}`;
+async function gemRecognize(list) {
+  const parts = [{ text: GPROMPT + `\n이미지는 모두 ${list.length}개예요.` }];
+  list.forEach((b, i) => { parts.push({ text: `이미지 ${i + 1}` }); parts.push({ inline_data: { mime_type: "image/png", data: blockPng(b) } }); });
+  const r = await fetch(GAPI + "models/" + encodeURIComponent(gem.model) + ":generateContent", {
+    method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": gem.key },
+    body: JSON.stringify({ contents: [{ role: "user", parts }], generationConfig: { temperature: 0, responseMimeType: "application/json" } }),
+  });
+  if (r.status === 429) { const e = new Error("무료 사용량을 잠깐 다 썼어요. 30초 뒤에 다시 읽을게요"); e.retry = true; throw e; }
+  if (!r.ok) throw new Error(await gemErr(r));
+  const j = await r.json();
+  const txt = (((j.candidates || [])[0] || {}).content || { parts: [] }).parts.map((p) => p.text || "").join("");
+  const data = JSON.parse(txt.replace(/^```(json)?|```$/g, "").trim());
+  return data.blocks || [];
+}
+function applyLines(b, glines) {
+  let ls = linesOf(b);
+  if (glines.length !== ls.length) { // 줄 수가 다르면 덩어리를 같은 높이로 나눠서 배치
+    const n = Math.max(1, glines.length), h = b.box.h / n;
+    ls = glines.map((_, i) => ({ box: { x: b.box.x, y: b.box.y + h * i, w: b.box.w, h } }));
+  }
+  return glines.map((g, i) => ({ text: String(g.text || ""), alts: (g.alts || []).map(String).filter((a) => a && a !== g.text).slice(0, 4), box: ls[i].box }));
+}
+
 /* ───────── 인식 ───────── */
 let recT = 0, busy = false;
-function scheduleRecognize() { clearTimeout(recT); recT = setTimeout(recognizeAll, 900); }
+function scheduleRecognize(ms) { clearTimeout(recT); recT = setTimeout(recognizeAll, ms || (gem.model ? 2500 : 900)); }
 async function recognizeAll() {
   if (busy) return scheduleRecognize();
+  if (gem.key && gem.model) {
+    const list = blocks.filter((b) => b.type === "text" && b.m.stale);
+    if (!list.length) return;
+    if (Date.now() < gemWaitUntil) return scheduleRecognize(gemWaitUntil - Date.now() + 200);
+    busy = true; say("에르핀이 Gemini 한테 읽어 달라고 하는 중… 📮");
+    const t0 = performance.now();
+    try {
+      const res = await gemRecognize(list);
+      const ms = Math.round(performance.now() - t0);
+      list.forEach((b, i) => { const r = res[i]; b.m.stale = false; if (r && r.lines) { b.m.lines = applyLines(b, r.lines); b.m.ms = ms; b.m.edited = false; b.m.engine = gem.model; } });
+      say(`글 덩어리 ${list.length}개를 읽었어요! (${(ms / 1000).toFixed(1)}초) 틀린 건 오른쪽에서 고치거나 후보를 골라요.`);
+    } catch (e) {
+      if (e.retry) { gemWaitUntil = Date.now() + 30000; scheduleRecognize(30500); }
+      say("읽기 실패: " + e.message);
+    } finally { busy = false; }
+    render(); save(); return;
+  }
   const rec = await getRecognizer();
   busy = true;
   try {
@@ -465,7 +591,7 @@ $("undo").onclick = () => { const s = undoStack.pop(); if (!s) return toast("더
 $("clear").onclick = () => { if (!strokes.length) return; snapshot(); strokes = []; meta = {}; sel = null; regroup(); save(); toast("다 지웠어요 (되돌리기 가능)"); };
 $("copy").onclick = async () => {
   const report = {
-    page: "note-test v2", ua: navigator.userAgent, api: env.api, ko: !!env.ko, en: !!env.en,
+    page: "note-test v3", engine: gem.model || "chrome", ua: navigator.userAgent, api: env.api, ko: !!env.ko, en: !!env.en,
     koInfo: env.ko || null, inputs: [...env.inputs], lang: $("lang").value, gap: +$("gap").value,
     blocks: blocks.map((b, i) => ({ n: i + 1, type: b.type, strokes: b.strokes.length, size: [Math.round(b.box.w), Math.round(b.box.h)], ms: b.m.ms, edited: !!b.m.edited, parent: b.parent ? blocks.findIndex((x) => x.key === b.parent) + 1 : null, lines: (b.m.lines || []).map((l) => ({ text: l.text, alts: l.alts })) })),
   };
@@ -475,7 +601,7 @@ $("copy").onclick = async () => {
 };
 document.addEventListener("keydown", (e) => { if ((e.ctrlKey || e.metaKey) && e.key === "z") { e.preventDefault(); $("undo").click(); } });
 
-load(); regroup(); checkApi().then(() => { blocks.forEach((b) => (b.m.stale = b.m.stale || !b.m.lines)); scheduleRecognize(); });
+renderAi(); load(); regroup(); checkApi().then(() => { blocks.forEach((b) => (b.m.stale = b.m.stale || !b.m.lines)); scheduleRecognize(); });
 </script>
 </body>
 </html>
