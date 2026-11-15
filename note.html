@@ -770,7 +770,7 @@ async function gemCall(parts, schema, temp) {
   const rest = restMap();
   const all = [gem.model, ...(gem.models || []).filter((m) => m !== gem.model)];
   const order = all.filter((m) => !rest[m]);
-  const why = []; let badJson = 0, quota = 0, busy = 0;
+  const why = []; let badJson = 0, quota = 0, busy = 0, internal = 0;
   for (let k = 0; k < order.length; k++) {
     const m = order[k];
     for (let attempt = 0; attempt < 2; attempt++) {
@@ -791,13 +791,19 @@ async function gemCall(parts, schema, temp) {
         why.push(short(m) + (daily ? ": 오늘 무료 한도 다 씀" : ": 잠깐 한도(분당)"));
         break;
       }
-      if (r.status === 503 || r.status === 500 || /high demand|overloaded|unavailable/i.test(msg)) { // 붐빔: 2초 쉬고 한 번 더
+      console.warn("Gemini 오류", m, r.status, err);
+      if (r.status === 500 || r.status === 504 || /internal/i.test(msg)) { // 내부 오류: 서버가 바빠서가 아니라 보낸 내용이 무거운 경우가 많음 → 모델 바꾸기보다 나눠 보내기
+        internal++; why.push(`${short(m)}: 내부 오류(${r.status})`);
+        if (internal >= 2) { const e2 = new Error(`구글이 이 요청을 처리하지 못했어요 (${why.join(" · ")})`); e2.internal = true; throw e2; }
+        break;
+      }
+      if (r.status === 503 || /high demand|overloaded|unavailable/i.test(msg)) { // 붐빔: 2초 쉬고 한 번 더
         if (attempt === 0) { await new Promise((ok) => setTimeout(ok, 2000)); continue; }
-        busy++; setRest(m, 45e3, "붐빔"); why.push(short(m) + ": 붐빔"); break;
+        busy++; setRest(m, 45e3, "붐빔"); why.push(`${short(m)}: 붐빔(${r.status})`); break;
       }
       if (r.status === 404) { setRest(m, 24 * 3600e3, "없음"); why.push(short(m) + ": 없는 모델"); break; }
       if (r.status === 400 && schema && /schema|responseSchema/i.test(msg)) return gemCall(parts, null, temp); // 스키마를 못 받는 모델이면 없이
-      throw new Error(msg);
+      throw new Error(`${short(m)}: ${msg} (${r.status})`);
     }
   }
   const restNow = restMap(), waits = Object.values(restNow).map((x) => x.until - Date.now()).filter((x) => x > 0);
@@ -810,12 +816,24 @@ async function gemCall(parts, schema, temp) {
           : `읽지 못했어요 (${detail})`);
   e.retry = true; e.wait = Math.max(15000, Math.min(waits.length ? Math.min(...waits) : 30000, 10 * 60e3)); throw e;
 }
-async function gemRecognize(list) {
+async function gemRecognize(list, noSchema) {
   const parts = [{ text: GPROMPT + gemContext(list) + `\n\n이미지는 모두 ${list.length}개예요.` }];
-  list.forEach((b, i) => { parts.push({ text: `이미지 ${i + 1}` + (b.m.reread ? ` (학생이 다시 읽어 달라고 했어요. 전에는 "${b.m.reread.slice(0, 300)}" 로 읽었는데 틀린 곳이 있을 수 있으니 글자 하나하나 더 꼼꼼히 다시 보세요)` : "") + (b.m.hint ? ` (참고: 이 덩어리의 일부는 전에 "${b.m.hint.slice(0, 300)}" 로 읽혔어요. 그 뒤 획이 더해지거나 바뀌었을 수 있으니 이미지를 기준으로 읽으세요)` : "") }); parts.push({ inline_data: { mime_type: "image/png", data: blockPng(b) } }); });
-  const data = await gemCall(parts, SCHEMA_READ, list.some((b) => b.m.reread) ? 0.5 : 0);
-  gemRecognize.used = gemCall.used;
-  return data.blocks || [];
+  list.forEach((b, i) => { parts.push({ text: `이미지 ${i + 1}` + (b.m.reread ? ` (학생이 다시 읽어 달라고 했어요. 전에는 "${b.m.reread.slice(0, 300)}" 로 읽었는데 틀린 곳이 있을 수 있으니 글자 하나하나 더 꼼꼼히 다시 보세요)` : "") + (b.m.hint ? ` (참고: 이 덩어리의 일부는 전에 "${b.m.hint.slice(0, 300)}" 로 읽혔어요. 그 뒤 획이 더해지거나 바뀌었을 수 있으니 이미지를 기준으로 읽으세요)` : "") }); parts.push({ inline_data: { mime_type: "image/png", data: blockPng(b, 768) } }); });
+  try {
+    const data = await gemCall(parts, noSchema ? null : SCHEMA_READ, list.some((b) => b.m.reread) ? 0.5 : 0);
+    gemRecognize.used = gemCall.used;
+    return data.blocks || [];
+  } catch (e) {
+    if (!e.internal) throw e;
+    if (list.length > 1) { // 나눠서 보내기
+      aiStat("work", `🤖 나눠서 읽는 중… (${list.length}개)`);
+      const half = Math.ceil(list.length / 2);
+      const pad = (arr, n) => { arr = arr.slice(0, n); while (arr.length < n) arr.push(null); return arr; }; // 순서 맞추기
+      return [...pad(await gemRecognize(list.slice(0, half), noSchema), half), ...pad(await gemRecognize(list.slice(half), noSchema), list.length - half)];
+    }
+    if (!noSchema) return gemRecognize(list, true); // 하나인데도 안 되면 답 형식 지정 없이
+    throw e;
+  }
 }
 // 줄 위치는 덩어리 왼쪽 위 기준(상대 좌표)으로 저장 → 덩어리를 옮겨도 글씨가 따라감
 function relLines(b, lines) {
