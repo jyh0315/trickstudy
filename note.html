@@ -10,6 +10,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Jua&family=Gowun+Dodum&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="js/note-store.js"></script>
 <script src="js/sado.js"></script>
 <script src="js/spine-data.js"></script>
 <style>
@@ -220,9 +221,10 @@ let recognizer = null, recLang = null;
 /* 노트 저장: 브라우저 저장소(IndexedDB) "trickstudy-notes" 에 노트마다 따로 */
 let saveT = 0;
 function save() { clearTimeout(saveT); $("saveState").textContent = "저장 중…"; saveT = setTimeout(saveNow, 600); }
+let lockedOut = false; // 다른 탭이 이 노트를 가져가면 이 탭은 저장하지 않음
 async function saveNow() {
   saveT = 0;
-  if (!note) return;
+  if (!note || lockedOut) return;
   Object.assign(note, {
     title: $("title").value.trim() || "제목 없는 노트", paper: $("paperSel").value,
     data: { strokes, meta, nextId, heads }, mode, page, zoom: zFit ? 0 : Z, view, focusUI, sideOn,
@@ -233,11 +235,32 @@ async function saveNow() {
 }
 addEventListener("pagehide", () => { if (saveT) { clearTimeout(saveT); saveNow(); } });
 document.addEventListener("visibilitychange", () => { if (document.hidden && saveT) { clearTimeout(saveT); saveNow(); } });
+// 같은 노트를 다른 탭에서도 열었을 때 안내 창
+function tabBlock(html, buttons) {
+  let ov = document.getElementById("tabBlock");
+  if (!ov) { ov = document.createElement("div"); ov.id = "tabBlock"; ov.className = "cvp"; document.body.appendChild(ov); }
+  ov.innerHTML = `<div class="cvp-box" style="max-width:440px;text-align:center"><h3>📒 ${html}</h3><div class="cvp-foot" style="justify-content:center">${buttons}</div></div>`;
+  return ov;
+}
+async function onLost() { // 다른 탭이 "여기서 쓸게" 했을 때
+  clearTimeout(saveT); await saveNow(); lockedOut = true;
+  const ov = tabBlock("다른 탭에서 이 노트를 이어서 쓰고 있어요.<br><small style='font-family:var(--font-body)'>여기서 쓴 건 저장해 뒀어요. 이 탭은 쉬는 중이에요.</small>",
+    '<a class="btn" href="./#note">노트 목록</a><button class="btn mint" id="tbBack">이 탭에서 다시 쓰기</button>');
+  ov.querySelector("#tbBack").onclick = async () => { if (await NoteStore.lock.takeover(note.id, onLost)) location.reload(); };
+}
 async function loadNote() {
+  if (NOTE_ID && !(await NoteStore.lock.open(NOTE_ID, onLost))) { // 다른 탭이 쓰는 중
+    await new Promise((resolve) => {
+      const ov = tabBlock("이 노트가 다른 탭에서 열려 있어요.<br><small style='font-family:var(--font-body)'>두 곳에서 같이 쓰면 한쪽 필기가 사라질 수 있어서 한 곳에서만 쓸 수 있어요.</small>",
+        '<a class="btn" href="./#note">노트 목록</a><button class="btn mint" id="tbHere">여기서 쓰기</button>');
+      ov.querySelector("#tbHere").onclick = async () => { ov.querySelector("#tbHere").textContent = "넘겨받는 중…"; if (await NoteStore.lock.takeover(NOTE_ID, onLost)) { ov.remove(); resolve(); } else toast("넘겨받지 못했어요. 다른 탭을 닫고 다시 눌러 주세요"); };
+    });
+  }
   let n = NOTE_ID ? await noteGet(NOTE_ID) : null;
   if (!n) { // 주소에 노트가 없으면 새 노트
     n = { id: "n" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), title: "새 노트", paper: "lined", created: Date.now(), updated: Date.now(), pages: [] };
     history.replaceState(null, "", "?id=" + n.id);
+    await NoteStore.lock.open(n.id, onLost);
   }
   note = n; note.pages = note.pages || [];
   const d = n.data || {};
@@ -249,7 +272,16 @@ async function loadNote() {
   $("gCheck").checked = !!n.check; $("gAuto").checked = n.auto !== false;
   document.title = (n.title || "노트") + " · 트릭스터디";
 }
-function snapshot() { undoStack.push(JSON.stringify({ strokes, meta, heads })); if (undoStack.length > 60) undoStack.shift(); }
+/* 되돌리기: 가장 잦은 "획 하나 쓰기"는 노트 전체를 복사하지 않고 그 획 번호 + 덩어리 정보만 기억.
+   옮기기·지우기·배치처럼 여러 획이 바뀌는 건 통째로 기억하되, 기록 전체가 25MB 를 넘으면 오래된 것부터 버림 */
+let undoBytes = 0;
+function pushUndo(entry) {
+  entry.size = (entry.full || "").length + (entry.meta || "").length;
+  undoStack.push(entry); undoBytes += entry.size;
+  while (undoStack.length > 80 || (undoBytes > 25e6 && undoStack.length > 1)) undoBytes -= undoStack.shift().size;
+}
+function snapshot() { pushUndo({ full: JSON.stringify({ strokes, meta, heads }) }); }
+function snapshotAdd(firstId) { pushUndo({ addFrom: firstId, meta: JSON.stringify({ meta, heads }) }); }
 function toast(t) { const el = $("toast"); el.textContent = t; el.classList.add("on"); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove("on"), 1800); }
 function say(t) { $("say").textContent = t; if (focusUI) toast(t); }
 
@@ -405,7 +437,7 @@ function endPointer(e) {
     return;
   }
   if (!live) return;
-  snapshot();
+  snapshotAdd(live.id);
   strokes.push(live); if (tapped) onTap(tapped.x, tapped.y, live.id); live = null; $("gLive").innerHTML = "";
   regroup(); save(); scheduleRecognize(); fitBoard();
 }
@@ -1151,7 +1183,7 @@ function updatePageLabel() {
   if (pg === shownPage && document.activeElement === $("pSum")) return;
   shownPage = pg; $("pLabel").textContent = `${pg + 1}쪽`; $("pSum").value = pageSum(pg);
 }
-$("pSum").oninput = () => { const pg = shownPage < 0 ? viewPage() : shownPage; note.pages[pg] = Object.assign(note.pages[pg] || {}, { summary: $("pSum").value.trim() }); for (let k = 0; k < note.pages.length; k++) if (!note.pages[k]) note.pages[k] = {}; save(); };
+$("pSum").oninput = () => { const pg = shownPage < 0 ? viewPage() : shownPage; note.pages[pg] = Object.assign(note.pages[pg] || {}, { summary: $("pSum").value.trim(), auto: false }); for (let k = 0; k < note.pages.length; k++) if (!note.pages[k]) note.pages[k] = {}; save(); };
 function goPage(n) {
   page = Math.max(0, Math.min(n, pageCount())); // 마지막 다음 장 = 새 장
   fitBoard(); render(); save(); paper.scrollTop = 0;
@@ -1355,6 +1387,22 @@ function sectionsFromHeads(order) {
   return secs.filter((sct) => sct.title || sct.items.length);
 }
 
+// 페이지 요약 자동 채우기: 그 장에 있는 소제목들로 (소제목 없이 이어지는 장은 "앞 소제목 (이어서)")
+//  직접 쓴 요약은 그대로 두고, 비었거나 예전에 자동으로 채운 것만 바꿈
+function autoSummaries() {
+  const hs = [...heads].sort((a, c) => a.y - c.y), n = pageCount();
+  let last = "";
+  for (let i = 0; i < n; i++) {
+    const here = hs.filter((h) => pageOf(h.y) === i).map((h) => h.text);
+    const hasContent = blocks.some((b) => pageOf(b.box.y + b.box.h / 2) === i);
+    const sum = here.length ? here.join(" · ") : hasContent && last ? last + " (이어서)" : "";
+    if (here.length) last = here[here.length - 1];
+    const cur = note.pages[i] || {};
+    if (sum && (!cur.summary || cur.auto)) note.pages[i] = { summary: sum, auto: true };
+  }
+  for (let k = 0; k < note.pages.length; k++) if (!note.pages[k]) note.pages[k] = {};
+  shownPage = -1; updatePageLabel(); save();
+}
 /* ───────── 🤖 AI 정리 (Gemini): 내용 흐름대로 순서 + 소제목 ───────── */
 $("tidyBtn").onclick = async () => {
   if (!(gem.key && gem.model)) { toast("🔑 트릭스터디 → 📝 노트 탭의 AI 설정에서 Gemini 키를 먼저 넣어 주세요"); return; }
@@ -1393,7 +1441,7 @@ JSON 만 출력: {"title":"...","sections":[{"title":"...","items":[1,2]}]}` }];
     noteTitle = String(data.title || "").slice(0, 30);
     if (noteTitle && (!$("title").value.trim() || $("title").value.trim() === "새 노트")) { $("title").value = noteTitle; }
     const { plan, newHeads } = planLayout(sections);
-    animateTo(plan, newHeads, () => { if (mode === "page") goPage(0); else paper.scrollTo({ top: 0, behavior: "smooth" }); });
+    animateTo(plan, newHeads, () => { autoSummaries(); if (mode === "page") goPage(0); else paper.scrollTo({ top: 0, behavior: "smooth" }); });
     say(`🤖 「${noteTitle || "노트"}」 — 소단원 ${sections.length}개로 정리했어요! 마음에 안 들면 ↶ 되돌리기, 소제목은 ✋ 옮기기로 끌거나 🧽 지우개로 지울 수 있어요.`);
     document.title = ($("title").value || "노트") + " · 트릭스터디";
   } catch (e) { say("AI 정리 실패: " + e.message); toast("AI 정리 실패: " + e.message); aiStat("bad", "⚠️ 정리 실패: " + e.message, "AI 정리 실패: " + e.message); }
@@ -1402,13 +1450,12 @@ JSON 만 출력: {"title":"...","sections":[{"title":"...","items":[1,2]}]}` }];
 
 /* ───────── 🖼 사진: 브라우저 저장소(IndexedDB)에 넣고, 노트엔 "사진 획"으로 ─────────
    사진도 테두리 점들로 된 획처럼 다뤄서 옮기기·크기 조절·세트·배치·AI 정리가 그대로 됨 */
-let idbP = null;
-// 노트와 사진은 같은 저장소 "trickstudy-notes" (트릭스터디 노트 탭도 같은 곳을 씀)
-function idb() { return idbP || (idbP = new Promise((ok, no) => { const r = indexedDB.open("trickstudy-notes", 1); r.onupgradeneeded = () => { const d = r.result; if (!d.objectStoreNames.contains("notes")) d.createObjectStore("notes", { keyPath: "id" }); if (!d.objectStoreNames.contains("img")) d.createObjectStore("img"); }; r.onsuccess = () => ok(r.result); r.onerror = () => no(r.error); })); }
-async function noteGet(id) { const db = await idb(); return new Promise((ok) => { const r = db.transaction("notes").objectStore("notes").get(id); r.onsuccess = () => ok(r.result || null); r.onerror = () => ok(null); }); }
-async function notePut(n) { const db = await idb(); return new Promise((ok, no) => { const t = db.transaction("notes", "readwrite"); t.objectStore("notes").put(n); t.oncomplete = ok; t.onerror = () => no(t.error); }); }
-async function imgPut(id, blob) { const db = await idb(); return new Promise((ok, no) => { const t = db.transaction("img", "readwrite"); t.objectStore("img").put(blob, id); t.oncomplete = ok; t.onerror = () => no(t.error); }); }
-async function imgGet(id) { const db = await idb(); return new Promise((ok) => { const r = db.transaction("img").objectStore("img").get(id); r.onsuccess = () => ok(r.result); r.onerror = () => ok(null); }); }
+// 노트와 사진은 공용 저장소 (js/note-store.js — 트릭스터디 노트 탭과 같은 곳)
+const idb = () => NoteStore.idb();
+const imgPut = (id, blob) => NoteStore.putImg(id, blob);
+const imgGet = (id) => NoteStore.getImg(id);
+const noteGet = (id) => NoteStore.getNote(id);
+const notePut = (n) => NoteStore.putNote(n);
 const imgCache = new Map(), imgLoading = new Map();
 function loadImg(id) {
   if (imgCache.has(id)) return Promise.resolve(imgCache.get(id));
@@ -1471,7 +1518,13 @@ seg("view", (v) => { view = v; render(); clearTimeout(saveT); saveNow(); });
 seg("color", (v) => (color = v));
 $("gap").oninput = () => { regroup(); };
 $("gap").onchange = () => { save(); scheduleRecognize(); };
-$("undo").onclick = () => { const s = undoStack.pop(); if (!s) return toast("더 되돌릴 게 없어요"); const d = JSON.parse(s); strokes = d.strokes; meta = d.meta; heads = d.heads || []; regroup(); fitBoard(); save(); scheduleRecognize(); };
+$("undo").onclick = () => {
+  const u = undoStack.pop(); if (!u) return toast("더 되돌릴 게 없어요");
+  undoBytes -= u.size || 0;
+  if (u.addFrom != null) { const d = JSON.parse(u.meta); strokes = strokes.filter((st) => st.id < u.addFrom); meta = d.meta; heads = d.heads || []; }
+  else { const d = JSON.parse(u.full); strokes = d.strokes; meta = d.meta; heads = d.heads || []; }
+  regroup(); fitBoard(); save(); scheduleRecognize();
+};
 $("clear").onclick = () => { if (!strokes.length && !heads.length) return; snapshot(); strokes = []; meta = {}; heads = []; sel = null; regroup(); fitBoard(); save(); toast("다 지웠어요 (되돌리기 가능)"); };
 document.addEventListener("keydown", (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key === "z") { e.preventDefault(); $("undo").click(); }
@@ -1649,7 +1702,12 @@ $("pdfBtn").onclick = async () => {
 })();
 $("aiStat").onclick = () => { if (!(gem.key && gem.model)) return toast("트릭스터디 → 📝 노트 탭의 AI 설정에서 Gemini 키를 넣어 주세요"); blocks.forEach((b) => { if (b.type === "text" && !b.m.lines) b.m.stale = true; }); clearTimeout(recT); aiStat("work", "🤖 다시 읽는 중…"); recognizeAll(true); };
 // ← 노트: 저장을 끝낸 뒤 목록으로
-$("backBtn").onclick = async (e) => { e.preventDefault(); clearTimeout(saveT); $("saveState").textContent = "저장 중…"; await saveNow(); location.href = "./#note"; };
+$("backBtn").onclick = async (e) => {
+  e.preventDefault(); clearTimeout(saveT); $("saveState").textContent = "저장 중…"; await saveNow();
+  try { if ((await NoteStore.dirPermission(true)) === "granted") { $("saveState").textContent = "백업 중…"; await NoteStore.backupChanged(note.id); } } catch (er) { /* 백업 실패해도 나가기 */ }
+  location.href = "./#note";
+};
+setInterval(async () => { try { if (!lockedOut && note && (await NoteStore.dirPermission(false)) === "granted") await NoteStore.backupChanged(note.id); } catch (e) { /* 무시 */ } }, 5 * 60e3); // 5분마다 백업 폴더에도
 </script>
 </body>
 </html>

@@ -6,25 +6,10 @@
   const $ = (id) => document.getElementById(id);
   const esc = (t) => String(t == null ? "" : t).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 
-  /* ───── 저장소 ───── */
-  let dbP = null;
-  function idb() {
-    return dbP || (dbP = new Promise((ok, no) => {
-      const r = indexedDB.open("trickstudy-notes", 1);
-      r.onupgradeneeded = () => { const d = r.result; if (!d.objectStoreNames.contains("notes")) d.createObjectStore("notes", { keyPath: "id" }); if (!d.objectStoreNames.contains("img")) d.createObjectStore("img"); };
-      r.onsuccess = () => ok(r.result); r.onerror = () => no(r.error);
-    }));
-  }
-  const tx = async (store, mode, fn) => { const db = await idb(); return new Promise((ok, no) => { const t = db.transaction(store, mode); const res = fn(t.objectStore(store)); t.oncomplete = () => ok(res && res.result !== undefined ? res.result : res); t.onerror = () => no(t.error); }); };
-  const allNotes = () => tx("notes", "readonly", (s) => s.getAll());
-  const getNote = (id) => tx("notes", "readonly", (s) => s.get(id));
-  const putNote = (n) => tx("notes", "readwrite", (s) => s.put(n));
-  const delNote = (id) => tx("notes", "readwrite", (s) => s.delete(id));
-  const getImg = (id) => tx("img", "readonly", (s) => s.get(id));
-  const putImg = (id, blob) => tx("img", "readwrite", (s) => s.put(blob, id));
-  const delImg = (id) => tx("img", "readwrite", (s) => s.delete(id));
+  /* ───── 저장소: 공용 (js/note-store.js) ───── */
+  const NS = window.NoteStore;
+  const { getNote, putNote, delNote, allNotes, putImg, delImg, imgIds } = NS;
   const newId = () => "n" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
-  const imgIds = (n) => [...new Set(((n.data && n.data.strokes) || []).filter((s) => s.img).map((s) => s.img))];
 
   const PAPER = { lined: ["📏", "줄 노트"], blank: ["⬜", "무지"], grid: ["▦", "격자"] };
   const ago = (t) => {
@@ -88,39 +73,44 @@
     if (fc) fc.onclick = () => { setJ(FKEY, []); TS.toast("고친 기록을 지웠어요"); card.innerHTML = aiHTML(); bindAI(card); };
   }
 
-  /* ───── 파일로 저장 / 불러오기 (.tnote = 노트 + 사진) ───── */
-  const blobToData = (b) => new Promise((ok) => { const r = new FileReader(); r.onload = () => ok(r.result); r.readAsDataURL(b); });
+  /* ───── 파일로 저장 / 불러오기 (.tnote = 노트 하나, .tnotes = 전체 묶음) ───── */
+  async function saveBlob(blob, name, ext, desc) {
+    if (window.showSaveFilePicker) { // 크롬: 저장 위치·이름을 고르는 창 (한글 이름 그대로)
+      try {
+        const h = await window.showSaveFilePicker({ suggestedName: name, types: [{ description: desc, accept: { "application/json": [ext] } }] });
+        const w = await h.createWritable(); await w.write(blob); await w.close();
+        return true;
+      } catch (e) { if (e && e.name === "AbortError") return false; } // 취소면 끝, 다른 오류면 아래 방식으로
+    }
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob); a.download = name; a.style.display = "none";
+    document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 4000);
+    return true;
+  }
   async function exportNote(id) {
     const n = await getNote(id);
     if (!n) return;
-    const imgs = {};
-    for (const k of imgIds(n)) { const b = await getImg(k); if (b) imgs[k] = await blobToData(b); }
-    const file = new Blob([JSON.stringify({ app: "trickstudy-note", v: 1, note: n, imgs })], { type: "application/json" });
-    const name = (n.title || "노트").replace(/[\\/:*?"<>|]/g, "_") + ".tnote";
-    if (window.showSaveFilePicker) { // 크롬: 저장 위치·이름을 고르는 창 (한글 이름 그대로)
-      try {
-        const h = await window.showSaveFilePicker({ suggestedName: name, types: [{ description: "트릭스터디 노트", accept: { "application/json": [".tnote"] } }] });
-        const w = await h.createWritable(); await w.write(file); await w.close();
-        return TS.toast("💾 노트 파일을 저장했어요");
-      } catch (e) { if (e && e.name === "AbortError") return; } // 취소면 끝, 다른 오류면 아래 방식으로
-    }
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(file);
-    a.download = name;
-    a.style.display = "none"; document.body.appendChild(a); a.click();
-    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 4000);
-    TS.toast("💾 노트 파일을 저장했어요");
+    if (await saveBlob(await NS.noteFile(n), NS.fileName(n) + ".tnote", ".tnote", "트릭스터디 노트")) TS.toast("💾 노트 파일을 저장했어요");
+  }
+  async function exportAll() {
+    const d = new Date(), stamp = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    if (await saveBlob(await NS.bundleFile(), `트릭스터디 노트 전체 ${stamp}.tnotes`, ".tnotes", "트릭스터디 노트 묶음")) { NS.markFull(); TS.toast("⬇️ 노트 전체를 한 파일로 저장했어요"); renderBackup(); }
+  }
+  async function importOne(n, imgs) {
+    for (const [k, url] of Object.entries(imgs || {})) { if (!n.data || !JSON.stringify(n.data.strokes || []).includes(k)) continue; const b = await (await fetch(url)).blob(); await putImg(k, b); }
+    const old = await getNote(n.id);
+    if (old && old.updated >= (n.updated || 0)) { if (JSON.stringify(old.data) === JSON.stringify(n.data)) return 0; n.id = newId(); n.title = (n.title || "노트") + " (불러옴)"; } // 같은 노트면 건너뜀, 다르면 사본
+    await putNote(n); return 1;
   }
   async function importFile(file) {
     try {
       const d = JSON.parse(await file.text());
-      if (!d || d.app !== "trickstudy-note" || !d.note) throw new Error("트릭스터디 노트 파일이 아니에요");
-      const n = d.note, old = await getNote(n.id);
-      if (old) { n.id = newId(); n.title = (n.title || "노트") + " (불러옴)"; } // 같은 노트가 있으면 사본으로
-      for (const [k, url] of Object.entries(d.imgs || {})) { const b = await (await fetch(url)).blob(); await putImg(k, b); }
-      n.updated = Date.now();
-      await putNote(n);
-      TS.toast("📂 「" + (n.title || "노트") + "」를 불러왔어요");
+      let n = 0;
+      if (d && d.app === "trickstudy-note" && d.note) n = await importOne(d.note, d.imgs);
+      else if (d && d.app === "trickstudy-notes" && Array.isArray(d.notes)) { for (const x of d.notes) n += await importOne(x, d.imgs); }
+      else throw new Error("트릭스터디 노트 파일이 아니에요");
+      TS.toast(n ? `📂 노트 ${n}개를 불러왔어요` : "📂 이미 같은 노트가 있어요");
       listSig = ""; loadList();
     } catch (e) { TS.toast("불러오기 실패: " + (e.message || e)); }
   }
@@ -202,6 +192,38 @@
     });
   }
 
+  /* ───── 백업 ─────
+     폴더를 한 번 골라 두면 노트가 바뀔 때 그 폴더에 .tnote 로 자동 저장 (크롬북 '파일' 앱의 Google Drive 폴더를 고르면 드라이브에도 올라감)
+     폴더가 없거나 연결이 끊기면 며칠마다 "전체 백업 파일 받기"를 권함 */
+  const days = (t) => (t ? Math.floor((Date.now() - t) / 864e5) : Infinity);
+  async function renderBackup(autoRun) {
+    const box = $("nt-backup"); if (!box) return;
+    let perm = "none", dir = null;
+    try { dir = await NS.getDir(); perm = await NS.dirPermission(false); } catch (e) { /* 폴더 기능 없음 */ }
+    if (autoRun && perm === "granted") { try { const n = await NS.backupChanged(); if (n > 0) TS.toast(`📁 노트 ${n}개를 백업 폴더에 저장했어요`); } catch (e) { /* 무시 */ } }
+    const log = NS.backupLog(), last = Math.max(log._at && perm === "granted" ? log._at : 0, log._full || 0);
+    const count = (await allNotes()).length, d = days(last);
+    const warn = count && perm !== "granted" && d >= 3;
+    const status = NS.dirBroken() ? `⚠️ 이 기기에서는 자동 백업 폴더를 쓸 수 없었어요. 대신 <b>⬇️ 전체 백업 파일 받기</b>로 가끔 저장해 주세요. <button class="btn small" id="bk-retry">폴더 다시 시도</button>`
+      : perm === "granted" ? `✅ 자동 백업 중 · 📁 <b>${esc(dir.name)}</b> · 마지막 ${log._at ? ago(log._at) : "-"}`
+      : perm === "prompt" ? `🔒 백업 폴더 <b>${esc(dir.name)}</b> 연결이 끊겼어요 — 아래 버튼을 눌러 다시 허락해 주세요`
+        : `📁 자동 백업 폴더가 없어요. 노트는 <b>이 브라우저에만</b> 있어서, 인터넷 기록(사이트 데이터)을 지우면 사라져요.`;
+    box.className = "nt-backup" + (warn ? " warn" : "");
+    box.innerHTML = `<div class="nt-bk-st">${warn ? `⚠️ <b>${d === Infinity ? "한 번도" : d + "일 동안"}</b> 백업하지 않았어요. ` : ""}${status}</div>
+      <div class="nt-actions" style="margin:6px 0 0">
+        ${NS.canFolder() ? (perm === "prompt" ? '<button class="btn yellow small" id="bk-re">🔓 다시 연결</button>' : `<button class="btn ${perm === "granted" ? "" : "yellow "}small" id="bk-pick">📁 ${perm === "granted" ? "폴더 바꾸기" : "자동 백업 폴더 정하기"}</button>`) : ""}
+        ${perm !== "none" ? '<button class="btn small" id="bk-off">끄기</button>' : ""}
+        <button class="btn small" id="bk-all">⬇️ 전체 백업 파일 받기</button>
+      </div>
+      ${NS.canFolder() && perm === "none" ? '<p class="hint" style="margin-top:6px">💡 크롬북이면 <b>파일 앱 → Google Drive</b> 안의 폴더를 고르면 드라이브에도 자동으로 올라가요.</p>' : ""}`;
+    const on = (id, fn) => { const b = $(id); if (b) b.onclick = fn; };
+    on("bk-pick", async () => { try { await NS.pickDir(); const n = await NS.backupChanged(); TS.toast(`📁 백업 폴더를 정했어요 · 노트 ${Math.max(0, n)}개 저장`); } catch (e) { if (!e || e.name !== "AbortError") TS.toast("폴더를 못 열었어요: " + ((e && e.message) || e)); } renderBackup(); });
+    on("bk-re", async () => { if ((await NS.dirPermission(true)) === "granted") { const n = await NS.backupChanged(); TS.toast(`📁 다시 연결했어요 · 노트 ${Math.max(0, n)}개 저장`); } renderBackup(); });
+    on("bk-off", async () => { await NS.clearDir(); TS.toast("자동 백업을 껐어요"); renderBackup(); });
+    on("bk-all", exportAll);
+    on("bk-retry", () => { try { localStorage.removeItem("trickstudy-note-dir-reading"); } catch (e) { /* 무시 */ } renderBackup(); });
+  }
+
   function render() {
     const el = $("view-note");
     if (!el) return;
@@ -213,17 +235,18 @@
           <div class="nt-actions">
             <button class="btn pink big" id="nt-new">＋ 새 노트</button>
             <button class="btn" id="nt-import">📂 노트 파일 불러오기</button>
-            <input type="file" id="nt-file" accept=".tnote,application/json" hidden>
+            <input type="file" id="nt-file" accept=".tnote,.tnotes,application/json" multiple hidden>
           </div>
           <div class="nt-list" id="nt-list"><p class="hint">불러오는 중…</p></div>
-          <p class="hint">노트는 <b>이 브라우저에만</b> 저장돼요. 다른 기기로 옮기거나 백업하려면 💾 로 파일을 저장해 두세요.</p>
+          <div class="nt-backup" id="nt-backup"></div>
         </div>
         <div class="card" id="nt-ai-card"></div>`;
       $("nt-new").onclick = newNoteModal;
       $("nt-import").onclick = () => $("nt-file").click();
       $("nt-file").onchange = async (e) => { for (const f of e.target.files) await importFile(f); e.target.value = ""; };
       const card = $("nt-ai-card"); card.innerHTML = aiHTML(); bindAI(card);
-    }
+      renderBackup(true); render.t = Date.now();
+    } else if (!render.t || Date.now() - render.t > 60e3) { render.t = Date.now(); renderBackup(true); } // 탭에 돌아올 때 바뀐 노트 백업
     loadList();
   }
   TS.views.note = render;

@@ -2717,3 +2717,6 @@ a.icon-btn { text-decoration: none; display: inline-grid; place-items: center; }
 .nt-pv.lined { background: repeating-linear-gradient(#fff 0 5px, #e8c98a 5px 6px); }
 .nt-pv.grid { background: #fff linear-gradient(#cfd3dc 1px, transparent 1px) 0 0 / 5px 5px, linear-gradient(90deg, #cfd3dc 1px, transparent 1px) 0 0 / 5px 5px; }
 @media (max-width: 640px) { .nt-item { flex-wrap: wrap; } .nt-btns { width: 100%; } }
+.nt-backup { margin-top: 12px; padding: 10px 12px; border: 2px dashed var(--ink-soft); border-radius: 14px; background: #fffdf6; }
+.nt-backup.warn { border: 2px solid var(--red-d); background: #fff1ee; }
+.nt-bk-st { font-size: 14px; line-height: 1.5; }
