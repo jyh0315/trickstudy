@@ -588,7 +588,7 @@ const GPROMPT = `학생의 손글씨 필기 조각들을 글자로 옮겨 주세
 - 글자 모양이 분명하면 문맥과 달라도 쓴 그대로 옮기세요. 문맥(과목·단원, 같은 페이지의 다른 글, 예전에 고친 예)은 모양이 애매한 글자를 고를 때만 참고하세요.
 - 학생이 쓴 내용이 개념상 틀려 보여도 절대 고치지 마세요.
 - 줄은 위에서 아래 순서로, 이미지 속 실제 줄 수와 같게 나누세요.
-- 수식은 LaTeX 로 $...$ 안에 (예: $x^2+1$).
+- 수식은 LaTeX 로 $...$ 안에 (예: $x^2+1$). JSON 문자열 안이므로 역슬래시는 두 번 (예: "$\\frac{1}{2}$").
 - unsure: 이 줄에서 모양만으로는 확실하지 않아서 문맥으로 고른 낱말, 또는 자신 없는 낱말을 text 에 나온 그대로 넣으세요. 없으면 [].
 - alts: 그 줄 전체의 다른 후보 0~3개.
 - 이미지 순서대로 blocks 배열에 넣고, JSON 만 출력.`;
@@ -605,45 +605,62 @@ function gemContext(list) {
   t += `\n\n출력 형식: {"blocks":[{"lines":[{"text":"...","alts":["..."],"unsure":["..."]}]${check ? ',"check":""' : ""}}]}`;
   return t;
 }
-async function gemCall(parts) {
-  const body = JSON.stringify({ contents: [{ role: "user", parts }], generationConfig: { temperature: 0, responseMimeType: "application/json" } });
+// \frac, \beta, \times 처럼 JSON 이 제어문자로 바꿔 버린 수식 기호를 되돌림
+function fixTex(v) {
+  if (typeof v === "string") return v.replace(/\f/g, "\\f").replace(/\x08/g, "\\b").replace(/\t(?=[a-z])/g, "\\t").replace(/\r(?=[a-z])/g, "\\r").replace(/\n(?=[a-z])/g, "\\n").replace(/[\n\r\t]/g, " ");
+  if (Array.isArray(v)) return v.map(fixTex);
+  if (v && typeof v === "object") { for (const k in v) v[k] = fixTex(v[k]); return v; }
+  return v;
+}
+// Gemini 답이 형식(JSON)을 살짝 어겨도 최대한 살려서 읽기
+function parseLoose(txt) { return fixTex(parseLoose0(txt)); }
+function parseLoose0(txt) {
+  let t = String(txt || "").replace(/^\s*```(?:json)?/i, "").replace(/```\s*$/, "").trim();
+  try { return JSON.parse(t); } catch (e) { /* 아래에서 고쳐 봄 */ }
+  const a = t.indexOf("{"), b = t.lastIndexOf("}");
+  if (a >= 0 && b > a) t = t.slice(a, b + 1);
+  t = t.replace(/[“”]/g, '"')
+    .replace(/\\(?!["\\/bfnrtu])/g, "\\\\") // 수식의 \frac 같은 역슬래시
+    .replace(/,\s*([}\]])/g, "$1"); // 끝에 남은 쉼표
+  return JSON.parse(t);
+}
+const S = (t, o) => Object.assign({ type: t }, o || {});
+const SCHEMA_READ = S("OBJECT", { properties: { blocks: S("ARRAY", { items: S("OBJECT", { properties: {
+  lines: S("ARRAY", { items: S("OBJECT", { properties: { text: S("STRING"), alts: S("ARRAY", { items: S("STRING") }), unsure: S("ARRAY", { items: S("STRING") }) }, required: ["text"] }) }),
+  check: S("STRING") }, required: ["lines"] }) }) }, required: ["blocks"] });
+const SCHEMA_TIDY = S("OBJECT", { properties: { title: S("STRING"), sections: S("ARRAY", { items: S("OBJECT", { properties: { title: S("STRING"), items: S("ARRAY", { items: S("INTEGER") }) }, required: ["title", "items"] }) }) }, required: ["sections"] });
+// 공통 호출: 형식(스키마)을 정해서 요청 → 붐비면 다른 모델 → 형식이 깨지면 한 번 더
+async function gemCall(parts, schema) {
+  const cfg = { temperature: 0, responseMimeType: "application/json" };
+  if (schema) cfg.responseSchema = schema;
+  const body = JSON.stringify({ contents: [{ role: "user", parts }], generationConfig: cfg });
   const order = [gem.model, ...(gem.models || []).filter((m) => m !== gem.model)].slice(0, 4);
-  let lastErr = "";
-  for (const m of order) {
+  let lastErr = "", busyHit = false, quotaHit = false, badJson = 0;
+  for (let k = 0; k < order.length; k++) {
+    const m = order[k];
     countUse(m);
     const r = await fetch(GAPI + "models/" + encodeURIComponent(m) + ":generateContent", { method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": gem.key }, body });
-    if (!r.ok) { lastErr = await gemErr(r); if ([429, 500, 503, 404].includes(r.status) || /high demand|overloaded|unavailable/i.test(lastErr)) continue; throw new Error(lastErr); }
+    if (!r.ok) {
+      lastErr = await gemErr(r);
+      if (r.status === 503 || r.status === 500 || /high demand|overloaded|unavailable/i.test(lastErr)) { busyHit = true; continue; }
+      if (r.status === 429) { quotaHit = true; continue; }
+      if (r.status === 404) continue;
+      if (r.status === 400 && schema && /schema|responseSchema/i.test(lastErr)) return gemCall(parts, null); // 스키마를 못 받는 모델이면 없이
+      throw new Error(lastErr);
+    }
     const j = await r.json();
     const txt = (((j.candidates || [])[0] || {}).content || { parts: [] }).parts.map((p) => p.text || "").join("");
-    return JSON.parse(txt.replace(/^```(json)?|```$/g, "").trim());
+    try { gemCall.used = m; return parseLoose(txt); }
+    catch (e) { console.warn("Gemini JSON 깨짐", txt); lastErr = "답 형식이 깨졌어요"; if (++badJson < 2) { k--; continue; } } // 같은 모델로 한 번 더
   }
-  throw new Error("구글 서버가 붐비거나 사용량이 다 찼어요. 잠시 뒤 다시 눌러 주세요 (" + lastErr + ")");
+  const e = new Error(badJson ? "Gemini 답 형식이 계속 깨져요. 잠시 뒤 다시 읽을게요" : quotaHit && !busyHit ? "무료 사용량을 잠깐 다 썼어요. 30초 뒤에 다시 읽을게요" : "구글 서버가 붐벼요. 잠시 뒤 자동으로 다시 읽을게요");
+  e.retry = true; e.wait = quotaHit && !busyHit ? 30000 : 12000; throw e;
 }
 async function gemRecognize(list) {
   const parts = [{ text: GPROMPT + gemContext(list) + `\n\n이미지는 모두 ${list.length}개예요.` }];
   list.forEach((b, i) => { parts.push({ text: `이미지 ${i + 1}` + (b.m.hint ? ` (참고: 이 덩어리의 일부는 전에 "${b.m.hint.slice(0, 300)}" 로 읽혔어요. 그 뒤 획이 더해지거나 바뀌었을 수 있으니 이미지를 기준으로 읽으세요)` : "") }); parts.push({ inline_data: { mime_type: "image/png", data: blockPng(b) } }); });
-  const body = JSON.stringify({ contents: [{ role: "user", parts }], generationConfig: { temperature: 0, responseMimeType: "application/json" } });
-  // 고른 모델이 붐비거나(503) 한도에 걸리면(429) 다른 flash 모델로 바꿔서 시도
-  const order = [gem.model, ...(gem.models || []).filter((m) => m !== gem.model)].slice(0, 4);
-  let r = null, used = null, busyHit = false, quotaHit = false, lastErr = "";
-  for (const m of order) {
-    countUse(m);
-    r = await fetch(GAPI + "models/" + encodeURIComponent(m) + ":generateContent", { method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": gem.key }, body });
-    if (r.ok) { used = m; break; }
-    lastErr = await gemErr(r);
-    if (r.status === 503 || r.status === 500 || /high demand|overloaded|unavailable/i.test(lastErr)) { busyHit = true; continue; }
-    if (r.status === 429) { quotaHit = true; continue; }
-    if (r.status === 404) continue; // 없어진 모델
-    throw new Error(lastErr);
-  }
-  if (!used) {
-    const e = new Error(quotaHit && !busyHit ? "무료 사용량을 잠깐 다 썼어요. 30초 뒤에 다시 읽을게요" : "구글 서버가 붐벼요. 잠시 뒤 자동으로 다시 읽을게요");
-    e.retry = true; e.wait = quotaHit && !busyHit ? 30000 : 12000; throw e;
-  }
-  gemRecognize.used = used;
-  const j = await r.json();
-  const txt = (((j.candidates || [])[0] || {}).content || { parts: [] }).parts.map((p) => p.text || "").join("");
-  const data = JSON.parse(txt.replace(/^```(json)?|```$/g, "").trim());
+  const data = await gemCall(parts, SCHEMA_READ);
+  gemRecognize.used = gemCall.used;
   return data.blocks || [];
 }
 // 줄 위치는 덩어리 왼쪽 위 기준(상대 좌표)으로 저장 → 덩어리를 옮겨도 글씨가 따라감
@@ -996,7 +1013,7 @@ $("tidyBtn").onclick = async () => {
 덩어리: ${JSON.stringify(items)}
 JSON 만 출력: {"title":"...","sections":[{"title":"...","items":[1,2]}]}` }];
     us.forEach((u, i) => { if (u.b.type !== "text") { parts.push({ text: `그림 id ${i + 1}` }); parts.push({ inline_data: { mime_type: "image/png", data: blockPng(u.b, 384) } }); } });
-    const data = await gemCall(parts);
+    const data = await gemCall(parts, SCHEMA_TIDY);
     const used = new Set(), sections = [];
     for (const sc of data.sections || []) {
       const its = (sc.items || []).map((n) => us[(n | 0) - 1]).filter((u) => u && !used.has(u) && used.add(u));
