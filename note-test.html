@@ -8,6 +8,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Jua&family=Gowun+Dodum&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
 <style>
 :root {
   --ink: #3b2a20; --ink-soft: #7a6253; --cream: #fff8e6; --cream-2: #fdecc8; --paper: #fffdf6;
@@ -65,9 +67,13 @@ body.noside .side { display: none; }
 .box { fill: none; stroke-width: 2; stroke-dasharray: 6 5; rx: 10; }
 .box.text { stroke: #4aa3df; fill: rgba(143, 211, 255, .08); } .box.draw { stroke: #e0577f; fill: rgba(255, 143, 177, .08); }
 .box.label { stroke-dasharray: 2 4; }
+.grip { fill: #fff; stroke: var(--ink); stroke-width: 2.5; }
 .box.sel { stroke-dasharray: none; stroke-width: 3; }
 .tag { font: 12px var(--font-title); }
 .clean { font-family: var(--font-body); fill: var(--ink); }
+.cleanF { font-family: var(--font-body); color: var(--ink); white-space: nowrap; overflow: visible; }
+.cleanF .katex { font-size: 1em; }
+.card .txt .katex { font-size: 1.05em; }
 .ai { background: var(--paper); border: 2px solid var(--ink); border-radius: 14px; padding: 6px 12px; margin-bottom: 10px; }
 .ai summary { cursor: pointer; font: 15px var(--font-title); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .aiIn { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0 4px; }
@@ -96,7 +102,6 @@ mark.uns { background: #ffe08a; border-bottom: 2px dotted #d8483b; color: inheri
 <div class="top">
   <img src="assets/chibi/erpin.webp" alt="">
   <h1>필기 인식 테스트</h1>
-  <div class="chips" id="chips"><span class="chip wait">손글씨 인식 확인 중…</span></div>
   <a href="./">← 트릭스터디로</a>
 </div>
 <div class="say"><p id="say">스타일러스로 아무거나 써 보세요! 잠깐 멈추면 에르핀이 글은 읽고, 그림은 따로 묶어 둘게요.</p></div>
@@ -189,16 +194,8 @@ async function query(lang) {
 async function checkApi() {
   if (!("createHandwritingRecognizer" in navigator)) env.api = "none";
   else { env.api = "yes"; env.ko = await query("ko"); env.en = await query("en"); }
-  const chips = [];
-  if (env.api === "none") chips.push('<span class="chip no">손글씨 인식 기능 없음</span>');
-  else {
-    chips.push(`<span class="chip ${env.ko ? "ok" : "no"}">한국어 ${env.ko ? "인식 가능" : "미지원"}</span>`);
-    chips.push(`<span class="chip ${env.en ? "ok" : "no"}">영어 ${env.en ? "인식 가능" : "미지원"}</span>`);
-  }
-  $("chips").innerHTML = chips.join("");
-  if (env.api === "none") say("이 브라우저엔 크롬 손글씨 인식 기능이 없어요. (크롬북 크롬에서 열어 보세요) 묶기·옮기기 테스트는 그대로 할 수 있어요!");
-  else if (!env.ko && env.en) say("한국어 인식은 안 되고 영어만 돼요… 결과를 복사해서 알려 주세요!");
-  else if (!env.ko && !env.en) say("인식 기능은 있는데 언어 지원이 확인되지 않아요. 그래도 한 번 써 볼게요!");
+  // (Gemini 키가 없을 때만 쓰는 예비 인식기라 따로 표시하지 않음)
+  if (!gem.key) say("⚙️ 설정의 🔑 AI 인식에 Gemini 키를 넣으면 한국어·수식까지 읽어요.");
 }
 async function getRecognizer() {
   const lang = env.ko ? "ko" : "en"; // 키가 없을 때만 쓰는 크롬 내장 인식
@@ -236,6 +233,15 @@ svg.addEventListener("pointerdown", (e) => {
   if (hh && erasing) { snapshot(); heads = heads.filter((x) => x !== hh); render(); save(); dragging = { erase: true }; return; }
   if (hh) { snapshot(); dragging = { head: hh, x: p.x, y: p.y, moved: false }; return; }
   if (erasing) { snapshot(); eraseAt(p); dragging = { erase: true }; return; }
+  const sb = (tool === "move" || tool === "lasso") && sel && blocks.find((x) => x.key === sel);
+  if (sb && Math.abs(p.x - (sb.box.x + sb.box.w + 6)) < 16 && Math.abs(p.y - (sb.box.y + sb.box.h + 6)) < 16) { // 손잡이 잡음 → 크기 조절
+    snapshot();
+    const group = [sb, ...blocks.filter((x) => x.parent === sb.key)];
+    dragging = { resize: sb, group, ax: sb.box.x, ay: sb.box.y, w0: Math.max(10, sb.box.w), h0: Math.max(10, sb.box.h), k: 1,
+      orig: group.flatMap((g) => g.strokes.map((st) => ({ st, w: st.w, pts: st.pts.map((q) => ({ x: q.x, y: q.y })) }))),
+      lines: group.map((g) => ({ g, ls: (g.m.lines || []).map((l) => ({ l, box: { ...l.box } })) })) };
+    return;
+  }
   if (tool === "lasso") { dragging = { lasso: [p] }; $("gLive").innerHTML = ""; dragging.el = el("path", { fill: "rgba(183,124,255,.12)", stroke: "#b77cff", "stroke-width": 2, "stroke-dasharray": "5 4" }, $("gLive")); return; }
   if (tool === "move") {
     const b = blockAt(p);
@@ -254,6 +260,13 @@ svg.addEventListener("pointermove", (e) => {
   const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
   if (dragging && dragging.erase) { evs.forEach((ev) => eraseAt(pt(ev))); return; }
   if (dragging && dragging.lasso) { dragging.lasso.push(pt(e)); dragging.el.setAttribute("d", "M" + dragging.lasso.map((q) => q.x + " " + q.y).join(" L") + " Z"); return; }
+  if (dragging && dragging.resize) {
+    const d = dragging, p = pt(e);
+    const k = Math.max(0.25, Math.min(4, ((p.x - d.ax) / d.w0 + (p.y - d.ay) / d.h0) / 2)); d.k = k; // 비율 유지
+    for (const o of d.orig) { o.st.w = +(o.w * Math.max(0.6, Math.min(2, k))).toFixed(2); o.st.pts.forEach((q, i) => { q.x = d.ax + (o.pts[i].x - d.ax) * k; q.y = d.ay + (o.pts[i].y - d.ay) * k; }); }
+    for (const G of d.lines) { const B = bbox(G.g.strokes.flatMap((st) => st.pts)); G.g.box = B; G.ls.forEach(({ l, box }) => { if (l.rel) l.box = { x: box.x * k, y: box.y * k, w: box.w * k, h: box.h * k }; }); }
+    render(true); return;
+  }
   if (dragging && dragging.head) { const p = pt(e); dragging.head.x += p.x - dragging.x; dragging.head.y += p.y - dragging.y; dragging.x = p.x; dragging.y = p.y; dragging.moved = true; render(true); return; }
   if (dragging && dragging.b) {
     const p = pt(e), dx = p.x - dragging.x, dy = p.y - dragging.y;
@@ -309,6 +322,12 @@ function endPointer(e) {
     } else if (d.erase) { regroup(); save(); scheduleRecognize(); }
     else if (d.lasso) finishLasso(d);
     else if (d.head) save();
+    else if (d.resize) {
+      for (const o of d.orig) o.st.pts.forEach((q) => { q.x = +q.x.toFixed(1); q.y = +q.y.toFixed(1); });
+      for (const g of d.group) lockBlock(g, "L");
+      sel = d.resize.key[0] === "S" ? "L" + d.resize.strokes[0].id : d.resize.key;
+      regroup(); save(); toast(`크기 ${Math.round(d.k * 100)}%`);
+    }
     fitBoard();
     return;
   }
@@ -764,6 +783,7 @@ function render(fast) {
     if (inkOp > 0) for (const s of b.strokes) el("path", { class: "stroke", d: pathD(s.pts), stroke: s.c, "stroke-width": widthOf(s), opacity: inkOp }, gInk);
     const pad = 6, bx = b.box;
     el("rect", { class: "box " + b.type + (b.parent ? " label" : "") + (sel === b.key ? " sel" : ""), x: bx.x - pad, y: bx.y - pad, width: bx.w + pad * 2, height: bx.h + pad * 2, rx: 10 }, gBox);
+    if (sel === b.key && (tool === "move" || tool === "lasso")) el("rect", { class: "grip", x: bx.x + bx.w + pad - 9, y: bx.y + bx.h + pad - 9, width: 18, height: 18, rx: 5 }, gBox); // 크기 조절 손잡이
     const tag = el("text", { class: "tag", x: bx.x - pad + 2, y: bx.y - pad - 4, fill: b.type === "text" ? "#2f7fd0" : "#c23f68" }, gBox);
     tag.textContent = b.parent ? "이름표" : b.type === "text" ? "글" : "그림";
     if (view !== "ink" && cleanText) {
@@ -771,19 +791,27 @@ function render(fast) {
         if (!l.text) continue;
         const lb = lineBox(b, l);
         const fs = Math.max(14, Math.min(44, lb.h * 0.78));
-        const t = el("text", { class: "clean", x: lb.x, y: lb.y + lb.h * 0.5 + fs * 0.36, "font-size": fs.toFixed(1) }, gClean);
-        const un = [...new Set(l.unsure || [])].filter(Boolean);
-        if (!un.length) t.textContent = l.text;
-        else { // 자신 없는 낱말은 주황색 + 밑줄
-          const re = new RegExp("(" + un.map((u) => u.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|") + ")");
-          for (const part of l.text.split(re)) { if (!part) continue; const ts = el("tspan", un.includes(part) ? { fill: "#d8483b", "text-decoration": "underline" } : {}, t); ts.textContent = part; }
-        }
+        const fo = el("foreignObject", { x: lb.x, y: lb.y + lb.h / 2 - fs * 0.8, width: Math.max(lb.w * 2, 900), height: fs * 1.8 }, gClean);
+        const dv = document.createElement("div"); dv.className = "cleanF";
+        dv.style.cssText = `font-size:${fs.toFixed(1)}px;line-height:${(fs * 1.6).toFixed(1)}px`;
+        dv.innerHTML = richHTML(l); fo.appendChild(dv);
+        const want = Math.max(lb.w * 1.12, 40), got = dv.scrollWidth; // 정리 글씨가 원래 필기 폭을 넘지 않게 줄임
+        if (got > want) { const f2 = Math.max(11, fs * want / got); dv.style.fontSize = f2.toFixed(1) + "px"; fo.setAttribute("y", lb.y + lb.h / 2 - f2 * 0.8); fo.setAttribute("height", f2 * 1.8); dv.style.lineHeight = (f2 * 1.6).toFixed(1) + "px"; }
       }
     }
   }
   if (!fast) renderSide();
 }
 const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+// 글 + 수식($...$)을 HTML 로: 수식은 KaTeX 로 진짜 수식 모양, 자신 없는 낱말은 노란 표시
+function richHTML(l) {
+  const parts = String(l.text).split(/(\$\$[^$]+\$\$|\$[^$\n]+\$)/);
+  return parts.map((part) => {
+    const m = part.match(/^\$\$?([^$]+)\$\$?$/);
+    if (m && window.katex) { try { return katex.renderToString(m[1], { throwOnError: false, output: "html" }); } catch (e) { /* 그대로 */ } }
+    return markUnsure({ text: part, unsure: (l.unsure || []).filter((u) => part.includes(u)) });
+  }).join("");
+}
 function markUnsure(l) {
   let h = esc(l.text);
   for (const u of [...new Set(l.unsure || [])].sort((a, b) => b.length - a.length)) { const e = esc(u); h = h.split(e).join(`\u0001${e}\u0002`); }
@@ -802,7 +830,8 @@ function renderSide() {
     if (b.type === "text") {
       const t = document.createElement("div");
       t.className = "txt"; t.contentEditable = "true"; t.spellcheck = false;
-      if (b.m.lines) t.innerHTML = b.m.lines.map((l) => markUnsure(l)).join("\n");
+      const show = () => { t.innerHTML = b.m.lines.map((l) => richHTML(l)).join("\n"); };
+      if (b.m.lines) { show(); t.onfocus = () => { t.textContent = b.m.lines.map((l) => l.text).join("\n"); }; } // 고칠 땐 원래 글자(수식은 $...$)로
       else t.textContent = gem.key ? "(읽는 중…)" : env.api === "yes" ? "(읽는 중…)" : "(이 기기에선 인식 불가 — 🔑 Gemini 키를 넣어 주세요)";
       t.onblur = () => {
         const v = t.textContent.split("\n");
@@ -811,7 +840,7 @@ function renderSide() {
           if (v[k] == null || v[k] === l.text) return;
           remember(l.orig || l.text, v[k]); l.text = v[k]; l.unsure = (l.unsure || []).filter((u) => l.text.includes(u));
         });
-        b.m.edited = true; render(); save();
+        b.m.edited = true; show(); render(); save();
       };
       c.appendChild(t);
       if (b.m.lines && b.m.lines.some((l) => l.unsure && l.unsure.length)) { const u = document.createElement("div"); u.className = "meta"; u.innerHTML = '<mark class="uns">노란 글자</mark> = 자신 없거나 문맥으로 고른 글자예요. 맞으면 그냥 두고, 틀리면 눌러서 고쳐요.'; c.appendChild(u); }
@@ -933,29 +962,44 @@ function readingOrder(us) {
   return rows.flatMap((r) => r.items.sort((a, c) => a.box.x - c.box.x));
 }
 // sections: [{title, items:[unit...]}] → 각 unit 의 목표 위치 + 소제목 위치 계산
+// 빈 곳 채우기 배치: 읽는 순서대로 하나씩, "지금까지 쌓인 높이(스카이라인)"가 가장 낮은 곳에 놓음
+//  → 오른쪽 빈 공간에도 들어가서 종이를 꽉 채움. 소제목은 가로 한 줄을 통째로 씀.
 function planLayout(sections) {
-  const W = svg.clientWidth || 800, plan = [], newHeads = [];
-  let y = M, x = M, rowH = 0;
-  const pageEnd = (yy) => (Math.floor(yy / (pageH || 1e9)) + 1) * (pageH || 1e9);
-  const fitPage = (h) => { if (mode === "page" && y + h > pageEnd(y) - M / 2 && y % pageH > M + 1) y = pageEnd(y) + M; };
-  let rowText = false;
-  const newRow = () => { if (rowH) { y += rowH + GAP; } x = M; rowH = 0; rowText = false; };
-  const snap = () => { y = Math.ceil(y / (LINE / 2)) * (LINE / 2); };
+  const W = (svg.clientWidth || 800) - M, plan = [], newHeads = [];
+  let sky = [{ x: M, w: W - M, y: M }];
+  const P = pageH || 0;
+  const pageFix = (y, h) => { if (mode !== "page" || !P) return y; const top = Math.floor(y / P) * P, end = top + P; return y + h > end - M / 2 && y > top + M + 1 ? end + M : y; };
+  const snapY = (y) => Math.ceil(y / (LINE / 2)) * (LINE / 2);
+  const flatAt = (y) => { sky = [{ x: M, w: W - M, y }]; };
+  const maxY = () => Math.max(...sky.map((sg) => sg.y));
+  function place(w, h) {
+    let best = null;
+    const xs = [...new Set(sky.map((sg) => sg.x))];
+    for (const x of xs) {
+      if (x + w > W + 1 && x !== M) continue;
+      let y = 0; for (const sg of sky) if (sg.x < x + w && sg.x + sg.w > x) y = Math.max(y, sg.y);
+      y = pageFix(snapY(y), h);
+      if (!best || y < best.y - 4 || (Math.abs(y - best.y) <= 4 && x < best.x)) best = { x, y };
+    }
+    // 스카이라인 갱신
+    const x0 = best.x, x1 = best.x + w, ny = best.y + h + GAP, out = [];
+    for (const sg of sky) {
+      const a = sg.x, b = sg.x + sg.w;
+      if (b <= x0 || a >= x1) { out.push(sg); continue; }
+      if (a < x0) out.push({ x: a, w: x0 - a, y: sg.y });
+      if (b > x1) out.push({ x: x1, w: b - x1, y: sg.y });
+    }
+    out.push({ x: x0, w: Math.min(x1, W) - x0, y: ny });
+    sky = out.filter((sg) => sg.w > 0).sort((a, c) => a.x - c.x);
+    return best;
+  }
   for (const sec of sections) {
     if (sec.title) {
-      newRow(); if (newHeads.length || plan.length) y += GAP / 2; snap();
-      fitPage(LINE + (sec.items[0] ? sec.items[0].box.h : 0));
-      newHeads.push({ text: sec.title, x: M, y: y + 26 }); y += LINE + 8;
+      let y = snapY(maxY() + (plan.length || newHeads.length ? GAP / 2 : 0));
+      y = pageFix(y, LINE + 8 + (sec.items[0] ? sec.items[0].box.h : 0));
+      newHeads.push({ text: sec.title, x: M, y: y + 26 }); flatAt(y + LINE + 8);
     }
-    for (const u of sec.items) {
-      const wide = u.box.w > W * 0.62, isText = u.b.type === "text";
-      // 글 뒤에는 늘 줄바꿈 (글끼리 나란히 X), 그림끼리는 나란히, 그림 오른쪽에 설명 글 하나까지
-      if (wide || rowText || x + u.box.w > W - M) newRow();
-      if (!rowH) { snap(); fitPage(u.box.h); }
-      plan.push({ u, x, y });
-      x += u.box.w + GAP; rowH = Math.max(rowH, u.box.h); if (isText) rowText = true;
-      if (wide) newRow();
-    }
+    for (const u of sec.items) { const b = place(Math.min(u.box.w, W - M), u.box.h); plan.push({ u, x: b.x, y: b.y }); }
   }
   return { plan, newHeads };
 }
@@ -1033,7 +1077,7 @@ JSON 만 출력: {"title":"...","sections":[{"title":"...","items":[1,2]}]}` }];
 
 /* ───────── 도구 ───────── */
 function seg(id, cb) { $(id).querySelectorAll("button").forEach((bt) => (bt.onclick = () => { $(id).querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === bt)); cb(bt.dataset.v); })); }
-seg("tool", (v) => { tool = v; svg.classList.toggle("move", v === "move"); svg.classList.toggle("erase", v === "erase"); if (v === "lasso") say("묶고 싶은 획들을 올가미처럼 빙 둘러 감싸 보세요. 감싼 것끼리 한 덩어리가 돼요."); if (v !== "move" && v !== "lasso") { sel = null; render(); } });
+seg("tool", (v) => { tool = v; if (v === "move" || v === "lasso") setTimeout(() => render(true)); svg.classList.toggle("move", v === "move"); svg.classList.toggle("erase", v === "erase"); if (v === "lasso") say("묶고 싶은 획들을 올가미처럼 빙 둘러 감싸 보세요. 감싼 것끼리 한 덩어리가 돼요."); if (v !== "move" && v !== "lasso") { sel = null; render(); } });
 seg("view", (v) => { view = v; render(); });
 seg("color", (v) => (color = v));
 $("gap").oninput = () => { regroup(); };
@@ -1042,7 +1086,7 @@ $("undo").onclick = () => { const s = undoStack.pop(); if (!s) return toast("더
 $("clear").onclick = () => { if (!strokes.length && !heads.length) return; snapshot(); strokes = []; meta = {}; heads = []; sel = null; regroup(); fitBoard(); save(); toast("다 지웠어요 (되돌리기 가능)"); };
 $("copy").onclick = async () => {
   const report = {
-    page: "note-test v7", engine: gem.model || "chrome", usedToday: usage().n, mode, pages: pageCount(), heads: heads.map((h) => h.text), noteTitle, ua: navigator.userAgent, api: env.api, ko: !!env.ko, en: !!env.en,
+    page: "note-test v8", engine: gem.model || "chrome", usedToday: usage().n, mode, pages: pageCount(), heads: heads.map((h) => h.text), noteTitle, ua: navigator.userAgent, api: env.api, ko: !!env.ko, en: !!env.en,
     koInfo: env.ko || null, inputs: [...env.inputs], topic: topic, fixes: fixes.length, ctxCheck: $("gCheck").checked, gap: +$("gap").value,
     blocks: blocks.map((b, i) => ({ n: i + 1, type: b.type, strokes: b.strokes.length, size: [Math.round(b.box.w), Math.round(b.box.h)], ms: b.m.ms, edited: !!b.m.edited, parent: b.parent ? blocks.findIndex((x) => x.key === b.parent) + 1 : null, lines: (b.m.lines || []).map((l) => ({ text: l.text, alts: l.alts })) })),
   };
