@@ -513,7 +513,7 @@ function reuseOld(nb, ss, prevOf) {
     r.items.sort((a, c) => a.lb.x - c.lb.x);
     const x0 = Math.min(...r.items.map((i) => i.lb.x)), x1 = Math.max(...r.items.map((i) => i.lb.x + i.lb.w));
     const text = r.items.map((i) => i.l.text).join(" ");
-    return { text, orig: text, alts: [], unsure: r.items.flatMap((i) => i.l.unsure || []), box: { x: x0, y: r.y0, w: x1 - x0, h: r.y1 - r.y0 } };
+    return { text, orig: text, c: (r.items.find((i) => i.l.c) || { l: {} }).l.c, alts: [], unsure: r.items.flatMap((i) => i.l.unsure || []), box: { x: x0, y: r.y0, w: x1 - x0, h: r.y1 - r.y0 } };
   });
   nb.m.lines = relLines(nb, lines); nb.m.stale = false; nb.m.merged = true; nb.m.hint = "";
   nb.m.check = read.map((o) => o.check).filter(Boolean).join(" ");
@@ -870,7 +870,7 @@ function applyLines(b, glines) {
   }
   const out = glines.map((g, i) => {
     const text = fixArrow(String(g.text || ""));
-    return { text, orig: text, alts: (g.alts || []).map(String).filter((a) => a && a !== text).slice(0, 4), unsure: (g.unsure || []).map(String).filter((u) => u && text.includes(u)), box: { ...ls[i].box } };
+    return { text, orig: text, c: ls[i].strokes ? mainColor(ls[i].strokes) : mainColor(b.strokes), alts: (g.alts || []).map(String).filter((a) => a && a !== text).slice(0, 4), unsure: (g.unsure || []).map(String).filter((u) => u && text.includes(u)), box: { ...ls[i].box } };
   });
   return relLines(b, out);
 }
@@ -927,7 +927,7 @@ async function recognizeAll(manual, onlyKey) {
       const lines = linesOf(b), out = [];
       for (const ln of lines) {
         const r = await recognizeStrokes(rec, ln.strokes);
-        out.push({ text: r[0] || "", alts: r.slice(1, 5), box: ln.box });
+        out.push({ text: r[0] || "", c: mainColor(ln.strokes), alts: r.slice(1, 5), box: ln.box });
       }
       b.m.lines = relLines(b, out); b.m.ms = Math.round(performance.now() - t0); b.m.edited = false;
     }
@@ -953,6 +953,14 @@ async function recognizeStrokes(rec, ss) {
 }
 
 /* ───────── 그리기(화면) ───────── */
+// 펜 색: 획 길이로 가장 많이 쓴 색 (정리 글씨도 그 색으로)
+const INK = "#3b2a20";
+function mainColor(ss) {
+  const w = {};
+  for (const st of ss || []) { if (st.img) continue; let len = 0; for (let i = 1; i < st.pts.length; i++) len += Math.abs(st.pts[i].x - st.pts[i - 1].x) + Math.abs(st.pts[i].y - st.pts[i - 1].y); w[st.c || INK] = (w[st.c || INK] || 0) + len + 1; }
+  let best = INK, bv = -1; for (const k in w) if (w[k] > bv) { bv = w[k]; best = k; }
+  return best;
+}
 const isClean = () => view === "clean" || view === "final";
 function render(fast) {
   renderHeads();
@@ -996,7 +1004,8 @@ function render(fast) {
       const fsz = cleanFS(), W = Math.max(bx0.w, PAGE_W - bx0.x - 16);
       const fo = el("foreignObject", { x: bx.x, y: bx.y - 2, width: W + 30, height: 10 }, gClean);
       const dv = document.createElement("div"); dv.className = "cleanB"; dv.style.cssText = `font-size:${fsz}px;max-width:${W}px`;
-      dv.innerHTML = b.m.lines.filter((l) => l.text).map((l) => `<div>${richHTML(l)}</div>`).join("");
+      const bc = mainColor(b.strokes);
+      dv.innerHTML = b.m.lines.filter((l) => l.text).map((l) => { const c = l.c || bc; return `<div${c !== INK ? ` style="color:${c}"` : ""}>${richHTML(l)}</div>`; }).join("");
       fo.appendChild(dv);
       for (const row of dv.children) if (row.scrollWidth > W + 2) row.style.fontSize = Math.max(0.55, W / row.scrollWidth).toFixed(3) + "em"; // 줄바꿈 안 되는 긴 수식만 그 줄만 줄임
       const h = dv.scrollHeight; fo.setAttribute("height", h + 8); b.m._ch = h; b.m._cw = Math.min(W, Math.max(...[...dv.children].map((r) => r.scrollWidth), 40));
@@ -1040,7 +1049,7 @@ function renderSide() {
     if (b.type === "text") {
       const t = document.createElement("div");
       t.className = "txt"; t.contentEditable = "true"; t.spellcheck = false;
-      const show = () => { t.innerHTML = b.m.lines.map((l) => richHTML(l)).join("\n"); };
+      const show = () => { const bc = mainColor(b.strokes); t.innerHTML = b.m.lines.map((l) => { const c = l.c || bc; return c !== INK ? `<span style="color:${c}">${richHTML(l)}</span>` : richHTML(l); }).join("\n"); };
       if (b.m.lines) { show(); t.onfocus = () => { t.textContent = b.m.lines.map((l) => l.text).join("\n"); }; } // 고칠 땐 원래 글자(수식은 $...$)로
       else t.textContent = gem.key ? (busy ? "(읽는 중…)" : "(아직 못 읽음 — 위 🤖 칩을 누르면 다시 읽어요)") : env.api === "yes" ? "(읽는 중…)" : "(이 기기에선 인식 불가 — 🔑 Gemini 키를 넣어 주세요)";
       t.onblur = () => {
