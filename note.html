@@ -1398,10 +1398,16 @@ function snapSpine(base) {
         p.animationState.setAnimation(0, idle, true); p.animationState.apply(p.skeleton); p.skeleton.updateWorldTransform();
         const off = new spine.Vector2(), size = new spine.Vector2(); p.skeleton.getBounds(off, size);
         const good = Number.isFinite(off.y) && size.y > 0 && size.y < 5000;
-        const H = (good ? Math.min(Math.max(off.y + size.y + 30, 650), 1150) : 900) + 20, W = H * 0.75; // 발끝~머리 위, 전신
-        Object.assign(p.config.viewport, { x: -W / 2, y: -20, width: W, height: H }); p.setViewport(idle);
+        const H = (good ? Math.min(Math.max(off.y + size.y + 30, 650), 1150) : 900) + 60, W = H * 0.78; // 발끝~머리 위, 전신 (동작용 여유)
+        // 표지 표정은 매번 무작위: 기쁨·뿌듯·부끄럼·춤·대기 중 하나를, 동작 중 아무 순간에 찰칵
+        const pool = anims.filter((n) => /^(Happy|Proud|Pride|Shy|Dance|Smile|Laugh|Idle)_/.test(n));
+        const pick = pool.length ? pool[Math.floor(Math.random() * pool.length)] : idle;
+        p.animationState.setAnimation(0, pick, true);
+        const dur = (data.findAnimation(pick) || {}).duration || 1;
+        p.animationState.update(Math.random() * dur); p.animationState.apply(p.skeleton); p.skeleton.updateWorldTransform();
+        Object.assign(p.config.viewport, { x: -W / 2, y: -30, width: W, height: H }); p.setViewport(pick);
         if (p.paused) p.play();
-        setTimeout(() => { try { if (p.drawFrame) p.drawFrame(false); fin(host.querySelector("canvas").toDataURL("image/png")); } catch (e) { fin(null); } }, 800);
+        setTimeout(() => { try { if (p.drawFrame) p.drawFrame(false); fin(host.querySelector("canvas").toDataURL("image/png")); } catch (e) { fin(null); } }, 500 + Math.random() * 900);
       },
       error: () => { clearTimeout(to); fin(null); },
     });
