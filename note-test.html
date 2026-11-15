@@ -89,6 +89,7 @@ mark.uns { background: #ffe08a; border-bottom: 2px dotted #d8483b; color: inheri
   <span class="seg" id="color"><button data-v="#3b2a20" class="on">⚫</button><button data-v="#d8483b">🔴</button><button data-v="#2f7fd0">🔵</button><button data-v="#2e9e6a">🟢</button></span>
   <label class="opt">묶기 간격 <input type="range" id="gap" min="10" max="80" value="34"></label>
   <label class="opt"><input type="checkbox" id="penOnly" checked> 펜만 쓰기(손바닥 무시)</label>
+  <label class="opt" title="같은 자리를 펜으로 빠르게 2번 = 펜↔직접 묶기, 3번 = 그 덩어리 글↔그림"><input type="checkbox" id="tapKeys" checked> 따닥 단축키</label>
   <button class="btn" id="undo">↶ 되돌리기</button>
   <button class="btn" id="clear">🗑 전부 지우기</button>
   <button class="btn pink" id="copy">📋 결과 복사</button>
@@ -188,6 +189,7 @@ svg.addEventListener("pointerdown", (e) => {
   if (activePointer != null) return;
   activePointer = e.pointerId; svg.setPointerCapture(e.pointerId);
   const p = pt(e);
+  tapDown = { x: p.x, y: p.y, t: performance.now(), far: 0 };
   const erasing = tool === "erase" || (e.buttons & 32); // 펜 뒤쪽 지우개 버튼
   if (erasing) { snapshot(); eraseAt(p); dragging = { erase: true }; return; }
   if (tool === "lasso") { dragging = { lasso: [p] }; $("gLive").innerHTML = ""; dragging.el = el("path", { fill: "rgba(183,124,255,.12)", stroke: "#b77cff", "stroke-width": 2, "stroke-dasharray": "5 4" }, $("gLive")); return; }
@@ -204,6 +206,7 @@ svg.addEventListener("pointerdown", (e) => {
 });
 svg.addEventListener("pointermove", (e) => {
   if (e.pointerId !== activePointer) return;
+  if (tapDown) { const q = pt(e); tapDown.far = Math.max(tapDown.far, Math.hypot(q.x - tapDown.x, q.y - tapDown.y)); }
   const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
   if (dragging && dragging.erase) { evs.forEach((ev) => eraseAt(pt(ev))); return; }
   if (dragging && dragging.lasso) { dragging.lasso.push(pt(e)); dragging.el.setAttribute("d", "M" + dragging.lasso.map((q) => q.x + " " + q.y).join(" L") + " Z"); return; }
@@ -213,7 +216,6 @@ svg.addEventListener("pointermove", (e) => {
     for (const gb of dragging.group) {
       for (const s of gb.strokes) { for (const q of s.pts) { q.x = +(q.x + dx).toFixed(1); q.y = +(q.y + dy).toFixed(1); } }
       gb.box.x += dx; gb.box.y += dy;
-      (gb.m.lines || []).forEach((l) => { l.box.x += dx; l.box.y += dy; });
     }
     render(true); return;
   }
@@ -221,9 +223,37 @@ svg.addEventListener("pointermove", (e) => {
   for (const ev of evs) { const p = pt(ev); const l = live.pts[live.pts.length - 1]; if (Math.hypot(p.x - l.x, p.y - l.y) >= 1.2) live.pts.push(p); }
   liveEl.setAttribute("d", pathD(live.pts));
 });
+/* 따닥(2번) = 펜 ↔ 직접 묶기, 따다닥(3번) = 그 자리 덩어리 글 ↔ 그림 */
+let tapDown = null, taps = [], tapT = 0;
+function isTap() { return tapDown && tapDown.far < 6 && performance.now() - tapDown.t < 260; }
+function onTap(x, y, sid) {
+  if (!$("tapKeys").checked) return;
+  const now = performance.now(), last = taps[taps.length - 1];
+  if (last && (now - last.t > 330 || Math.hypot(x - taps[0].x, y - taps[0].y) > 10)) taps = [];
+  taps.push({ x, y, t: now, sid });
+  clearTimeout(tapT);
+  tapT = setTimeout(() => {
+    const ts = taps; taps = [];
+    if (ts.length < 2) return;
+    const ids = ts.map((t) => t.sid).filter(Boolean); // 톡톡 찍힌 점은 지움
+    if (ids.length) { strokes = strokes.filter((s) => !ids.includes(s.id)); regroup(); }
+    if (ts.length === 2) {
+      setTool(tool === "lasso" ? "pen" : "lasso");
+      toast(tool === "lasso" ? "🪢 직접 묶기 (따닥 → 펜)" : "✏️ 펜 (따닥 → 직접 묶기)");
+    } else {
+      const b = blockAt(ts[0]);
+      if (b) { b.m.type = b.type === "text" ? "draw" : "text"; b.m.stale = true; regroup(); scheduleRecognize(); toast(b.m.type === "text" ? "📝 글로 바꿨어요" : "🖼 그림으로 바꿨어요"); }
+      else toast("따다닥: 덩어리 위에서 해 주세요");
+    }
+    save();
+  }, 340);
+}
+function setTool(v) { const bt = $("tool").querySelector(`[data-v="${v}"]`); if (bt) bt.click(); }
 function endPointer(e) {
   if (e.pointerId !== activePointer) return;
   activePointer = null; svg.style.cursor = "";
+  const tapped = isTap() ? { x: tapDown.x, y: tapDown.y } : null; tapDown = null;
+  if (tapped && !live) onTap(tapped.x, tapped.y, null);
   if (dragging) {
     const d = dragging; dragging = null;
     if (d.b && d.moved) { // 옮긴 덩어리는 다른 덩어리와 섞이지 않게 고정
@@ -236,7 +266,7 @@ function endPointer(e) {
   }
   if (!live) return;
   snapshot();
-  strokes.push(live); live = null; $("gLive").innerHTML = "";
+  strokes.push(live); if (tapped) onTap(tapped.x, tapped.y, live.id); live = null; $("gLive").innerHTML = "";
   regroup(); save(); scheduleRecognize();
 }
 svg.addEventListener("pointerup", endPointer);
@@ -507,13 +537,24 @@ async function gemRecognize(list) {
   const data = JSON.parse(txt.replace(/^```(json)?|```$/g, "").trim());
   return data.blocks || [];
 }
+// 줄 위치는 덩어리 왼쪽 위 기준(상대 좌표)으로 저장 → 덩어리를 옮겨도 글씨가 따라감
+function relLines(b, lines) {
+  const B = bbox(b.strokes.flatMap((s) => s.pts));
+  return lines.map((l) => Object.assign(l, { rel: true, box: { x: l.box.x - B.x, y: l.box.y - B.y, w: l.box.w, h: l.box.h } }));
+}
+function lineBox(b, l) { return l.rel ? { x: b.box.x + l.box.x, y: b.box.y + l.box.y, w: l.box.w, h: l.box.h } : l.box; }
 function applyLines(b, glines) {
+  b = Object.assign({}, b, { box: bbox(b.strokes.flatMap((s) => s.pts)) });
   let ls = linesOf(b);
   if (glines.length !== ls.length) { // 줄 수가 다르면 덩어리를 같은 높이로 나눠서 배치
     const n = Math.max(1, glines.length), h = b.box.h / n;
     ls = glines.map((_, i) => ({ box: { x: b.box.x, y: b.box.y + h * i, w: b.box.w, h } }));
   }
-  return glines.map((g, i) => ({ text: String(g.text || ""), orig: String(g.text || ""), alts: (g.alts || []).map(String).filter((a) => a && a !== g.text).slice(0, 4), unsure: (g.unsure || []).map(String).filter((u) => u && String(g.text || "").includes(u)), box: ls[i].box }));
+  const out = glines.map((g, i) => {
+    const text = String(g.text || "");
+    return { text, orig: text, alts: (g.alts || []).map(String).filter((a) => a && a !== text).slice(0, 4), unsure: (g.unsure || []).map(String).filter((u) => u && text.includes(u)), box: { ...ls[i].box } };
+  });
+  return relLines(b, out);
 }
 
 /* ───────── 인식 ───────── */
@@ -526,11 +567,18 @@ async function recognizeAll() {
     if (!list.length) return;
     if (Date.now() < gemWaitUntil) return scheduleRecognize(gemWaitUntil - Date.now() + 200);
     busy = true; say("에르핀이 Gemini 한테 읽어 달라고 하는 중… 📮");
+    const sigs = list.map((b) => b.m.sig);
     const t0 = performance.now();
     try {
       const res = await gemRecognize(list);
       const ms = Math.round(performance.now() - t0);
-      list.forEach((b, i) => { const r = res[i]; b.m.stale = false; if (r && r.lines) { b.m.check = r.check || ""; b.m.lines = applyLines(b, r.lines); b.m.ms = ms; b.m.edited = false; b.m.engine = gemRecognize.used; } });
+      list.forEach((b0, i) => {
+        const r = res[i], b = blocks.find((x) => x.m.sig === sigs[i]);
+        if (!b) return; // 그새 묶음이 바뀜 → 새 묶음은 다시 읽음
+        b.m.stale = false;
+        if (r && r.lines) { b.m.check = r.check || ""; b.m.lines = applyLines(b, r.lines); b.m.ms = ms; b.m.edited = false; b.m.engine = gemRecognize.used; }
+      });
+      if (blocks.some((b) => b.type === "text" && b.m.stale)) scheduleRecognize();
       say(`글 덩어리 ${list.length}개를 읽었어요! (${(ms / 1000).toFixed(1)}초${gemRecognize.used !== gem.model ? " · 붐벼서 " + gemRecognize.used + " 사용" : ""}) 틀린 건 오른쪽에서 고치거나 후보를 골라요.`);
     } catch (e) {
       if (e.retry) { gemWaitUntil = Date.now() + e.wait; scheduleRecognize(e.wait + 500); }
@@ -551,7 +599,7 @@ async function recognizeAll() {
         const r = await recognizeStrokes(rec, ln.strokes);
         out.push({ text: r[0] || "", alts: r.slice(1, 5), box: ln.box });
       }
-      b.m.lines = out; b.m.ms = Math.round(performance.now() - t0); b.m.edited = false;
+      b.m.lines = relLines(b, out); b.m.ms = Math.round(performance.now() - t0); b.m.edited = false;
     }
   } finally { busy = false; }
   render(); save();
@@ -579,7 +627,7 @@ function render(fast) {
   const gInk = $("gInk"), gBox = $("gBoxes"), gClean = $("gClean");
   gInk.innerHTML = ""; gBox.innerHTML = ""; gClean.innerHTML = "";
   for (const b of blocks) {
-    const cleanText = b.type === "text" && b.m.lines && b.m.lines.some((l) => l.text);
+    const cleanText = b.type === "text" && !b.m.stale && b.m.lines && b.m.lines.some((l) => l.text); // 묶음이 바뀌어 다시 읽는 중엔 원본 표시
     const inkOp = view === "ink" ? 1 : view === "both" ? (cleanText ? 0.22 : 1) : (cleanText ? 0 : 1);
     if (inkOp > 0) for (const s of b.strokes) el("path", { class: "stroke", d: pathD(s.pts), stroke: s.c, "stroke-width": widthOf(s), opacity: inkOp }, gInk);
     const pad = 6, bx = b.box;
@@ -589,8 +637,9 @@ function render(fast) {
     if (view !== "ink" && cleanText) {
       for (const l of b.m.lines) {
         if (!l.text) continue;
-        const fs = Math.max(14, Math.min(44, l.box.h * 0.78));
-        const t = el("text", { class: "clean", x: l.box.x, y: l.box.y + l.box.h * 0.5 + fs * 0.36, "font-size": fs.toFixed(1) }, gClean);
+        const lb = lineBox(b, l);
+        const fs = Math.max(14, Math.min(44, lb.h * 0.78));
+        const t = el("text", { class: "clean", x: lb.x, y: lb.y + lb.h * 0.5 + fs * 0.36, "font-size": fs.toFixed(1) }, gClean);
         const un = [...new Set(l.unsure || [])].filter(Boolean);
         if (!un.length) t.textContent = l.text;
         else { // 자신 없는 낱말은 주황색 + 밑줄
@@ -662,7 +711,7 @@ $("undo").onclick = () => { const s = undoStack.pop(); if (!s) return toast("더
 $("clear").onclick = () => { if (!strokes.length) return; snapshot(); strokes = []; meta = {}; sel = null; regroup(); save(); toast("다 지웠어요 (되돌리기 가능)"); };
 $("copy").onclick = async () => {
   const report = {
-    page: "note-test v4", engine: gem.model || "chrome", ua: navigator.userAgent, api: env.api, ko: !!env.ko, en: !!env.en,
+    page: "note-test v5", engine: gem.model || "chrome", ua: navigator.userAgent, api: env.api, ko: !!env.ko, en: !!env.en,
     koInfo: env.ko || null, inputs: [...env.inputs], topic: topic, fixes: fixes.length, ctxCheck: $("gCheck").checked, gap: +$("gap").value,
     blocks: blocks.map((b, i) => ({ n: i + 1, type: b.type, strokes: b.strokes.length, size: [Math.round(b.box.w), Math.round(b.box.h)], ms: b.m.ms, edited: !!b.m.edited, parent: b.parent ? blocks.findIndex((x) => x.key === b.parent) + 1 : null, lines: (b.m.lines || []).map((l) => ({ text: l.text, alts: l.alts })) })),
   };
@@ -672,7 +721,7 @@ $("copy").onclick = async () => {
 };
 document.addEventListener("keydown", (e) => { if ((e.ctrlKey || e.metaKey) && e.key === "z") { e.preventDefault(); $("undo").click(); } });
 
-renderAi(); saveFixes(); load(); regroup(); checkApi().then(() => { blocks.forEach((b) => (b.m.stale = b.m.stale || !b.m.lines)); scheduleRecognize(); });
+renderAi(); saveFixes(); load(); Object.values(meta).forEach((m) => { if (m.lines && m.lines.some((l) => !l.rel)) { m.lines = null; m.stale = true; } }); regroup(); checkApi().then(() => { blocks.forEach((b) => (b.m.stale = b.m.stale || !b.m.lines)); scheduleRecognize(); });
 </script>
 </body>
 </html>
