@@ -74,7 +74,7 @@ body.noside .side { display: none; }
 .box.sel { stroke-dasharray: none; stroke-width: 3; }
 .tag { font: 12px var(--font-title); }
 .clean { font-family: var(--font-body); fill: var(--ink); }
-.cleanF { font-family: var(--font-body); color: var(--ink); white-space: nowrap; overflow: visible; }
+.cleanF { display: inline-block; font-family: var(--font-body); color: var(--ink); white-space: nowrap; overflow: visible; }
 .cleanF .katex { font-size: 1em; }
 .card .txt .katex { font-size: 1.05em; }
 .ai { background: var(--paper); border: 2px solid var(--ink); border-radius: 14px; padding: 6px 12px; margin-bottom: 10px; }
@@ -855,10 +855,12 @@ function render(fast) {
         const dv = document.createElement("div"); dv.className = "cleanF";
         dv.style.cssText = `font-size:${fs.toFixed(1)}px;line-height:${(fs * 1.6).toFixed(1)}px`;
         dv.innerHTML = richHTML(l); fo.appendChild(dv);
-        // 정리 글씨를 원래 필기와 비슷한 크기로: 필기 줄 폭에 맞춰 키우거나 줄이되, 줄 높이의 45~100% 안에서
-        const got = dv.scrollWidth || 1, f2 = Math.max(11, Math.min(64, lb.h * 1.0, Math.max(lb.h * 0.45, fs * (lb.w * 0.96) / got)));
-        dv.style.fontSize = f2.toFixed(1) + "px"; dv.style.lineHeight = (f2 * 1.6).toFixed(1) + "px"; l._f = +f2.toFixed(1); // 배치 때 정리 글씨 크기 기준으로 씀
-        fo.setAttribute("y", lb.y + lb.h / 2 - f2 * 0.8); fo.setAttribute("height", f2 * 1.8);
+        // 정리 글씨를 원래 필기 크기에 맞춤: 폭은 절대 안 넘게, 높이는 수식(분수·합 기호)처럼 키가 큰 것까지 재서 줄 안에
+        dv.style.lineHeight = "1.25";
+        const w0 = dv.scrollWidth || 1, r = Math.max(1.25, (dv.scrollHeight || fs) / fs); // r = 글씨 크기 대비 실제 높이
+        const f2 = Math.max(8, Math.min(64, fs * (lb.w * 0.98) / w0, (lb.h * 1.3) / r));
+        dv.style.fontSize = f2.toFixed(1) + "px"; l._f = +f2.toFixed(1); l._math = /\$/.test(l.text); // 배치 때 정리 글씨 크기 기준으로 씀
+        fo.setAttribute("y", lb.y + lb.h / 2 - (f2 * r) / 2 - 2); fo.setAttribute("height", f2 * r + 6);
       }
     }
   }
@@ -1046,9 +1048,11 @@ function normalizeOnce(us) {
   let n = 0;
   for (const u of us) {
     if (u.group.length !== 1 || u.b.type !== "text" || !u.b.m.lines) continue;
-    const fs = u.b.m.lines.map((l) => l._f).filter(Boolean);
+    const plain = u.b.m.lines.filter((l) => l._f && !l._math), all = u.b.m.lines.filter((l) => l._f);
+    const fs = (plain.length ? plain : all).map((l) => l._f);
     if (!fs.length) continue;
-    const avg = fs.reduce((a, c) => a + c, 0) / fs.length, k = Math.max(0.35, Math.min(2.5, CLEAN_FS / avg));
+    const avg = fs.reduce((a, c) => a + c, 0) / fs.length;
+    const k = plain.length ? Math.max(0.35, Math.min(2.5, CLEAN_FS / avg)) : Math.max(0.6, Math.min(1.5, CLEAN_FS / avg)); // 수식만 있는 덩어리는 조금만
     if (Math.abs(k - 1) < 0.08) continue;
     scaleBlocks(u.group, k, u.b.box.x, u.b.box.y); n++;
     const B = u.b.box; u.box = { x: B.x - 6, y: B.y - 6, w: B.w + 12, h: B.h + 12 };
