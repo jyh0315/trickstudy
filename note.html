@@ -59,6 +59,25 @@ select { font: 14px var(--font-body); border: 2px solid var(--ink); border-radiu
 .marginL { stroke: #ffc2c2; stroke-width: 1.2; }
 /* PDF (인쇄) */
 #print { display: none; }
+.cvp { position: fixed; inset: 0; z-index: 50; background: rgba(40, 28, 20, .55); display: grid; place-items: center; padding: 16px; }
+.cvp-box { background: var(--cream); border: var(--line); border-radius: 20px; box-shadow: var(--shadow); padding: 14px 16px; max-width: 720px; width: 100%; }
+.cvp-box h3 { margin: 0 0 10px; font: 20px var(--font-title); }
+.cvp-row { display: flex; gap: 14px; flex-wrap: wrap; }
+.cvp-stage { position: relative; width: 300px; height: 385px; flex: none; border: 3px solid var(--ink); border-radius: 18px; overflow: hidden; background: #fffdf6 radial-gradient(circle at 50% 35%, #fff 0, #ffe9b8 70%); }
+.cvp-stage.flash::after { content: ""; position: absolute; inset: 0; background: #fff; animation: cvpFlash .45s ease-out forwards; }
+@keyframes cvpFlash { from { opacity: .95; } to { opacity: 0; } }
+.cvp-host { position: absolute; inset: 0; }
+.cvp-msg { position: absolute; inset: 0; display: grid; place-items: center; font: 15px var(--font-title); color: var(--ink-soft); }
+.cvp-side { flex: 1; min-width: 220px; display: flex; flex-direction: column; gap: 10px; }
+.cvp-moods { display: flex; flex-wrap: wrap; gap: 6px; }
+.cvp-moods .btn { padding: 5px 10px; font-size: 14px; }
+.cvp-moods .btn.on { background: var(--yellow); }
+.cvp-moods small { opacity: .6; font-size: 11px; }
+.cvp-shot { font-size: 18px !important; padding: 10px !important; }
+.cvp-prev { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--ink-soft); }
+.cvp-prev img { width: 78px; height: 100px; object-fit: contain; border: 2px dashed var(--ink-soft); border-radius: 10px; background: #fff; }
+.cvp-prev img:not([src]) { visibility: hidden; }
+.cvp-foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
 @media print {
   @page { size: A4; margin: 0; }
   html, body { background: #fff !important; padding: 0 !important; margin: 0 !important; }
@@ -1413,6 +1432,77 @@ function snapSpine(base) {
     });
   });
 }
+/* 📸 표지 사진 찍기: 움직이는 대표 사도를 보면서 표정을 고르고, 찰칵 누른 순간이 표지 */
+const MOODS = [["대기", /^Idle_/], ["기쁨", /^(Happy|Smile|Laugh)_/], ["뿌듯", /^(Proud|Pride)_/], ["부끄럼", /^Shy_/], ["춤", /^Dance_/], ["놀람", /^(Surprise|Panic)_/], ["삐짐", /^(Sulky|Angry|Mad)_/], ["슬픔", /^(Sad|Sorry|Tear)_/], ["졸림", /^(Sleep|Tired)_/], ["냠냠", /^Eat_/]];
+function coverPick() {
+  return new Promise(async (resolve) => {
+    let st = {}; try { st = JSON.parse(localStorage.getItem("trickcal-study") || "{}") || {}; } catch (e) { st = {}; }
+    const id = st.partner || "erpin", c = (typeof SADO !== "undefined" && SADO.find((x) => x.id === id)) || {};
+    const res = { name: c.name || "", src: `assets/chibi/${id}.webp` };
+    const ov = document.createElement("div"); ov.className = "cvp";
+    ov.innerHTML = `<div class="cvp-box"><h3>📸 표지 사진 찍기</h3>
+      <div class="cvp-row"><div class="cvp-stage" id="cvp-stage"><div class="cvp-msg">${esc(res.name || "대표 사도")} 부르는 중…</div></div>
+        <div class="cvp-side"><div class="cvp-moods" id="cvp-moods"></div>
+          <button class="btn pink cvp-shot" id="cvp-shot" disabled>📸 찰칵!</button>
+          <div class="cvp-prev"><img id="cvp-img" alt=""><span>찍은 사진</span></div></div></div>
+      <div class="cvp-foot"><button class="btn" id="cvp-cancel">취소</button><button class="btn mint" id="cvp-ok" disabled>이 사진으로 PDF 만들기 →</button></div></div>`;
+    document.body.appendChild(ov);
+    let player = null, shot = null;
+    const done = (v) => { try { player && player.dispose(); } catch (e) { /* 무시 */ } ov.remove(); resolve(v); };
+    ov.querySelector("#cvp-cancel").onclick = () => done(null);
+    ov.querySelector("#cvp-ok").onclick = () => done(Object.assign(res, { src: shot }));
+    const useStatic = () => { // 움직이는 사도를 못 부르면 그림으로
+      ov.querySelector("#cvp-stage").innerHTML = `<img src="${res.src}" alt="" style="width:100%;height:100%;object-fit:contain">`;
+      shot = res.src; ov.querySelector("#cvp-img").src = shot; ov.querySelector("#cvp-ok").disabled = false;
+      ov.querySelector("#cvp-moods").innerHTML = '<p class="meta">이 기기에선 움직이는 사도를 못 불러서 그림으로 넣어요.</p>';
+    };
+    if (typeof SPINE_DATA === "undefined" || !SPINE_DATA[id]) return useStatic();
+    try { await loadScript("js/vendor/spine-player.min.js"); patchPMA(); } catch (e) { return useStatic(); }
+    const d = SPINE_DATA[id], idx = Math.min(((st.skins || {})[id] || {}).cur || 0, d.skins.length - 1);
+    const bases = SPINE_HOSTS.map((h) => encodeURI(h.url + h.dir(d.dir) + "/" + d.skins[idx][0]));
+    const stage = ov.querySelector("#cvp-stage");
+    const tryHost = (hi) => {
+      if (hi >= bases.length) return useStatic();
+      stage.innerHTML = ""; const host = document.createElement("div"); host.className = "cvp-host"; stage.appendChild(host);
+      let ok = false;
+      const to = setTimeout(() => { if (!ok) { try { player.dispose(); } catch (e) { /* 무시 */ } tryHost(hi + 1); } }, 15000);
+      player = new spine.SpinePlayer(host, {
+        skelUrl: bases[hi] + ".skel.asset", atlasUrl: bases[hi] + ".atlas.asset", showControls: false, showLoading: false,
+        alpha: true, backgroundColor: "#00000000", premultipliedAlpha: true, preserveDrawingBuffer: true,
+        viewport: { padLeft: 0, padRight: 0, padTop: 0, padBottom: 0, transitionTime: 0 },
+        success: (p) => {
+          ok = true; clearTimeout(to);
+          const data = p.skeleton.data, anims = data.animations.map((a) => a.name), idle = anims.find((n) => /^Idle_/.test(n)) || anims[0];
+          const sk = data.skins.find((x) => x.name === "Normal") || data.skins.find((x) => x.name !== "default");
+          if (sk) { p.skeleton.setSkin(sk); p.skeleton.setSlotsToSetupPose(); }
+          p.animationState.setAnimation(0, idle, true); p.animationState.apply(p.skeleton); p.skeleton.updateWorldTransform();
+          const off = new spine.Vector2(), size = new spine.Vector2(); p.skeleton.getBounds(off, size);
+          const good = Number.isFinite(off.y) && size.y > 0 && size.y < 5000;
+          const H = (good ? Math.min(Math.max(off.y + size.y + 30, 650), 1150) : 900) + 60, W = H * 0.78;
+          Object.assign(p.config.viewport, { x: -W / 2, y: -30, width: W, height: H }); p.setViewport(idle);
+          if (p.paused) p.play();
+          // 표정 버튼: 그 사도에게 있는 동작만, 누를 때마다 같은 종류의 다음 동작
+          const box = ov.querySelector("#cvp-moods"), at = {};
+          box.innerHTML = MOODS.map(([lb, re]) => { const list = anims.filter((n) => re.test(n)); return list.length ? `<button class="btn" data-m="${lb}">${lb}${list.length > 1 ? ` <small>${list.length}</small>` : ""}</button>` : ""; }).join("");
+          box.querySelectorAll("button").forEach((bt) => (bt.onclick = () => {
+            const re = MOODS.find((m) => m[0] === bt.dataset.m)[1], list = anims.filter((n) => re.test(n));
+            at[bt.dataset.m] = ((at[bt.dataset.m] ?? -1) + 1) % list.length;
+            p.animationState.setAnimation(0, list[at[bt.dataset.m]], true); p.setViewport(list[at[bt.dataset.m]]);
+            box.querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === bt));
+          }));
+          const shotBtn = ov.querySelector("#cvp-shot"); shotBtn.disabled = false;
+          shotBtn.onclick = () => {
+            try { if (p.drawFrame) p.drawFrame(false); shot = host.querySelector("canvas").toDataURL("image/png"); } catch (e) { return toast("사진을 못 찍었어요"); }
+            ov.querySelector("#cvp-img").src = shot; ov.querySelector("#cvp-ok").disabled = false;
+            stage.classList.remove("flash"); void stage.offsetWidth; stage.classList.add("flash");
+          };
+        },
+        error: () => { if (ok) return; ok = true; clearTimeout(to); try { player.dispose(); } catch (e) { /* 무시 */ } tryHost(hi + 1); },
+      });
+    };
+    tryHost(0);
+  });
+}
 async function coverSado() {
   let st = {}; try { st = JSON.parse(localStorage.getItem("trickcal-study") || "{}") || {}; } catch (e) { st = {}; }
   const id = st.partner || "erpin", c = (typeof SADO !== "undefined" && SADO.find((x) => x.id === id)) || {};
@@ -1429,7 +1519,9 @@ $("pdfBtn").onclick = async () => {
   const before = view;
   try {
     await saveNow();
-    const cov = await coverSado();
+    btn.textContent = "📸 표지 찍는 중…";
+    const cov = await coverPick();
+    if (!cov) return; // 취소
     view = "final"; render(true); // 완성본 모습으로
     const n = Math.max(1, Math.ceil((contentBottom() + 1) / PAGE_H)), kind = $("paperSel").value;
     const world = $("world").cloneNode(true);
