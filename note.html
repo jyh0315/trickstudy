@@ -426,15 +426,14 @@ function finishLasso(d) {
   const pick = strokes.filter((s) => s.pts.filter((q) => inPoly(q, d.lasso)).length >= s.pts.length * 0.6);
   if (!pick.length) return toast("감싼 획이 없어요");
   snapshot();
-  // 덩어리 여러 개를 통째로 감쌌고 그 안에 그림이 있으면 → 획을 섞지 않고 "세트"로 (글은 글대로 읽고, 같이 움직임)
   const ps = new Set(pick);
   const touched = blocks.filter((b) => b.strokes.some((st) => ps.has(st)));
   const whole = touched.filter((b) => b.strokes.filter((st) => ps.has(st)).length >= b.strokes.length * 0.8);
   const draws = whole.filter((b) => b.type === "draw");
-  const union = bbox(whole.flatMap((b) => [{ x: b.box.x, y: b.box.y }, { x: b.box.x + b.box.w, y: b.box.y + b.box.h }]));
-  const drawStrokes = draws.reduce((a, b) => a + b.strokes.length, 0), bigDraw = draws.some((b) => b.box.w * b.box.h > union.w * union.h * 0.25 || b.strokes.some((st) => st.img));
-  if (whole.length >= 2 && whole.length === touched.length && draws.length && (drawStrokes >= 3 || bigDraw)) { // 선 한두 개(분수선·화살표)뿐이면 세트 말고 그냥 합침
-    const main = draws.sort((a, c) => c.box.w * c.box.h - a.box.w * a.box.h)[0];
+  // 덩어리 여러 개를 통째로 감쌌으면 → 획을 섞지 않고 "세트"로 (글은 글대로 따로 읽고, 같이 움직임)
+  if (whole.length >= 2 && whole.length === touched.length) {
+    const main = draws.length ? draws.sort((a, c) => c.box.w * c.box.h - a.box.w * a.box.h)[0] // 그림이 있으면 가장 큰 그림이 대표
+      : [...whole].sort((a, c) => a.box.y - c.box.y || a.box.x - c.box.x)[0]; // 글끼리면 맨 위(왼쪽) 글이 대표
     // 이미 세트였던 것들도 새 대표 아래로 모음
     const members = new Set(whole);
     for (const b of blocks) if (b.parent && members.has(blocks.find((x) => x.key === b.parent))) members.add(b);
@@ -442,7 +441,7 @@ function finishLasso(d) {
     for (const b of members) { if (b === main) continue; const k = lockBlock(b, "L"); meta[k].setp = true; meta[k].parent = mainKey; }
     meta[mainKey].setp = false; meta[mainKey].parent = null;
     sel = mainKey; regroup(); save(); scheduleRecognize();
-    return toast(`🔗 그림+설명 ${members.size}개를 세트로 묶었어요 (같이 움직이고, 글은 따로 읽어요)`);
+    return toast(`🔗 ${draws.length ? "그림+설명" : "글"} ${members.size}개를 세트로 묶었어요 (같이 움직이고, 글은 따로 읽어요)`);
   }
   const key = "G" + pick[0].id + "_" + nextId;
   pick.forEach((s) => { s.lock = key; s.lockAt = nextId; });
