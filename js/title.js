@@ -82,7 +82,7 @@ function showScene(done, mainId) {
   root.innerHTML = `
     <div class="ttl-bg" style="background-image:url('assets/title-bg.webp')"></div>
     <div class="ttl-logo"><span class="l2">트릭스터디</span><span class="l1">~교주님 공부하세요!~</span></div>
-    <div class="ttl-ver">Ver 13.12 · 교주 전용</div>
+    <div class="ttl-ver">Ver 13.13 · 교주 전용</div>
     <div class="ttl-copy">♥ Trickcal fan-made study</div>
     <div class="ttl-cast">${cast.map((id, i) => `<div class="ttl-actor a${i}" data-id="${id}"></div>`).join("")}</div>
     <div class="ttl-sweep"></div>
@@ -178,6 +178,7 @@ function showScene(done, mainId) {
 }
 
 function show(done) {
+  if (location.hash === "#note") return done(); // 필기 노트에서 돌아올 땐 시작 화면 건너뜀
   if (TS.isPlain()) return showPlain(done);
   const mainId = (TS.SADO_MAP[TS.state.partner] ? TS.state.partner : "butter");
   if (window.Live && window.Live.canLive(mainId)) return showScene(done, mainId);
@@ -189,7 +190,7 @@ function show(done) {
   root.innerHTML = `
     <div class="ttl-bg" style="background-image:url('${bgSrc(s.bg || "trickcal")}')"></div>
     <div class="ttl-logo"><span class="l2">트릭스터디</span><span class="l1">~교주님 공부하세요!~</span></div>
-    <div class="ttl-ver">Ver 13.12 · 교주 전용</div>
+    <div class="ttl-ver">Ver 13.13 · 교주 전용</div>
     <div class="ttl-copy">♥ Trickcal fan-made study</div>
     <div class="ttl-face" id="ttl-face">
       <img id="ttl-img" src="${src}" alt="" draggable="false">
