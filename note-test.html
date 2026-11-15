@@ -42,10 +42,12 @@ select { font: 14px var(--font-body); border: 2px solid var(--ink); border-radiu
 .paper { position: relative; border: var(--line); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden;
   background: var(--paper) repeating-linear-gradient(transparent 0 39px, #f0dcb4 39px 40px); }
 #board { display: block; width: 100%; height: min(72vh, 900px); touch-action: none; cursor: crosshair; }
+#board * { pointer-events: none; } /* 펜 입력은 항상 판 전체가 받음 (상자를 다시 그려도 끊기지 않게) */
 #board.move { cursor: grab; } #board.erase { cursor: cell; }
 .stroke { fill: none; stroke-linecap: round; stroke-linejoin: round; }
 .box { fill: none; stroke-width: 2; stroke-dasharray: 6 5; rx: 10; }
 .box.text { stroke: #4aa3df; fill: rgba(143, 211, 255, .08); } .box.draw { stroke: #e0577f; fill: rgba(255, 143, 177, .08); }
+.box.label { stroke-dasharray: 2 4; }
 .box.sel { stroke-dasharray: none; stroke-width: 3; }
 .tag { font: 12px var(--font-title); }
 .clean { font-family: var(--font-body); fill: var(--ink); }
@@ -75,7 +77,7 @@ select { font: 14px var(--font-body); border: 2px solid var(--ink); border-radiu
 <div class="say"><p id="say">스타일러스로 아무거나 써 보세요! 잠깐 멈추면 에르핀이 글은 읽고, 그림은 따로 묶어 둘게요.</p></div>
 
 <div class="bar">
-  <span class="seg" id="tool"><button data-v="pen" class="on">✏️ 펜</button><button data-v="erase">🧽 지우개</button><button data-v="move">✋ 옮기기</button></span>
+  <span class="seg" id="tool"><button data-v="pen" class="on">✏️ 펜</button><button data-v="erase">🧽 지우개</button><button data-v="move">✋ 옮기기</button><button data-v="lasso">🪢 직접 묶기</button></span>
   <span class="seg" id="view"><button data-v="ink">원본</button><button data-v="both" class="on">겹쳐 보기</button><button data-v="clean">정리본</button></span>
   <span class="seg" id="color"><button data-v="#3b2a20" class="on">⚫</button><button data-v="#d8483b">🔴</button><button data-v="#2f7fd0">🔵</button><button data-v="#2e9e6a">🟢</button></span>
   <label class="opt">언어 <select id="lang"><option value="ko">한국어</option><option value="en">영어</option></select></label>
@@ -167,9 +169,10 @@ svg.addEventListener("pointerdown", (e) => {
   const p = pt(e);
   const erasing = tool === "erase" || (e.buttons & 32); // 펜 뒤쪽 지우개 버튼
   if (erasing) { snapshot(); eraseAt(p); dragging = { erase: true }; return; }
+  if (tool === "lasso") { dragging = { lasso: [p] }; $("gLive").innerHTML = ""; dragging.el = el("path", { fill: "rgba(183,124,255,.12)", stroke: "#b77cff", "stroke-width": 2, "stroke-dasharray": "5 4" }, $("gLive")); return; }
   if (tool === "move") {
     const b = blockAt(p);
-    if (b) { snapshot(); sel = b.key; dragging = { b, x: p.x, y: p.y, moved: false }; svg.style.cursor = "grabbing"; render(); }
+    if (b) { snapshot(); sel = b.key; const group = [b, ...blocks.filter((x) => x.parent === b.key)]; dragging = { b, group, x: p.x, y: p.y, moved: false }; svg.style.cursor = "grabbing"; render(); }
     else { sel = null; render(); }
     return;
   }
@@ -182,12 +185,15 @@ svg.addEventListener("pointermove", (e) => {
   if (e.pointerId !== activePointer) return;
   const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
   if (dragging && dragging.erase) { evs.forEach((ev) => eraseAt(pt(ev))); return; }
+  if (dragging && dragging.lasso) { dragging.lasso.push(pt(e)); dragging.el.setAttribute("d", "M" + dragging.lasso.map((q) => q.x + " " + q.y).join(" L") + " Z"); return; }
   if (dragging && dragging.b) {
     const p = pt(e), dx = p.x - dragging.x, dy = p.y - dragging.y;
     dragging.x = p.x; dragging.y = p.y; dragging.moved = true;
-    for (const s of dragging.b.strokes) { for (const q of s.pts) { q.x = +(q.x + dx).toFixed(1); q.y = +(q.y + dy).toFixed(1); } }
-    dragging.b.box.x += dx; dragging.b.box.y += dy;
-    (dragging.b.m.lines || []).forEach((l) => { l.box.x += dx; l.box.y += dy; });
+    for (const gb of dragging.group) {
+      for (const s of gb.strokes) { for (const q of s.pts) { q.x = +(q.x + dx).toFixed(1); q.y = +(q.y + dy).toFixed(1); } }
+      gb.box.x += dx; gb.box.y += dy;
+      (gb.m.lines || []).forEach((l) => { l.box.x += dx; l.box.y += dy; });
+    }
     render(true); return;
   }
   if (!live) return;
@@ -200,11 +206,11 @@ function endPointer(e) {
   if (dragging) {
     const d = dragging; dragging = null;
     if (d.b && d.moved) { // 옮긴 덩어리는 다른 덩어리와 섞이지 않게 고정
-      const lock = "L" + d.b.strokes[0].id;
-      d.b.strokes.forEach((s) => { s.lock = lock; s.lockAt = nextId; });
-      const old = meta[d.b.key]; if (old) { meta[lock] = old; }
+      for (const gb of d.group) lockBlock(gb, "L");
+      sel = d.b.key[0] === "S" ? "L" + d.b.strokes[0].id : d.b.key;
       regroup(); save();
     } else if (d.erase) { regroup(); save(); scheduleRecognize(); }
+    else if (d.lasso) finishLasso(d);
     return;
   }
   if (!live) return;
@@ -215,6 +221,32 @@ function endPointer(e) {
 svg.addEventListener("pointerup", endPointer);
 svg.addEventListener("pointercancel", endPointer);
 
+function lockBlock(b, pre) {
+  const key = b.key[0] === "S" ? pre + b.strokes[0].id : b.key;
+  b.strokes.forEach((s) => { s.lock = key; s.lockAt = nextId; });
+  if (key !== b.key && meta[b.key]) meta[key] = meta[b.key];
+  return key;
+}
+// 올가미로 감싼 획들을 한 덩어리로 (획의 60% 이상이 안에 들어가면 포함)
+function inPoly(q, poly) { let c = false; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) { const a = poly[i], b = poly[j]; if ((a.y > q.y) !== (b.y > q.y) && q.x < ((b.x - a.x) * (q.y - a.y)) / (b.y - a.y) + a.x) c = !c; } return c; }
+function finishLasso(d) {
+  $("gLive").innerHTML = "";
+  if (d.lasso.length < 5) return;
+  const pick = strokes.filter((s) => s.pts.filter((q) => inPoly(q, d.lasso)).length >= s.pts.length * 0.6);
+  if (!pick.length) return toast("감싼 획이 없어요");
+  snapshot();
+  const key = "G" + pick[0].id + "_" + nextId;
+  pick.forEach((s) => { s.lock = key; s.lockAt = nextId; });
+  const dN = pick.filter((s) => s.r === "D").length;
+  meta[key] = { type: dN > 0 ? "draw" : "text" };
+  sel = key; regroup(); save(); scheduleRecognize();
+  toast(`획 ${pick.length}개를 한 덩어리로 묶었어요`);
+}
+function unlock(key) {
+  snapshot();
+  strokes.forEach((s) => { if (s.lock === key) { delete s.lock; delete s.lockAt; } });
+  delete meta[key]; sel = null; regroup(); save(); scheduleRecognize();
+}
 function eraseAt(p) {
   const r = 12, before = strokes.length;
   strokes = strokes.filter((s) => !s.pts.some((q) => Math.hypot(q.x - p.x, q.y - p.y) < r + s.w));
@@ -224,46 +256,85 @@ function eraseAt(p) {
 /* ───────── 덩어리 묶기 ───────── */
 function bbox(pts) { let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9; for (const q of pts) { x0 = Math.min(x0, q.x); y0 = Math.min(y0, q.y); x1 = Math.max(x1, q.x); y1 = Math.max(y1, q.y); } return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 }; }
 function near(a, b, g) { return a.x - g < b.x + b.w && b.x - g < a.x + a.w && a.y - g < b.y + b.h && b.y - g < a.y + a.h; }
+// 획 하나의 모양: 크거나, 길고 곧은 비스듬한 선(화살표)이면 그림 획
+function kindOf(s) {
+  if (s.k) return s.k;
+  const b = bbox(s.pts), diag = Math.hypot(b.w, b.h), f = s.pts[0], l = s.pts[s.pts.length - 1];
+  let len = 0; for (let i = 1; i < s.pts.length; i++) len += Math.hypot(s.pts[i].x - s.pts[i - 1].x, s.pts[i].y - s.pts[i - 1].y);
+  const straight = Math.hypot(l.x - f.x, l.y - f.y) / Math.max(1, len);
+  const tilt = Math.atan2(Math.abs(l.x - f.x), Math.abs(l.y - f.y)) * 180 / Math.PI; // 0 = 세로
+  return (s.k = diag > 110 || (diag > 60 && straight > 0.85 && tilt > 25) ? "big" : "small");
+}
+// 두 획 사이 실제 최소 거리 (네모 범위가 아니라 선 기준)
+function sdist(a, b, lim) {
+  const A = a.pts, B = b.pts, sa = Math.max(1, (A.length / 80) | 0), sb = Math.max(1, (B.length / 80) | 0);
+  let best = 1e9;
+  for (let i = 0; i < A.length; i += sa) for (let j = 0; j < B.length; j += sb) {
+    const d = Math.hypot(A[i].x - B[j].x, A[i].y - B[j].y);
+    if (d < best) { best = d; if (best < lim) return best; }
+  }
+  return best;
+}
+const inside = (a, b) => a.x >= b.x && a.y >= b.y && a.x + a.w <= b.x + b.w && a.y + a.h <= b.y + b.h;
 function regroup() {
   const g = +$("gap").value;
   const n = strokes.length, par = [...Array(n).keys()];
   const find = (i) => (par[i] === i ? i : (par[i] = find(par[i])));
   const bb = strokes.map((s) => bbox(s.pts));
+  // 1) 획 역할 정하기: 큰 획 = 그림(D), 작은 획 = 글(T). 단, 그림 선에 붙어 있거나(화살촉) 그림 안에 들어간 작은 획은 그림
+  const role = strokes.map((s) => (kindOf(s) === "big" ? "D" : "T"));
+  for (let i = 0; i < n; i++) {
+    if (role[i] !== "T") continue;
+    for (let j = 0; j < n; j++) {
+      if (role[j] !== "D" || kindOf(strokes[j]) !== "big") continue;
+      const A = strokes[i], Bs = strokes[j];
+      if (A.lock && A.lock === Bs.lock) { /* 같은 덩어리 */ } else if ((Bs.lock && A.id < Bs.lockAt) || (A.lock && Bs.id < A.lockAt)) continue; // 옮긴 그림이 원래 있던 글을 먹지 않게
+      const B = bb[j];
+      if (!near(bb[i], B, 10)) continue;
+      if (sdist(strokes[i], strokes[j], 9) < 9 || (B.w > 60 && B.h > 60 && inside(bb[i], B) && Math.hypot(bb[i].w, bb[i].h) < Math.hypot(B.w, B.h) * 0.45)) { role[i] = "D"; break; }
+    }
+  }
+  // 2) 묶기
   for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) {
     const a = strokes[i], b = strokes[j];
-    const same = a.lock && a.lock === b.lock;
-    if (same) { par[find(i)] = find(j); continue; }
+    if (a.lock && a.lock === b.lock) { par[find(i)] = find(j); continue; }
     if (a.lock && b.lock) continue; // 서로 다른 고정 덩어리는 안 섞음
-    // 옮겨 둔 덩어리는 원래 있던 획과 섞이지 않고, 옮긴 뒤에 그 옆에 새로 쓴 획만 붙음
+    // 옮기거나 직접 묶은 덩어리는 원래 있던 획과 섞이지 않고, 그 뒤에 옆에 새로 쓴 획만 붙음
     const L = a.lock ? a : b.lock ? b : null, o = L === a ? b : a;
     if (L && o.id < L.lockAt) continue;
-    if (near(bb[i], bb[j], g)) par[find(i)] = find(j);
+    if (!near(bb[i], bb[j], g)) continue;
+    if (L) { if (sdist(a, b, g * 0.6) < g * 0.6) par[find(i)] = find(j); continue; }
+    if (role[i] !== role[j]) continue; // 글과 그림은 따로
+    if (role[i] === "T" || sdist(a, b, g) < g) par[find(i)] = find(j);
   }
   const groups = new Map();
-  strokes.forEach((s, i) => { const r = find(i); if (!groups.has(r)) groups.set(r, []); groups.get(r).push(s); });
+  strokes.forEach((s, i) => { s.r = role[i]; const r = find(i); if (!groups.has(r)) groups.set(r, []); groups.get(r).push(s); });
   blocks = [...groups.values()].map((ss) => {
     ss.sort((a, b) => a.id - b.id);
     const lock = (ss.find((s) => s.lock) || {}).lock;
-    if (lock) { const at = ss.find((s) => s.lock).lockAt; ss.forEach((s) => { s.lock = lock; s.lockAt = at; }); } // 고정 덩어리 옆에 새로 쓴 획은 그 덩어리에 들어감
+    if (lock) { const at = ss.find((s) => s.lock).lockAt; ss.forEach((s) => { s.lock = lock; s.lockAt = at; }); }
     const key = lock || "S" + ss[0].id;
     const box = bbox(ss.flatMap((s) => s.pts));
     const m = meta[key] || (meta[key] = {});
     const sig = ss.map((s) => s.id).join(",");
     if (m.sig !== sig) { m.sig = sig; m.stale = true; }
-    return { key, strokes: ss, box, m, type: m.type || guessType(ss, box) };
+    const d = ss.filter((s) => s.r === "D").length;
+    return { key, strokes: ss, box, m, type: m.type || (d * 3 >= ss.length && d > 0 ? "draw" : "text") };
   });
+  // 3) 이름표: 그림 바로 옆 글 덩어리는 그 그림의 이름표 (그림을 옮기면 같이 따라감)
+  for (const b of blocks) {
+    b.parent = null;
+    if (b.type !== "text") continue;
+    let best = g * 2, pb = null;
+    for (const d of blocks) {
+      if (d.type !== "draw" || !near(b.box, d.box, best)) continue;
+      for (const s of b.strokes) for (const t of d.strokes) { const v = sdist(s, t, 0); if (v < best) { best = v; pb = d; } }
+    }
+    if (pb) b.parent = pb.key;
+  }
   blocks.sort((a, b) => a.box.y - b.box.y || a.box.x - b.box.x);
   for (const k of Object.keys(meta)) if (!blocks.some((b) => b.key === k)) delete meta[k];
   render();
-}
-// 획이 작고 여러 개면 글, 크고 긴 획이 있으면 그림 (나중에 직접 바꿀 수 있음)
-function guessType(ss, box) {
-  const sizes = ss.map((s) => { const b = bbox(s.pts); return Math.hypot(b.w, b.h); }).sort((a, b) => a - b);
-  const med = sizes[Math.floor(sizes.length / 2)], big = sizes[sizes.length - 1];
-  if (ss.length === 1 && big > 90) return "draw";
-  if (med > 85 || big > 260) return "draw";
-  if (box.h > 220 && box.w > 220 && ss.length < 12) return "draw";
-  return "text";
 }
 function blockAt(p) { for (let i = blocks.length - 1; i >= 0; i--) { const b = blocks[i].box; if (p.x >= b.x - 8 && p.x <= b.x + b.w + 8 && p.y >= b.y - 8 && p.y <= b.y + b.h + 8) return blocks[i]; } return null; }
 
@@ -331,9 +402,9 @@ function render(fast) {
     const inkOp = view === "ink" ? 1 : view === "both" ? (cleanText ? 0.22 : 1) : (cleanText ? 0 : 1);
     if (inkOp > 0) for (const s of b.strokes) el("path", { class: "stroke", d: pathD(s.pts), stroke: s.c, "stroke-width": widthOf(s), opacity: inkOp }, gInk);
     const pad = 6, bx = b.box;
-    el("rect", { class: "box " + b.type + (sel === b.key ? " sel" : ""), x: bx.x - pad, y: bx.y - pad, width: bx.w + pad * 2, height: bx.h + pad * 2, rx: 10 }, gBox);
+    el("rect", { class: "box " + b.type + (b.parent ? " label" : "") + (sel === b.key ? " sel" : ""), x: bx.x - pad, y: bx.y - pad, width: bx.w + pad * 2, height: bx.h + pad * 2, rx: 10 }, gBox);
     const tag = el("text", { class: "tag", x: bx.x - pad + 2, y: bx.y - pad - 4, fill: b.type === "text" ? "#2f7fd0" : "#c23f68" }, gBox);
-    tag.textContent = b.type === "text" ? "글" : "그림";
+    tag.textContent = b.parent ? "이름표" : b.type === "text" ? "글" : "그림";
     if (view !== "ink" && cleanText) {
       for (const l of b.m.lines) {
         if (!l.text) continue;
@@ -353,7 +424,7 @@ function renderSide() {
     const c = document.createElement("div");
     c.className = "card" + (sel === b.key ? " sel" : "");
     const text = b.m.lines ? b.m.lines.map((l) => l.text).join("\n") : "";
-    c.innerHTML = `<h3>#${i + 1} <span class="k ${b.type}" title="눌러서 글/그림 바꾸기">${b.type === "text" ? "글" : "그림"}</span><span class="meta">획 ${b.strokes.length}개${b.m.ms != null && b.type === "text" ? " · " + b.m.ms + "ms" : ""}${b.key[0] === "L" ? " · 📌옮김" : ""}</span></h3>`;
+    c.innerHTML = `<h3>#${i + 1} <span class="k ${b.type}" title="눌러서 글/그림 바꾸기">${b.type === "text" ? "글" : "그림"}</span><span class="meta">획 ${b.strokes.length}개${b.m.ms != null && b.type === "text" ? " · " + b.m.ms + "ms" : ""}${b.key[0] === "L" ? " · 📌옮김" : ""}${b.parent ? " · 🏷 #" + (blocks.findIndex((x) => x.key === b.parent) + 1) + " 그림의 이름표" : ""}</span>${b.key[0] === "G" ? '<button class="alts unl" style="margin-left:auto;font:12px var(--font-title);border:1.5px solid var(--ink);border-radius:8px;background:#fff;cursor:pointer">풀기</button>' : ""}</h3>`;
     if (b.type === "text") {
       const t = document.createElement("div");
       t.className = "txt"; t.contentEditable = "true"; t.spellcheck = false;
@@ -375,6 +446,7 @@ function renderSide() {
     } else {
       const p = document.createElement("div"); p.className = "meta"; p.textContent = `크기 ${Math.round(b.box.w)}×${Math.round(b.box.h)} — 그림은 글자로 안 바꾸고 덩어리째 옮길 수 있어요.`; c.appendChild(p);
     }
+    const ub = c.querySelector(".unl"); if (ub) ub.onclick = () => unlock(b.key);
     c.querySelector(".k").onclick = () => { b.m.type = b.type === "text" ? "draw" : "text"; b.m.stale = true; regroup(); save(); scheduleRecognize(); };
     c.onclick = (e) => { if (e.target.closest(".txt,.alts,.k")) return; sel = b.key; render(); };
     side.appendChild(c);
@@ -383,7 +455,7 @@ function renderSide() {
 
 /* ───────── 도구 ───────── */
 function seg(id, cb) { $(id).querySelectorAll("button").forEach((bt) => (bt.onclick = () => { $(id).querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === bt)); cb(bt.dataset.v); })); }
-seg("tool", (v) => { tool = v; svg.classList.toggle("move", v === "move"); svg.classList.toggle("erase", v === "erase"); if (v !== "move") { sel = null; render(); } });
+seg("tool", (v) => { tool = v; svg.classList.toggle("move", v === "move"); svg.classList.toggle("erase", v === "erase"); if (v === "lasso") say("묶고 싶은 획들을 올가미처럼 빙 둘러 감싸 보세요. 감싼 것끼리 한 덩어리가 돼요."); if (v !== "move" && v !== "lasso") { sel = null; render(); } });
 seg("view", (v) => { view = v; render(); });
 seg("color", (v) => (color = v));
 $("lang").onchange = () => { blocks.forEach((b) => (b.m.stale = true)); scheduleRecognize(); };
@@ -393,9 +465,9 @@ $("undo").onclick = () => { const s = undoStack.pop(); if (!s) return toast("더
 $("clear").onclick = () => { if (!strokes.length) return; snapshot(); strokes = []; meta = {}; sel = null; regroup(); save(); toast("다 지웠어요 (되돌리기 가능)"); };
 $("copy").onclick = async () => {
   const report = {
-    page: "note-test v1", ua: navigator.userAgent, api: env.api, ko: !!env.ko, en: !!env.en,
+    page: "note-test v2", ua: navigator.userAgent, api: env.api, ko: !!env.ko, en: !!env.en,
     koInfo: env.ko || null, inputs: [...env.inputs], lang: $("lang").value, gap: +$("gap").value,
-    blocks: blocks.map((b, i) => ({ n: i + 1, type: b.type, strokes: b.strokes.length, size: [Math.round(b.box.w), Math.round(b.box.h)], ms: b.m.ms, edited: !!b.m.edited, lines: (b.m.lines || []).map((l) => ({ text: l.text, alts: l.alts })) })),
+    blocks: blocks.map((b, i) => ({ n: i + 1, type: b.type, strokes: b.strokes.length, size: [Math.round(b.box.w), Math.round(b.box.h)], ms: b.m.ms, edited: !!b.m.edited, parent: b.parent ? blocks.findIndex((x) => x.key === b.parent) + 1 : null, lines: (b.m.lines || []).map((l) => ({ text: l.text, alts: l.alts })) })),
   };
   const txt = JSON.stringify(report, null, 1);
   try { await navigator.clipboard.writeText(txt); toast("복사했어요! 채팅에 붙여 넣어 주세요"); }
