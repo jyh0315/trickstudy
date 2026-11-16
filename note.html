@@ -119,6 +119,7 @@ body.zen .paper { height: 100vh !important; border: 0; border-radius: 0; box-sha
 .selBar button[data-a="del"] { background: #ffe1dc; }
 .selBar button[data-a="redraw"] { background: #efe4ff; }
 .selBar button[data-a="okuns"] { background: #fff3a6; }
+.inEdit { position: absolute; z-index: 6; font-family: var(--font-body); line-height: 1.6; padding: 6px 8px; border: 2.5px solid var(--pink-d); border-radius: 10px; background: #fffdf6; box-shadow: 0 4px 0 var(--ink); resize: both; outline: none; color: var(--ink); }
 .selBar button[hidden] { display: none; }
 .selBar button.wide { width: auto; min-width: 34px; padding: 0 6px; }
 .selBar button.busy { animation: sbBusy 1s linear infinite; }
@@ -258,7 +259,7 @@ mark.uns { background: #ffe08a; border-bottom: 2px dotted #d8483b; color: inheri
   <button class="btn" id="hlClear" hidden title="이 노트에 그은 형광펜을 모두 지워요 (↶ 로 되돌릴 수 있어요)">🧹 형광 다 지우기</button>
   <button class="btn" id="boxT" title="글/그림 영역 표시 켜기·끄기 (꺼도 ✋ 선택으로 누른 것은 보여요)">▢ 영역</button>
   <span class="seg" id="color"><button data-v="#3b2a20" class="on">⚫</button><button data-v="#d8483b">🔴</button><button data-v="#2f7fd0">🔵</button><button data-v="#2e9e6a">🟢</button></span>
-  <button class="btn" id="undo" title="되돌리기 (Ctrl+Z)">↶</button>
+  <button class="btn" id="undo" title="되돌리기 (Ctrl+Z)">↶</button><button class="btn" id="redo" title="다시 하기 (Ctrl+Shift+Z / Ctrl+Y)">↷</button>
   <button class="btn" id="gNow" title="지금 읽기 — 자동 읽기를 껐을 때 이 버튼으로 한 번에 읽어요">📖 읽기</button>
   <button class="btn" id="shapeBtn" title="필기 도우미: 말풍선·화살표·흰 사각형·메모지·표시 (형광은 🖍 형광펜 도구로)">📐 도형</button>
   <button class="btn" id="stickerBtn" title="사도 스티커 붙이기 (꼬마 그림·표정·움직이는 모습 찰칵)">🧸 사도</button>
@@ -275,7 +276,7 @@ mark.uns { background: #ffe08a; border-bottom: 2px dotted #d8483b; color: inheri
 </div>
 
 <div class="wrap">
-  <div class="paper" id="paper"><svg id="board" xmlns="http://www.w3.org/2000/svg"><g id="world"><g id="gPages"></g><g id="gBack"></g><g id="gBoxes"></g><g id="gHeads"></g><g id="gInk"></g><g id="gClean"></g><g id="gLive"></g></g></svg><div class="selBar" id="selBar" hidden><button data-a="del" title="지우기 (Delete 키)">🗑</button><button data-a="out" title="작게">－</button><button data-a="in" title="크게">＋</button><button data-a="okuns" class="wide" title="노란 표시(자신 없는 글자)가 다 맞아요 → 표시 지우기">✓</button><button data-a="merge" class="wide" title="겹치거나 맞닿은 그림과 하나로 합치기">🧩</button><button data-a="redraw" class="wide" title="AI 가 이 그림을 깔끔한 도식으로 다시 그려요 (정리본·완성본에서 보여요)">🪄</button><button data-a="orig" class="wide" title="AI 가 다시 그린 그림 ↔ 내 손그림">↩</button></div></div>
+  <div class="paper" id="paper"><svg id="board" xmlns="http://www.w3.org/2000/svg"><g id="world"><g id="gPages"></g><g id="gBack"></g><g id="gBoxes"></g><g id="gHeads"></g><g id="gInk"></g><g id="gClean"></g><g id="gLive"></g></g></svg><div class="selBar" id="selBar" hidden><button data-a="del" title="지우기 (Delete 키)">🗑</button><button data-a="out" title="작게">－</button><button data-a="in" title="크게">＋</button><button data-a="edit" class="wide" title="이 글 바로 고치기">✏️</button><button data-a="okuns" class="wide" title="노란 표시(자신 없는 글자)가 다 맞아요 → 표시 지우기">✓</button><button data-a="merge" class="wide" title="겹치거나 맞닿은 그림과 하나로 합치기">🧩</button><button data-a="redraw" class="wide" title="AI 가 이 그림을 깔끔한 도식으로 다시 그려요 (정리본·완성본에서 보여요)">🪄</button><button data-a="orig" class="wide" title="AI 가 다시 그린 그림 ↔ 내 손그림">↩</button></div></div>
   <div class="side" id="side"><div class="card empty">아직 덩어리가 없어요. 써 보세요!</div></div>
 </div>
 <div id="toast"></div>
@@ -285,7 +286,7 @@ mark.uns { background: #ffe08a; border-bottom: 2px dotted #d8483b; color: inheri
   <span class="zsep"></span>
   <button data-c="#3b2a20" title="검정">⚫</button><button data-c="#d8483b" title="빨강">🔴</button><button data-c="#2f7fd0" title="파랑">🔵</button><button data-c="#2e9e6a" title="초록">🟢</button>
   <span class="zsep"></span>
-  <button data-a="undo" title="되돌리기">↶</button><button data-a="out" title="축소">－</button><button data-a="fit" title="폭 맞춤">↔</button><button data-a="in" title="확대">＋</button>
+  <button data-a="undo" title="되돌리기">↶</button><button data-a="redo" title="다시 하기">↷</button><button data-a="out" title="축소">－</button><button data-a="fit" title="폭 맞춤">↔</button><button data-a="in" title="확대">＋</button>
   <span class="zpg" id="zenPg"><button data-a="prev" title="앞 장">◀</button><button data-a="next" title="다음 장">▶</button></span>
   <span class="zsep"></span>
   <button data-a="exit" title="집중 끝내기 (Esc)" class="zx">⛶ 나가기</button>
@@ -304,7 +305,7 @@ let note = null, Z = 1, zFit = true; // 지금 노트 기록 · 확대 배율
 let strokes = [], meta = {}, nextId = 1, tool = "pen", view = "both", color = "#3b2a20", sel = null;
 let blocks = [];
 let heads = [], mode = "inf", page = 0, pageH = PAGE_H, focusUI = true, sideOn = false, noteTitle = ""; // 노트 모드·제목
-const undoStack = [];
+const undoStack = [], redoStack = [];
 const env = { api: "none", ko: null, en: null, inputs: new Set() };
 let recognizer = null, recLang = null;
 
@@ -372,7 +373,7 @@ async function loadNote() {
 let undoBytes = 0;
 function pushUndo(entry) {
   entry.size = (entry.full || "").length + (entry.meta || "").length;
-  undoStack.push(entry); undoBytes += entry.size;
+  undoStack.push(entry); undoBytes += entry.size; redoStack.length = 0; // 새로 한 일이 생기면 '다시 하기'는 사라짐
   while (undoStack.length > 80 || (undoBytes > 25e6 && undoStack.length > 1)) undoBytes -= undoStack.shift().size;
 }
 function snapshot() { pushUndo({ full: JSON.stringify({ strokes, meta, heads }) }); }
@@ -616,6 +617,32 @@ function mergeBlocks(ds, type) {
   return key;
 }
 // 🧩 합칠 대상: 세트면 세트 안의 같은 종류 전부, 아니면 맞닿거나 겹친 같은 종류 덩어리
+// 글 고치기 (오른쪽 목록과 같은 방식) — 줄 수가 바뀌어도 됨
+function applyEdit(b, v) {
+  if (!b.m.lines) return;
+  const ls = b.m.lines;
+  v.forEach((t, k) => {
+    if (k < ls.length) { const l = ls[k]; if (t === l.text) return; remember(l.orig || l.text, t); l.text = t; l.unsure = (l.unsure || []).filter((u) => t.includes(u)); return; }
+    const last = ls[ls.length - 1] || { box: { x: 0, y: 0, w: 100, h: LINE }, rel: true };
+    ls.push({ text: t, orig: t, c: last.c, alts: [], unsure: [], lv: 0, rel: last.rel, box: { ...last.box, y: last.box.y + last.box.h } });
+  });
+  if (v.length < ls.length) ls.splice(Math.max(1, v.length));
+  b.m.edited = true;
+}
+function editInline() {
+  const u = selUnit(); const b = u && u.b; if (!b || b.type !== "text" || !b.m.lines) return;
+  const D = dispBox(b), sr = svg.getBoundingClientRect(), pr = paper.getBoundingClientRect();
+  const ta = document.createElement("textarea"); ta.className = "inEdit";
+  ta.value = b.m.lines.map((l) => l.text).join("\n");
+  const fs = Math.max(14, cleanFS() * Z * 0.85);
+  Object.assign(ta.style, { left: sr.left - pr.left + paper.scrollLeft + D.x * Z - 6 + "px", top: sr.top - pr.top + paper.scrollTop + (D.y - offY()) * Z - 6 + "px", width: Math.max(260, D.w * Z + 40) + "px", height: Math.max(60, (b.m.lines.length + 1) * fs * 1.6) + "px", fontSize: fs + "px" });
+  paper.appendChild(ta); ta.focus(); $("selBar").hidden = true;
+  let done = false;
+  const fin = (ok) => { if (done) return; done = true; if (ok) { const v = ta.value.split("\n"); while (v.length > 1 && !v[v.length - 1].trim()) v.pop(); snapshot(); applyEdit(b, v); render(); save(); toast("✏️ 고쳤어요 (고친 글은 다음 읽기에 참고해요)"); } ta.remove(); placeSelBar(); };
+  ta.addEventListener("pointerdown", (e) => e.stopPropagation());
+  ta.onkeydown = (e) => { e.stopPropagation(); if (e.key === "Escape") fin(false); if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) fin(true); };
+  ta.onblur = () => fin(true);
+}
 // 노란 표시(자신 없음) 지우기 = "이대로 맞아요"
 function clearUnsure(b) { (b.m.lines || []).forEach((l) => { l.unsure = []; }); render(); save(); toast("✓ 노란 표시를 지웠어요"); }
 function mergeTargets(u) {
@@ -651,7 +678,17 @@ function inPoly(q, poly) { let c = false; for (let i = 0, j = poly.length - 1; i
 function finishLasso(d) {
   $("gLive").innerHTML = "";
   if (d.lasso.length < 5) return;
-  const pick = strokes.filter((s) => s.pts.filter((q) => inPoly(q, d.lasso)).length >= s.pts.length * 0.6);
+  let pick = strokes.filter((s) => s.pts.filter((q) => inPoly(q, d.lasso)).length >= s.pts.length * 0.6);
+  if (isClean()) { // 정리본·완성본: 보이는 정리 글씨 자리로 고름
+    const ps = new Set(pick);
+    for (const b of blocks) {
+      const D = dispBox(b); if (D === b.box) continue;
+      const pts5 = [{ x: D.x, y: D.y }, { x: D.x + D.w, y: D.y }, { x: D.x, y: D.y + D.h }, { x: D.x + D.w, y: D.y + D.h }, { x: D.x + D.w / 2, y: D.y + D.h / 2 }];
+      const inside5 = pts5.filter((q) => inPoly(q, d.lasso)).length >= 3;
+      b.strokes.forEach((st) => (inside5 ? ps.add(st) : ps.delete(st)));
+    }
+    pick = strokes.filter((st) => ps.has(st));
+  }
   if (!pick.length) return toast("감싼 획이 없어요");
   snapshot();
   const ps = new Set(pick);
@@ -916,9 +953,14 @@ function regroup() {
   const liveKeys = new Set(blocks.map((b) => b.key)); for (const k of Object.keys(meta)) if (!liveKeys.has(k)) delete meta[k];
   render();
 }
+// 화면에 보이는 덩어리 자리: 정리본·완성본에선 정리 글씨가 차지한 자리 (원래 손글씨 자리 말고)
+function dispBox(b) {
+  if (isClean() && b.type === "text" && !b.m.stale && b.m._ch && b.m.lines && b.m.lines.some((l) => l.text)) return { x: b.box.x, y: b.box.y, w: (b.m._cw || b.box.w) + 6, h: Math.max(b.m._ch - 4, 20) };
+  return b.box;
+}
 function blockAt(p) { // 겹치면 가장 작은 덩어리 (배경 도형 위에 쓴 글씨를 누르면 글씨가 골라짐)
   let best = null, ba = Infinity;
-  for (const bl of blocks) { const b = bl.box; if (p.x >= b.x - 8 && p.x <= b.x + b.w + 8 && p.y >= b.y - 8 && p.y <= b.y + b.h + 8) { const a = (b.w + 16) * (b.h + 16); if (a < ba) { ba = a; best = bl; } } }
+  for (const bl of blocks) { const b = dispBox(bl); if (p.x >= b.x - 8 && p.x <= b.x + b.w + 8 && p.y >= b.y - 8 && p.y <= b.y + b.h + 8) { const a = (b.w + 16) * (b.h + 16); if (a < ba) { ba = a; best = bl; } } }
   return best;
 }
 
@@ -1577,7 +1619,7 @@ function render(fast, all) {
   if (SHOWBOX) for (const b of blocks) { // 세트 테두리 (보라색)
     const kids = (kidsOf.get(b.key) || []).filter((x) => x.m.setp);
     if (!kids.length || !vis(b.box)) continue;
-    const B = bbox([b, ...kids].flatMap((x) => [{ x: x.box.x, y: x.box.y }, { x: x.box.x + x.box.w, y: x.box.y + x.box.h }]));
+    const B = bbox([b, ...kids].flatMap((x) => { const D = dispBox(x); return [{ x: D.x, y: D.y }, { x: D.x + D.w, y: D.y + D.h }]; }));
     el("rect", { class: "setBox", x: B.x - 16, y: B.y - 26, width: B.w + 32, height: B.h + 38, rx: 16 }, gBox);
     const t = el("text", { class: "tag", x: B.x - 12, y: B.y - 30, fill: "#8a4fd6" }, gBox); t.textContent = `🔗 세트 (${kids.length + 1})`;
   }
@@ -1890,7 +1932,7 @@ $("zenBar").onclick = (e) => {
   if (b.dataset.t) setTool(b.dataset.t);
   if (b.dataset.c) { const cb = $("color").querySelector(`[data-v="${b.dataset.c}"]`); if (cb) cb.click(); }
   const a = b.dataset.a;
-  if (a === "undo") $("undo").click();
+  if (a === "undo") $("undo").click(); if (a === "redo") $("redo").click();
   if (a === "hlclear") clearHighlights();
   if (a === "in") setZoom(Z * 1.2); if (a === "out") setZoom(Z / 1.2); if (a === "fit") $("zFit").click();
   if (a === "prev") goPage(page - 1); if (a === "next") goPage(page + 1);
@@ -1910,7 +1952,7 @@ $("sideT").onclick = () => { sideOn = !sideOn; applyUI(); save(); if (sideOn) re
 addEventListener("resize", () => { fitPaper(); fitBoard(); });
 
 /* ───────── 소제목(AI 정리가 만듦) ───────── */
-function unitBox(b) { const kids = blocks.filter((x) => x.parent === b.key); return bbox([b, ...kids].flatMap((x) => [{ x: x.box.x, y: x.box.y }, { x: x.box.x + x.box.w, y: x.box.y + x.box.h }])); }
+function unitBox(b) { const kids = blocks.filter((x) => x.parent === b.key); return bbox([b, ...kids].flatMap((x) => { const B = dispBox(x); return [{ x: B.x, y: B.y }, { x: B.x + B.w, y: B.y + B.h }]; })); }
 function gripPos(b) { const U = unitBox(b), set = blocks.some((x) => x.parent === b.key && x.m.setp); return { x: U.x + U.w + (set ? 16 : 6), y: U.y + U.h + (set ? 12 : 6) }; }
 function headBox(h) { return { x: h.x - 6, y: h.y - 26, w: Math.max(60, h.text.length * 22) + 12, h: 36 }; }
 function headAt(p) { return heads.find((h) => { const b = headBox(h); return p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h; }); }
@@ -1938,10 +1980,11 @@ function selUnit() {
 function placeSelBar() {
   const bar = $("selBar"), u = selUnit();
   if (!u || dragging) { bar.hidden = true; return; }
-  const B = bbox(u.group.flatMap((g) => [{ x: g.box.x, y: g.box.y }, { x: g.box.x + g.box.w, y: g.box.y + g.box.h }]));
+  const B = bbox(u.group.flatMap((g) => { const D = dispBox(g); return [{ x: D.x, y: D.y }, { x: D.x + D.w, y: D.y + D.h }]; }));
   bar.hidden = false;
   const db = u.b.type === "draw" && !u.b.hl ? u.b : null;
   bar.querySelector('[data-a="redraw"]').hidden = !db;
+  bar.querySelector('[data-a="edit"]').hidden = !(u.b.type === "text" && u.b.m.lines);
   bar.querySelector('[data-a="okuns"]').hidden = ![u.b, ...u.group].some((x) => (x.m.lines || []).some((l) => l.unsure && l.unsure.length));
   const mt = mergeTargets(u).length; bar.querySelector('[data-a="merge"]').hidden = !mt;
   bar.querySelector('[data-a="merge"]').title = u.group.length > 1 ? "세트를 한 덩어리로 합치기" : "맞닿은 덩어리와 하나로 합치기";
@@ -1972,7 +2015,7 @@ function zoomSel(k) {
 }
 $("boxT").onclick = () => { boxesOn = !boxesOn; render(true); save(); toast(boxesOn ? "▢ 글/그림 영역을 보여요" : "▢ 영역 표시를 숨겼어요 (✋ 선택으로 누른 것만 보여요)"); };
 $("selBar").addEventListener("pointerdown", (e) => e.stopPropagation());
-$("selBar").onclick = (e) => { const a = e.target.closest("button") && e.target.closest("button").dataset.a; if (a === "del") deleteSel(); if (a === "in") zoomSel(1.15); if (a === "out") zoomSel(1 / 1.15); if (a === "redraw") aiRedraw(); if (a === "merge") mergeNear(); if (a === "okuns") { const u = selUnit(); if (u) [u.b, ...u.group].forEach((x) => x.m.lines && clearUnsure(x)); } if (a === "orig") toggleRedraw(); };
+$("selBar").onclick = (e) => { const a = e.target.closest("button") && e.target.closest("button").dataset.a; if (a === "del") deleteSel(); if (a === "in") zoomSel(1.15); if (a === "out") zoomSel(1 / 1.15); if (a === "redraw") aiRedraw(); if (a === "merge") mergeNear(); if (a === "edit") editInline(); if (a === "okuns") { const u = selUnit(); if (u) [u.b, ...u.group].forEach((x) => x.m.lines && clearUnsure(x)); } if (a === "orig") toggleRedraw(); };
 document.addEventListener("keydown", (e) => { if ((e.key === "Delete" || e.key === "Backspace") && selUnit() && !e.target.closest("input,textarea,[contenteditable]")) { e.preventDefault(); deleteSel(); } });
 paper.addEventListener("scroll", placeSelBar, { passive: true });
 function scaleBlocks(gs, k, ax, ay) {
@@ -2250,13 +2293,22 @@ $("gap").onchange = () => { save(); scheduleRecognize(); };
 $("undo").onclick = () => {
   const u = undoStack.pop(); if (!u) return toast("더 되돌릴 게 없어요");
   undoBytes -= u.size || 0;
+  redoStack.push(JSON.stringify({ strokes, meta, heads })); if (redoStack.length > 40) redoStack.shift();
   if (u.addFrom != null) { const d = JSON.parse(u.meta); strokes = strokes.filter((st) => st.id < u.addFrom); meta = d.meta; heads = d.heads || []; }
   else { const d = JSON.parse(u.full); strokes = d.strokes; meta = d.meta; heads = d.heads || []; }
   regroup(); fitBoard(); save(); scheduleRecognize();
 };
+$("redo").onclick = () => {
+  const r = redoStack.pop(); if (!r) return toast("다시 할 게 없어요");
+  const cur = JSON.stringify({ strokes, meta, heads }); undoStack.push({ full: cur, size: cur.length }); undoBytes += cur.length;
+  const d = JSON.parse(r); strokes = d.strokes; meta = d.meta; heads = d.heads || [];
+  regroup(); fitBoard(); save(); scheduleRecognize();
+};
 $("clear").onclick = () => { if (!strokes.length && !heads.length) return; snapshot(); strokes = []; meta = {}; heads = []; sel = null; regroup(); fitBoard(); save(); toast("다 지웠어요 (되돌리기 가능)"); };
 document.addEventListener("keydown", (e) => {
-  if ((e.ctrlKey || e.metaKey) && e.key === "z") { e.preventDefault(); $("undo").click(); }
+  if (e.target.closest && e.target.closest("input,textarea,[contenteditable]")) { /* 글 고치는 중엔 그 칸의 되돌리기 */ }
+  else if ((e.ctrlKey || e.metaKey) && (e.key === "y" || (e.shiftKey && (e.key === "z" || e.key === "Z")))) { e.preventDefault(); $("redo").click(); }
+  else if ((e.ctrlKey || e.metaKey) && e.key === "z") { e.preventDefault(); $("undo").click(); }
   if (mode === "page" && !e.target.closest("input,textarea,[contenteditable]")) { if (e.key === "PageDown" || e.key === "ArrowRight") goPage(page + 1); if (e.key === "PageUp" || e.key === "ArrowLeft") goPage(page - 1); }
 });
 
