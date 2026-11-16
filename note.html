@@ -81,6 +81,11 @@ select { font: 14px var(--font-body); border: 2px solid var(--ink); border-radiu
 .cvp-prev img { width: 78px; height: 100px; object-fit: contain; border: 2px dashed var(--ink-soft); border-radius: 10px; background: #fff; }
 .cvp-prev img:not([src]) { visibility: hidden; }
 .stk-box { max-width: 760px; }
+.shp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; max-height: 60vh; overflow-y: auto; padding: 2px; }
+.shp-it { border: 2px solid var(--ink); border-radius: 12px; background: repeating-linear-gradient(#fffdf6 0 13px, #f3e3c0 13px 14px); padding: 6px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; font: 12.5px var(--font-title); color: var(--ink); }
+.shp-it:hover { background: var(--cream-2); }
+.shp-pv { width: 88px; height: 56px; display: grid; place-items: center; }
+.shp-pv svg { max-width: 88px; max-height: 56px; }
 .stk-box h3 { display: flex; align-items: center; gap: 10px; }
 .stk-box h3 input { flex: 1; max-width: 220px; font: 14px var(--font-body); border: 2px solid var(--ink); border-radius: 10px; padding: 4px 8px; }
 .stk-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(86px, 1fr)); gap: 8px; max-height: 56vh; overflow-y: auto; padding: 2px; }
@@ -209,6 +214,7 @@ mark.uns { background: #ffe08a; border-bottom: 2px dotted #d8483b; color: inheri
   <span class="seg" id="color"><button data-v="#3b2a20" class="on">⚫</button><button data-v="#d8483b">🔴</button><button data-v="#2f7fd0">🔵</button><button data-v="#2e9e6a">🟢</button></span>
   <button class="btn" id="undo" title="되돌리기 (Ctrl+Z)">↶</button>
   <button class="btn" id="gNow" title="지금 읽기 — 자동 읽기를 껐을 때 이 버튼으로 한 번에 읽어요">📖 읽기</button>
+  <button class="btn" id="shapeBtn" title="필기 도우미: 말풍선·화살표·흰 사각형·메모지·형광펜·표시">📐 도형</button>
   <button class="btn" id="stickerBtn" title="사도 스티커 붙이기 (꼬마 그림·표정·움직이는 모습 찰칵)">🧸 사도</button>
   <button class="btn" id="photoBtn" title="사진 올리기 (붙여넣기 Ctrl+V, 끌어다 놓기도 돼요)">🖼 사진</button><input type="file" id="photoIn" accept="image/*" multiple hidden>
   <button class="btn mint" id="layoutBtn" title="덩어리들을 읽는 순서대로 가지런히 (AI 안 씀)">✨ 배치</button>
@@ -223,7 +229,7 @@ mark.uns { background: #ffe08a; border-bottom: 2px dotted #d8483b; color: inheri
 </div>
 
 <div class="wrap">
-  <div class="paper" id="paper"><svg id="board" xmlns="http://www.w3.org/2000/svg"><g id="world"><g id="gPages"></g><g id="gBoxes"></g><g id="gHeads"></g><g id="gInk"></g><g id="gClean"></g><g id="gLive"></g></g></svg><div class="selBar" id="selBar" hidden><button data-a="del" title="지우기 (Delete 키)">🗑</button><button data-a="out" title="작게">－</button><button data-a="in" title="크게">＋</button></div></div>
+  <div class="paper" id="paper"><svg id="board" xmlns="http://www.w3.org/2000/svg"><g id="world"><g id="gPages"></g><g id="gBack"></g><g id="gBoxes"></g><g id="gHeads"></g><g id="gInk"></g><g id="gClean"></g><g id="gLive"></g></g></svg><div class="selBar" id="selBar" hidden><button data-a="del" title="지우기 (Delete 키)">🗑</button><button data-a="out" title="작게">－</button><button data-a="in" title="크게">＋</button></div></div>
   <div class="side" id="side"><div class="card empty">아직 덩어리가 없어요. 써 보세요!</div></div>
 </div>
 <div id="toast"></div>
@@ -520,7 +526,13 @@ function unlock(key) {
 }
 function eraseAt(p) {
   const r = 12, before = strokes.length;
-  strokes = strokes.filter((s) => { if (s.img) { const B = bbox(s.pts); return !(p.x >= B.x && p.x <= B.x + B.w && p.y >= B.y && p.y <= B.y + B.h); } return !s.pts.some((q) => Math.hypot(q.x - p.x, q.y - p.y) < r + s.w); });
+  // 획을 먼저 지우고, 지운 획이 없을 때만 그 자리의 그림·도형을 (맨 위 하나만, 배경 도형은 맨 나중)
+  strokes = strokes.filter((s) => s.img || !s.pts.some((q) => Math.hypot(q.x - p.x, q.y - p.y) < r + s.w));
+  if (strokes.length === before) {
+    const inside = (s) => { const B = bbox(s.pts); return p.x >= B.x && p.x <= B.x + B.w && p.y >= B.y && p.y <= B.y + B.h; };
+    const hit = [...strokes].reverse().find((s) => s.img && !s.back && inside(s)) || [...strokes].reverse().find((s) => s.img && s.back && inside(s));
+    if (hit) strokes = strokes.filter((s) => s !== hit);
+  }
   if (strokes.length !== before) { regroup(); render(); }
 }
 
@@ -588,6 +600,7 @@ function regroup() {
     if (role[i] !== "T") continue;
     for (let j = 0; j < n; j++) {
       if (role[j] !== "D" || kindOf(strokes[j]) !== "big") continue;
+      if (strokes[j].img) continue; // 사진·도형·스티커 위에 쓴 글씨는 글 그대로 (말풍선 안 글씨 등)
       if (!!strokes[i].fin !== !!strokes[j].fin) continue;
       const A = strokes[i], Bs = strokes[j];
       if (A.lock && A.lock === Bs.lock) { /* 같은 덩어리 */ } else if ((Bs.lock && A.id < Bs.lockAt) || (A.lock && Bs.id < A.lockAt)) continue; // 옮긴 그림이 원래 있던 글을 먹지 않게
@@ -669,7 +682,11 @@ function regroup() {
   for (const k of Object.keys(meta)) if (!blocks.some((b) => b.key === k)) delete meta[k];
   render();
 }
-function blockAt(p) { for (let i = blocks.length - 1; i >= 0; i--) { const b = blocks[i].box; if (p.x >= b.x - 8 && p.x <= b.x + b.w + 8 && p.y >= b.y - 8 && p.y <= b.y + b.h + 8) return blocks[i]; } return null; }
+function blockAt(p) { // 겹치면 가장 작은 덩어리 (배경 도형 위에 쓴 글씨를 누르면 글씨가 골라짐)
+  let best = null, ba = Infinity;
+  for (const bl of blocks) { const b = bl.box; if (p.x >= b.x - 8 && p.x <= b.x + b.w + 8 && p.y >= b.y - 8 && p.y <= b.y + b.h + 8) { const a = (b.w + 16) * (b.h + 16); if (a < ba) { ba = a; best = bl; } } }
+  return best;
+}
 
 /* 글 덩어리를 줄로 나누기 (세로 중심이 겹치는 획끼리 한 줄) */
 function linesOf(b) {
@@ -1031,8 +1048,8 @@ function mainColor(ss) {
 const isClean = () => view === "clean" || view === "final";
 function render(fast) {
   renderHeads();
-  const gInk = $("gInk"), gBox = $("gBoxes"), gClean = $("gClean");
-  gInk.innerHTML = ""; gBox.innerHTML = ""; gClean.innerHTML = "";
+  const gInk = $("gInk"), gBox = $("gBoxes"), gClean = $("gClean"), gBack = $("gBack");
+  gInk.innerHTML = ""; gBox.innerHTML = ""; gClean.innerHTML = ""; gBack.innerHTML = "";
   const FINAL = view === "final"; // 완성본: 상자·표시 없이 정리된 모습만
   const SHOWBOX = !FINAL && boxesOn, picking = tool === "move" || tool === "lasso";
   const selMain = (() => { const sb = sel && blocks.find((x) => x.key === sel); return sb ? (sb.parent ? blocks.find((x) => x.key === sb.parent) || sb : sb) : null; })();
@@ -1057,8 +1074,9 @@ function render(fast) {
     if (inkOp > 0) for (const s of b.strokes) {
       if (s.img) { // 사진
         const B = bbox(s.pts), im = imgCache.get(s.img);
-        if (im) el("image", { href: im.url, x: B.x, y: B.y, width: B.w, height: B.h, preserveAspectRatio: "none" }, gInk);
-        else { el("rect", { x: B.x, y: B.y, width: B.w, height: B.h, fill: "#eee", stroke: "#bbb" }, gInk); loadImg(s.img).then((o) => o && render(true)); }
+        const layer = s.back ? gBack : gInk; // 배경 도형(흰 사각형·말풍선 등)은 글씨 뒤에
+        if (im) el("image", { href: im.url, x: B.x, y: B.y, width: B.w, height: B.h, preserveAspectRatio: "none" }, layer);
+        else { el("rect", { x: B.x, y: B.y, width: B.w, height: B.h, fill: "#eee", stroke: "#bbb" }, layer); loadImg(s.img).then((o) => o && render(true)); }
         continue;
       }
       el("path", { class: "stroke", d: pathD(s.pts), stroke: s.c, "stroke-width": widthOf(s), opacity: inkOp }, gInk);
@@ -1556,7 +1574,7 @@ async function addPhoto(file, at, opt) {
     const blob = await new Promise((ok) => (opt.sticker ? c.toBlob(ok, "image/webp", 0.92) : c.toBlob(ok, "image/jpeg", 0.85))); // 스티커는 투명 배경 그대로
     const id = "img" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     await imgPut(id, blob); await loadImg(id);
-    const W = PAGE_W, w = Math.min(opt.sticker ? 200 : 420, W * 0.45, c.width), h = (w * c.height) / c.width;
+    const W = PAGE_W, w = opt.w || Math.min(opt.sticker ? 200 : 420, W * 0.45, c.width), h = (w * c.height) / c.width;
     const top = mode === "page" ? page * PAGE_H : paper.scrollTop / Z;
     let x = M, y = top + 40;
     if (at) { x = at.x; y = at.y; }
@@ -1568,10 +1586,11 @@ async function addPhoto(file, at, opt) {
     }
     snapshot();
     const st = { id: nextId++, img: id, pts: imgPts(x, y, w, h), w: 1, c: "#000" };
-    if (opt.sticker) st.sticker = opt.sticker; // 사도 스티커 (어느 사도인지)
+    if (opt.sticker) st.sticker = opt.sticker; // 사도 스티커 (어느 사도인지) · 도형이면 "shape"
+    if (opt.back) st.back = 1;
     st.lock = "L" + st.id; st.lockAt = nextId; // 사진은 처음부터 따로 (그 뒤 옆에 쓴 설명은 붙을 수 있음)
     strokes.push(st); regroup(); fitBoard(); save();
-    sel = st.lock; setTool("move"); toast(opt.sticker ? "🧸 사도 스티커를 붙였어요 — 노란 손잡이로 크기, 끌어서 위치를 바꿔요" : "🖼 사진을 넣었어요 — 노란 손잡이로 크기, 끌어서 위치를 바꿔요");
+    sel = st.lock; setTool("move"); toast(opt.sticker === "shape" ? "📐 붙였어요 — 노란 손잡이로 크기, 끌어서 위치를 바꿔요" : opt.sticker ? "🧸 사도 스티커를 붙였어요 — 노란 손잡이로 크기, 끌어서 위치를 바꿔요" : "🖼 사진을 넣었어요 — 노란 손잡이로 크기, 끌어서 위치를 바꿔요");
   } catch (e) { toast("사진을 못 넣었어요: " + (e.message || e)); }
 }
 $("photoBtn").onclick = () => $("photoIn").click();
@@ -1607,6 +1626,58 @@ document.addEventListener("keydown", (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key === "z") { e.preventDefault(); $("undo").click(); }
   if (mode === "page" && !e.target.closest("input,textarea,[contenteditable]")) { if (e.key === "PageDown" || e.key === "ArrowRight") goPage(page + 1); if (e.key === "PageUp" || e.key === "ArrowLeft") goPage(page - 1); }
 });
+
+/* ───────── 📐 필기 도우미 도형: 말풍선·화살표·흰 사각형·메모지·형광펜·표시 ─────────
+   SVG 로 그려서 그림(투명 배경)으로 붙임. 배경용(back)은 글씨 뒤에 깔림. ink = 지금 펜 색 */
+const SHAPES = [
+  { k: "bubbleR", name: "말풍선", w: 260, back: 1, svg: (ink) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 170"><path d="M20 10h220a14 14 0 0 1 14 14v94a14 14 0 0 1-14 14H120l-34 30 6-30H20a14 14 0 0 1-14-14V24a14 14 0 0 1 14-14z" fill="#fff" stroke="${ink}" stroke-width="4" stroke-linejoin="round"/></svg>` },
+  { k: "bubbleL", name: "말풍선(왼쪽)", w: 260, back: 1, svg: (ink) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 170"><path d="M20 10h220a14 14 0 0 1 14 14v94a14 14 0 0 1-14 14H64l-40 30 10-30H20a14 14 0 0 1-14-14V24a14 14 0 0 1 14-14z" fill="#fff" stroke="${ink}" stroke-width="4" stroke-linejoin="round"/></svg>` },
+  { k: "think", name: "생각 풍선", w: 250, back: 1, svg: (ink) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 250 190"><ellipse cx="128" cy="78" rx="112" ry="66" fill="#fff" stroke="${ink}" stroke-width="4"/><circle cx="56" cy="158" r="13" fill="#fff" stroke="${ink}" stroke-width="4"/><circle cx="30" cy="180" r="7" fill="#fff" stroke="${ink}" stroke-width="3"/></svg>` },
+  { k: "white", name: "흰 사각형", w: 300, back: 1, svg: () => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 180"><rect x="2" y="2" width="296" height="176" rx="6" fill="#fff"/></svg>` },
+  { k: "box", name: "테두리 상자", w: 300, back: 1, svg: (ink) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 180"><rect x="4" y="4" width="292" height="172" rx="14" fill="#fff" stroke="${ink}" stroke-width="4"/></svg>` },
+  { k: "memo", name: "메모지", w: 220, back: 1, svg: () => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 210"><rect x="10" y="12" width="200" height="190" fill="#e8c95a" opacity=".35" transform="translate(4 4)"/><path d="M10 10h200v170l-28 28H10z" fill="#fff3a8"/><path d="M210 180l-28 28v-28z" fill="#ead27a"/><rect x="80" y="2" width="60" height="18" rx="3" fill="#ff8fb1" opacity=".75"/></svg>` },
+  { k: "hl", name: "형광펜 띠", w: 280, back: 1, svg: () => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 44"><rect x="2" y="4" width="276" height="36" rx="10" fill="#ffe14d" opacity=".55"/></svg>` },
+  { k: "hlP", name: "분홍 형광", w: 280, back: 1, svg: () => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 44"><rect x="2" y="4" width="276" height="36" rx="10" fill="#ff8fb1" opacity=".45"/></svg>` },
+  { k: "arrowR", name: "화살표 →", w: 150, svg: (ink) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 150 40"><path d="M6 20h126M112 6l24 14-24 14" fill="none" stroke="${ink}" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>` },
+  { k: "arrowD", name: "화살표 ↓", w: 40, svg: (ink) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 140"><path d="M20 6v116M6 102l14 24 14-24" fill="none" stroke="${ink}" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>` },
+  { k: "arrowLR", name: "양쪽 ↔", w: 160, svg: (ink) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 40"><path d="M10 20h140M30 6L8 20l22 14M130 6l22 14-22 14" fill="none" stroke="${ink}" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>` },
+  { k: "arrowC", name: "굽은 화살표", w: 150, svg: (ink) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 150 110"><path d="M10 100C10 40 60 18 128 22M108 8l22 14-20 16" fill="none" stroke="${ink}" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>` },
+  { k: "circle", name: "동그라미", w: 200, back: 1, svg: (ink) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 110"><ellipse cx="100" cy="55" rx="94" ry="49" fill="none" stroke="${ink}" stroke-width="4" stroke-dasharray="1 0"/></svg>` },
+  { k: "wave", name: "물결 밑줄", w: 240, svg: (ink) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 24"><path d="M4 12q12-10 24 0t24 0 24 0 24 0 24 0 24 0 24 0 24 0 24 0 24 0" fill="none" stroke="${ink}" stroke-width="4" stroke-linecap="round"/></svg>` },
+  { k: "important", name: "중요!", w: 96, svg: () => tagSvg("★ 중요", "#ff7b6e") },
+  { k: "memorize", name: "암기", w: 90, svg: () => tagSvg("🧠 암기", "#b77cff") },
+  { k: "exam", name: "시험", w: 90, svg: () => tagSvg("📌 시험", "#4aa3df") },
+  { k: "check", name: "체크", w: 60, svg: () => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 60"><circle cx="30" cy="30" r="26" fill="#7fd6c2" stroke="#3b2a20" stroke-width="3"/><path d="M17 31l9 9 17-19" fill="none" stroke="#3b2a20" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>` },
+  { k: "star", name: "별", w: 60, svg: () => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 60"><path d="M30 4l7.6 16.4 17.9 2.1-13.2 12.3 3.5 17.7L30 43.6 14.2 52.5l3.5-17.7L4.5 22.5l17.9-2.1z" fill="#ffd34e" stroke="#3b2a20" stroke-width="3" stroke-linejoin="round"/></svg>` },
+  { k: "q", name: "물음표", w: 60, svg: () => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 60"><circle cx="30" cy="30" r="26" fill="#ffd0dc" stroke="#3b2a20" stroke-width="3"/><text x="30" y="42" text-anchor="middle" font-size="34" font-family="Jua, sans-serif" fill="#3b2a20">?</text></svg>` },
+];
+function tagSvg(label, col) {
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 110 44"><rect x="3" y="3" width="104" height="38" rx="19" fill="${col}" stroke="#3b2a20" stroke-width="3"/><text x="55" y="29" text-anchor="middle" font-size="19" font-family="Jua, Gowun Dodum, sans-serif" font-weight="bold" fill="#fff">${label}</text></svg>`;
+}
+async function svgToFile(svgText, scale) {
+  const url = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svgText);
+  const im = new Image(); im.src = url; await im.decode();
+  const vb = (svgText.match(/viewBox="0 0 ([\d.]+) ([\d.]+)"/) || [0, 100, 100]).slice(1).map(Number);
+  const c = document.createElement("canvas"); c.width = Math.round(vb[0] * scale); c.height = Math.round(vb[1] * scale);
+  c.getContext("2d").drawImage(im, 0, 0, c.width, c.height);
+  const blob = await new Promise((ok) => c.toBlob(ok, "image/png"));
+  return new File([blob], "shape.png", { type: "image/png" });
+}
+function shapePick() {
+  const ov = document.createElement("div"); ov.className = "cvp";
+  ov.innerHTML = `<div class="cvp-box stk-box"><h3>📐 필기 도우미 <span class="meta">화살표·테두리 색 = 지금 펜 색</span></h3>
+    <div class="shp-grid">${SHAPES.map((sh) => `<button class="shp-it" data-k="${sh.k}" title="${sh.name}${sh.back ? " (글씨 뒤에 깔림)" : ""}"><span class="shp-pv">${sh.svg(color)}</span><span>${sh.name}</span></button>`).join("")}</div>
+    <div class="cvp-foot"><button class="btn" id="shp-x">닫기</button></div></div>`;
+  document.body.appendChild(ov);
+  const close = () => ov.remove();
+  ov.querySelector("#shp-x").onclick = close;
+  ov.addEventListener("click", (e) => { if (e.target === ov) close(); });
+  ov.querySelectorAll(".shp-it").forEach((b) => (b.onclick = async () => {
+    const sh = SHAPES.find((x) => x.k === b.dataset.k); close();
+    try { await addPhoto(await svgToFile(sh.svg(color), 3), null, { sticker: "shape", back: sh.back, w: sh.w }); } catch (e) { toast("붙이지 못했어요: " + (e.message || e)); }
+  }));
+}
+$("shapeBtn").onclick = shapePick;
 
 /* ───────── 🧸 사도 스티커: 사도를 골라 꼬마 그림·표정·움직이는 모습(찰칵)을 노트에 붙임 ───────── */
 function probeImg(src) { return new Promise((ok) => { const im = new Image(); im.onload = () => ok(src); im.onerror = () => ok(null); im.src = src; }); }
