@@ -117,6 +117,13 @@ body.zen .paper { height: 100vh !important; border: 0; border-radius: 0; box-sha
 .selBar[hidden] { display: none; }
 .selBar button { font: 15px var(--font-title); width: 34px; height: 30px; border: 2px solid var(--ink); border-radius: 9px; background: #fff; cursor: pointer; color: var(--ink); }
 .selBar button[data-a="del"] { background: #ffe1dc; }
+.selBar button[data-a="redraw"] { background: #efe4ff; }
+.selBar button[hidden] { display: none; }
+.selBar button.wide { width: auto; min-width: 34px; padding: 0 6px; }
+.selBar button.busy { animation: sbBusy 1s linear infinite; }
+@keyframes sbBusy { 50% { opacity: .35; } }
+.labT { font-family: var(--font-body); white-space: nowrap; line-height: 1.1; width: max-content; }
+.labT .katex { font-size: 1em; }
 .cvp-skin { display: flex; align-items: center; gap: 6px; font: 14px var(--font-title); }
 .cvp-skin[hidden] { display: none; }
 .cvp-skin select { font: 14px var(--font-body); border: 2px solid var(--ink); border-radius: 10px; padding: 4px 6px; background: #fff; }
@@ -237,6 +244,8 @@ mark.uns { background: #ffe08a; border-bottom: 2px dotted #d8483b; color: inheri
   <label class="opt" title="같은 자리를 펜으로 빠르게 2번 = 펜↔선택, 3번 = 그 덩어리 글↔그림"><input type="checkbox" id="tapKeys" checked> 따닥 단축키</label>
   <label class="opt"><input type="checkbox" id="gAuto" checked> 쓰다 멈추면 자동으로 읽기</label>
   <label class="opt"><input type="checkbox" id="gCheck"> 💡 개념 확인 메모</label>
+  <label class="opt"><input type="checkbox" id="gDraw" checked> ✨ 정리본에서 그림 선 다듬기</label>
+  <label class="opt"><input type="checkbox" id="gLab" checked> 🏷 그림 속 글씨도 AI 로 읽기</label>
   <span class="meta" id="gUse"></span>
   <button class="btn" id="clear">🗑 이 노트 전부 지우기</button>
 </div>
@@ -264,7 +273,7 @@ mark.uns { background: #ffe08a; border-bottom: 2px dotted #d8483b; color: inheri
 </div>
 
 <div class="wrap">
-  <div class="paper" id="paper"><svg id="board" xmlns="http://www.w3.org/2000/svg"><g id="world"><g id="gPages"></g><g id="gBack"></g><g id="gBoxes"></g><g id="gHeads"></g><g id="gInk"></g><g id="gClean"></g><g id="gLive"></g></g></svg><div class="selBar" id="selBar" hidden><button data-a="del" title="지우기 (Delete 키)">🗑</button><button data-a="out" title="작게">－</button><button data-a="in" title="크게">＋</button></div></div>
+  <div class="paper" id="paper"><svg id="board" xmlns="http://www.w3.org/2000/svg"><g id="world"><g id="gPages"></g><g id="gBack"></g><g id="gBoxes"></g><g id="gHeads"></g><g id="gInk"></g><g id="gClean"></g><g id="gLive"></g></g></svg><div class="selBar" id="selBar" hidden><button data-a="del" title="지우기 (Delete 키)">🗑</button><button data-a="out" title="작게">－</button><button data-a="in" title="크게">＋</button><button data-a="redraw" class="wide" title="AI 가 이 그림을 깔끔한 도식으로 다시 그려요 (정리본·완성본에서 보여요)">🪄</button><button data-a="orig" class="wide" title="AI 가 다시 그린 그림 ↔ 내 손그림">↩</button></div></div>
   <div class="side" id="side"><div class="card empty">아직 덩어리가 없어요. 써 보세요!</div></div>
 </div>
 <div id="toast"></div>
@@ -312,7 +321,7 @@ async function saveNow() {
   Object.assign(note, {
     title: $("title").value.trim() || "제목 없는 노트", paper: $("paperSel").value, bg: $("bgSel").value, coverBg: note.coverBg || 0,
     data: { strokes, meta, nextId, heads }, mode, page, zoom: zFit ? 0 : Z, view, focusUI, sideOn, boxes: boxesOn,
-    check: $("gCheck").checked, auto: $("gAuto").checked, updated: Date.now(), scroll: Math.round(paper.scrollTop),
+    check: $("gCheck").checked, auto: $("gAuto").checked, drawTidy: $("gDraw").checked, labRead: $("gLab").checked, updated: Date.now(), scroll: Math.round(paper.scrollTop),
     stats: { pages: pageCount(), blocks: blocks.length, imgs: strokes.filter((st) => st.img).length },
   });
   try { await notePut(note); $("saveState").textContent = "저장됨 ✓"; } catch (e) { $("saveState").textContent = "⚠️ 저장 실패"; toast("저장하지 못했어요: " + (e.message || e)); }
@@ -353,7 +362,7 @@ async function loadNote() {
   focusUI = n.focusUI !== false; sideOn = !!n.sideOn; boxesOn = n.boxes !== false;
   if (n.zoom) { Z = n.zoom; zFit = false; }
   $("title").value = n.title || ""; $("paperSel").value = n.paper || "lined"; $("bgSel").value = n.bg || "#ffffff"; if (!$("bgSel").value) $("bgSel").value = "#ffffff";
-  $("gCheck").checked = !!n.check; $("gAuto").checked = n.auto !== false;
+  $("gCheck").checked = !!n.check; $("gAuto").checked = n.auto !== false; $("gDraw").checked = n.drawTidy !== false; $("gLab").checked = n.labRead !== false;
   document.title = (n.title || "노트") + " · 트릭스터디";
 }
 /* 되돌리기: 가장 잦은 "획 하나 쓰기"는 노트 전체를 복사하지 않고 그 획 번호 + 덩어리 정보만 기억.
@@ -887,10 +896,12 @@ function usage() { let u = {}; try { u = JSON.parse(localStorage.getItem(UKEY) |
 function countUse(m) { const u = usage(); u.n++; u.by[m] = (u.by[m] || 0) + 1; try { localStorage.setItem(UKEY, JSON.stringify(u)); } catch (e) { /* 무시 */ } showUse(); }
 function showUse() { const u = usage(); $("gUse").textContent = `📊 오늘 보낸 횟수 ${u.n}번` + (u.n ? " (" + Object.entries(u.by).map(([k, v]) => k.replace("gemini-", "") + " " + v).join(", ") + ")" : ""); }
 $("gAuto").onchange = () => { save(); if ($("gAuto").checked) scheduleRecognize(); };
+$("gDraw").onchange = () => { render(true); save(); };
+$("gLab").onchange = () => { render(true); save(); if ($("gLab").checked) scheduleRecognize(); };
 $("gNow").onclick = () => { clearTimeout(recT); recognizeAll(true); };
 
 // 덩어리를 흰 바탕 그림(PNG)으로
-function blockPng(b, max) {
+function blockPng(b, max, color) {
   const pad = 16, bx = b.box, k = Math.min(2, (max || 1024) / Math.max(bx.w + pad * 2, bx.h + pad * 2));
   const c = document.createElement("canvas");
   c.width = Math.ceil((bx.w + pad * 2) * k); c.height = Math.ceil((bx.h + pad * 2) * k);
@@ -899,11 +910,11 @@ function blockPng(b, max) {
   g.lineCap = "round"; g.lineJoin = "round"; g.strokeStyle = "#000";
   for (const s of b.strokes) {
     if (s.img) { const B = bbox(s.pts), im = imgCache.get(s.img); if (im && im.el.complete) g.drawImage(im.el, (B.x - bx.x + pad) * k, (B.y - bx.y + pad) * k, B.w * k, B.h * k); continue; }
-    g.lineWidth = Math.max(2, widthOf(s) * k);
+    g.lineWidth = Math.max(2, widthOf(s) * k); g.strokeStyle = color ? s.c || INK : "#000"; g.globalAlpha = s.hl ? 0.35 : 1;
     g.beginPath();
     s.pts.forEach((q, i) => { const x = (q.x - bx.x + pad) * k, y = (q.y - bx.y + pad) * k; i ? g.lineTo(x, y) : g.moveTo(x, y); });
     if (s.pts.length === 1) g.lineTo((s.pts[0].x - bx.x + pad) * k + 0.5, (s.pts[0].y - bx.y + pad) * k);
-    g.stroke();
+    g.stroke(); g.globalAlpha = 1;
   }
   return c.toDataURL("image/png").split(",")[1];
 }
@@ -1112,7 +1123,7 @@ async function recognizeAll(manual, onlyKey) {
   if (busy) return scheduleRecognize();
   if (gem.key && gem.model) {
     const list = blocks.filter((b) => b.type === "text" && b.m.stale && (!onlyKey || b.key === onlyKey));
-    if (!list.length) return;
+    if (!list.length) return onlyKey ? undefined : readLabels();
     if (Date.now() < gemWaitUntil) return scheduleRecognize(gemWaitUntil - Date.now() + 200);
     busy = true; say("에르핀이 Gemini 한테 읽어 달라고 하는 중… 📮"); aiStat("work", `🤖 읽는 중… (${list.length}개)`);
     const sigs = list.map((b) => b.m.sig);
@@ -1126,7 +1137,7 @@ async function recognizeAll(manual, onlyKey) {
         b.m.stale = false;
         if (r && r.lines) { b.m.merged = false; b.m.hint = ""; b.m.reread = ""; b.m.check = realCheck(r.check); b.m.lines = applyLines(b, r.lines); b.m.tree = !!r.tree && b.m.lines.some((l) => l.lv > 0); b.m.ms = ms; b.m.edited = false; b.m.engine = gemRecognize.used; }
       });
-      if (blocks.some((b) => b.type === "text" && b.m.stale)) scheduleRecognize();
+      if (blocks.some((b) => b.type === "text" && b.m.stale) || labList().length) scheduleRecognize();
       aiStat("ok", "🤖"); lastMs = ms; say(`글 덩어리 ${list.length}개를 읽었어요! (${(ms / 1000).toFixed(1)}초${gemRecognize.used !== gem.model ? " · 붐벼서 " + gemRecognize.used + " 사용" : ""}) 틀린 건 오른쪽에서 고치거나 후보를 골라요.`);
     } catch (e) {
       if (e.retry && !e.auth) { gemWaitUntil = Date.now() + e.wait; scheduleRecognize(e.wait + 500); }
@@ -1198,6 +1209,221 @@ function treeCells(rows) {
     return h + `<i class="tc ${laterSib(k) ? "t" : "l"}"></i>`;
   });
 }
+/* ───────── 그림 다듬기 (정리본·완성본) ─────────
+   1) 선 다듬기: 곧은 선·동그라미·네모·세모·꺾은선·화살촉을 반듯하게, 나머지 곡선은 매끈하게 (원본 획은 그대로)
+   2) 그림 속 글씨(이름표)는 AI 가 읽어 깔끔한 글자로
+   3) 🪄 AI 다시 그리기: 그림 하나를 깔끔한 SVG 도식으로 (원할 때만, ↩ 로 되돌림) */
+const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+function rdp(P, eps) {
+  if (P.length < 3) return P.slice();
+  let dm = 0, ix = 0; const a = P[0], z = P[P.length - 1];
+  for (let i = 1; i < P.length - 1; i++) { const d = segDist(P[i], a, z); if (d > dm) { dm = d; ix = i; } }
+  if (dm <= eps) return [a, z];
+  return rdp(P.slice(0, ix + 1), eps).slice(0, -1).concat(rdp(P.slice(ix), eps));
+}
+const f1 = (v) => +v.toFixed(1);
+function snapSeg(p, q) { // 거의 가로·세로면 딱 맞춤
+  const dx = q.x - p.x, dy = q.y - p.y, a = Math.abs(Math.atan2(dy, dx) * 180 / Math.PI) % 90;
+  if (a > 7 && a < 83) return [p, q];
+  if (Math.abs(dx) > Math.abs(dy)) { const y = (p.y + q.y) / 2; return [{ x: p.x, y }, { x: q.x, y }]; }
+  const x = (p.x + q.x) / 2; return [{ x, y: p.y }, { x, y: q.y }];
+}
+function polyD(pts, close) { return pts.map((q, i) => (i ? "L" : "M") + f1(q.x) + " " + f1(q.y)).join("") + (close ? "Z" : ""); }
+function smoothD(pts, close) { // Catmull-Rom → 베지어
+  if (pts.length < 3) return polyD(pts, close);
+  const P = close ? [pts[pts.length - 1], ...pts, pts[0], pts[1]] : [pts[0], ...pts, pts[pts.length - 1]];
+  let d = `M${f1(P[1].x)} ${f1(P[1].y)}`;
+  for (let i = 1; i < P.length - 2; i++) {
+    const p0 = P[i - 1], p1 = P[i], p2 = P[i + 1], p3 = P[i + 2];
+    d += `C${f1(p1.x + (p2.x - p0.x) / 6)} ${f1(p1.y + (p2.y - p0.y) / 6)} ${f1(p2.x - (p3.x - p1.x) / 6)} ${f1(p2.y - (p3.y - p1.y) / 6)} ${f1(p2.x)} ${f1(p2.y)}`;
+  }
+  return d + (close ? "Z" : "");
+}
+function maxDev(P, poly) { // 원래 점들이 꺾은선에서 가장 멀리 떨어진 거리
+  let m = 0;
+  for (const q of P) { let best = 1e9; for (let i = 1; i < poly.length; i++) best = Math.min(best, segDist(q, poly[i - 1], poly[i])); m = Math.max(m, best); }
+  return m;
+}
+const fitCache = new WeakMap();
+function fitShape(s) {
+  const P = s.pts, sig = P.length + ":" + P[0].x + "," + P[0].y + ":" + P[P.length - 1].x + "," + P[P.length - 1].y;
+  const c = fitCache.get(s); if (c && c.sig === sig) return c.v;
+  const v = fitShape0(P); fitCache.set(s, { sig, v }); return v;
+}
+function fitShape0(P) {
+  if (P.length < 3) return null;
+  const B = bbox(P), diag = Math.hypot(B.w, B.h); if (diag < 12) return null;
+  let len = 0; for (let i = 1; i < P.length; i++) len += dist(P[i], P[i - 1]);
+  const a = P[0], z = P[P.length - 1], chord = dist(a, z);
+  if (chord / len > 0.94 || (chord > diag * 0.9 && maxDev(P, [a, z]) < Math.max(3.5, chord * 0.045))) { const [p, q] = snapSeg(a, z); return { k: "line", pts: [p, q], d: polyD([p, q]) }; }
+  const closed = chord < Math.max(16, diag * 0.2) && len > diag * 1.6;
+  if (closed) {
+    let poly = rdp(P, Math.max(4, diag * 0.08));
+    if (poly.length > 2 && dist(poly[0], poly[poly.length - 1]) < Math.max(16, diag * 0.2)) poly = poly.slice(0, -1);
+    const ang = (i) => { const p = poly[(i + poly.length - 1) % poly.length], q = poly[i], r = poly[(i + 1) % poly.length]; const v1 = Math.atan2(p.y - q.y, p.x - q.x), v2 = Math.atan2(r.y - q.y, r.x - q.x); let d = Math.abs(v1 - v2) * 180 / Math.PI; return d > 180 ? 360 - d : d; };
+    const loop = poly.concat([poly[0]]), tight = maxDev(P, loop) < Math.max(5, diag * 0.06);
+    if (poly.length === 4 && tight && [0, 1, 2, 3].every((i) => Math.abs(ang(i) - 90) < 22)) {
+      const e = Math.abs(Math.atan2(poly[1].y - poly[0].y, poly[1].x - poly[0].x) * 180 / Math.PI) % 90;
+      if (e < 12 || e > 78) { const R = bbox(poly); return { k: "rect", d: `M${f1(R.x)} ${f1(R.y)}h${f1(R.w)}v${f1(R.h)}h${f1(-R.w)}Z` }; }
+      return { k: "poly", d: polyD(poly, true) };
+    }
+    if (poly.length === 3 && tight) return { k: "tri", d: polyD(poly, true) };
+    const cx = B.x + B.w / 2, cy = B.y + B.h / 2; let rx = B.w / 2, ry = B.h / 2, dev = 0;
+    for (const q of P) dev += Math.abs(Math.hypot((q.x - cx) / Math.max(1, rx), (q.y - cy) / Math.max(1, ry)) - 1);
+    dev /= P.length;
+    if (dev < 0.12) {
+      if (Math.abs(rx - ry) / Math.max(rx, ry) < 0.15) rx = ry = (rx + ry) / 2;
+      return { k: "ellipse", d: `M${f1(cx - rx)} ${f1(cy)}a${f1(rx)} ${f1(ry)} 0 1 0 ${f1(rx * 2)} 0a${f1(rx)} ${f1(ry)} 0 1 0 ${f1(-rx * 2)} 0Z` };
+    }
+    if ((poly.length === 4 || poly.length === 5) && tight) return { k: "poly", d: polyD(poly, true) };
+    const sm = rdp(P, Math.max(1.5, diag * 0.018)); if (dist(sm[0], sm[sm.length - 1]) < 4) sm.pop();
+    return { k: "smooth", d: smoothD(sm, true) };
+  }
+  const poly = rdp(P, Math.max(3, diag * 0.05));
+  if (poly.length <= 5 && maxDev(P, poly) < Math.max(3.5, diag * 0.035) && poly.slice(1).every((q, i) => dist(q, poly[i]) > diag * 0.12)) {
+    const sp = poly.map((q) => ({ ...q }));
+    for (let i = 1; i < sp.length; i++) { const [p, q] = snapSeg(sp[i - 1], sp[i]); if (p.x === q.x) { sp[i - 1].x = sp[i].x = p.x; } else if (p.y === q.y) { sp[i - 1].y = sp[i].y = p.y; } }
+    return { k: "poly", pts: sp, d: polyD(sp) };
+  }
+  const sm = rdp(P, Math.max(1.5, diag * 0.018));
+  return { k: "smooth", pts: sm, d: smoothD(sm) };
+}
+// 화살촉: 선 끝 가까이에 있는 작은 V(또는 짧은 선 두 개) → 반듯한 화살촉으로
+function endInfo(s, f) { // 획의 두 끝점과 끝 방향 (다듬은 모양 기준)
+  const P = f && f.pts ? f.pts : s.pts, out = [];
+  const back = (arr) => { const t = arr[arr.length - 1]; let q = arr[arr.length - 2]; for (let i = arr.length - 2; i >= 0; i--) { q = arr[i]; if (dist(q, t) > 14) break; } return { x: t.x, y: t.y, ang: Math.atan2(t.y - q.y, t.x - q.x) }; };
+  out.push(back(P)); out.push(back(P.slice().reverse()));
+  return out;
+}
+function drawTidy(b) {
+  const out = { hide: new Set(), fit: new Map(), w: new Map(), labels: [], redraw: null };
+  if (b.m.useRedraw && b.m.redraw && b.m.redrawSig === b.m.sig) { out.redraw = b.m.redraw; return out; }
+  const ss = b.strokes.filter((s) => !s.img && !s.hl);
+  // 이름표(그림 속 글씨): 그 자리의 작은 획은 숨기고 글자로
+  if ($("gLab").checked && b.m.labels && b.m.labSig === b.m.sig) {
+    const fs0 = cleanFS();
+    for (const l of b.m.labels) {
+      const L = { x: b.box.x + l.box.x, y: b.box.y + l.box.y, w: l.box.w, h: l.box.h }, E = { x: L.x - 6, y: L.y - 6, w: L.w + 12, h: L.h + 12 };
+      const mine = ss.filter((s) => { if (kindOf(s) === "big") return false; const S = bbox(s.pts); return inside(S, E) || (S.x + S.w / 2 > E.x && S.x + S.w / 2 < E.x + E.w && S.y + S.h / 2 > E.y && S.y + S.h / 2 < E.y + E.h && S.w < E.w * 1.2 && S.h < E.h * 1.4); });
+      if (!mine.length) continue;
+      mine.forEach((s) => out.hide.add(s));
+      out.labels.push({ ...L, text: l.text, c: mainColor(mine), fs: Math.round(Math.max(12, Math.min(fs0, L.h * 0.85))) });
+    }
+  }
+  if (!$("gDraw").checked) return out;
+  const fits = new Map();
+  for (const s of ss) { if (out.hide.has(s)) continue; const f = fitShape(s); if (f) { fits.set(s, f); out.fit.set(s, f.d); } out.w.set(s, +(widthOf(s) * 0.95).toFixed(2)); }
+  // 화살촉 찾기
+  const ends = [];
+  for (const s of ss) { if (out.hide.has(s)) continue; const f = fits.get(s); if (!f || f.k === "rect" || f.k === "ellipse" || f.k === "tri") continue; const S = bbox(s.pts); if (Math.hypot(S.w, S.h) < 40) continue; for (const e of endInfo(s, f)) ends.push({ s, e }); }
+  const small = ss.filter((s) => !out.hide.has(s) && (() => { const S = bbox(s.pts), d = Math.hypot(S.w, S.h); return d > 5 && d < 60; })());
+  const used = new Set();
+  for (const { s, e } of ends) {
+    const tol = 16 + widthOf(s);
+    const near2 = small.filter((h) => h !== s && !used.has(h) && h.pts.some((q) => dist(q, e) < tol));
+    if (!near2.length) continue;
+    // V 하나, 또는 짧은 선 둘
+    let head = near2.filter((h) => { const v = rdp(h.pts, Math.max(2, Math.hypot(bbox(h.pts).w, bbox(h.pts).h) * 0.15)); return v.length === 3 && dist(v[1], e) < tol; });
+    if (!head.length) { const ls = near2.filter((h) => { const f = fitShape(h); return f && f.k === "line"; }); if (ls.length >= 2) head = ls.slice(0, 2); }
+    if (!head.length) continue;
+    head = head.slice(0, 2); head.forEach((h) => { used.add(h); out.hide.add(h); });
+    const hb = bbox(head.flatMap((h) => h.pts)), L = Math.max(10, Math.min(28, Math.hypot(hb.w, hb.h) * 0.75));
+    const A = 0.5, p1 = { x: e.x - L * Math.cos(e.ang - A), y: e.y - L * Math.sin(e.ang - A) }, p2 = { x: e.x - L * Math.cos(e.ang + A), y: e.y - L * Math.sin(e.ang + A) };
+    out.fit.set(s, (out.fit.get(s) || polyD(s.pts)) + `M${f1(p1.x)} ${f1(p1.y)}L${f1(e.x)} ${f1(e.y)}L${f1(p2.x)} ${f1(p2.y)}`);
+  }
+  return out;
+}
+// 🏷 그림 속 글씨 읽기 (AI)
+function labList() {
+  if (!(gem.key && gem.model) || !$("gLab").checked) return [];
+  return blocks.filter((b) => b.type === "draw" && !b.hl && b.m.labSig !== b.m.sig && b.m.labTry !== b.m.sig && b.strokes.filter((s) => !s.img && !s.hl && kindOf(s) === "small").length >= 2);
+}
+const SCHEMA_LAB = { type: "OBJECT", properties: { blocks: { type: "ARRAY", items: { type: "OBJECT", properties: { labels: { type: "ARRAY", items: { type: "OBJECT", properties: { text: { type: "STRING" }, box: { type: "ARRAY", items: { type: "INTEGER" } } }, required: ["text", "box"] } } }, required: ["labels"] } } }, required: ["blocks"] };
+async function readLabels() {
+  const list = labList().slice(0, 6); if (!list.length || busy) return;
+  if (Date.now() < gemWaitUntil) return;
+  busy = true; aiStat("work", `🏷 그림 속 글씨 읽는 중… (${list.length}개)`);
+  const sigs = list.map((b) => b.m.sig);
+  const parts = [{ text: `학생이 손으로 그린 그림(생명과학·수학 노트) ${list.length}개예요. 각 그림 안이나 옆에 손으로 쓴 글자(이름표·설명 낱말·숫자·기호)만 찾아 주세요.
+- 선·도형·화살표·무늬는 글자가 아니니 빼세요. 글자가 없으면 labels 는 [].
+- 붙어 있는 낱말(한 줄)은 하나로. 쓴 그대로 옮기고 고치지 마세요. 수식만 $...$ (역슬래시 두 번).
+- box 는 그 글자를 감싸는 네모 [ymin, xmin, ymax, xmax], 이미지 기준 0~1000.
+- 이미지 순서대로 blocks 배열에 넣고 JSON 만 출력: {"blocks":[{"labels":[{"text":"핵","box":[100,200,160,300]}]}]}` }];
+  list.forEach((b, i) => { parts.push({ text: `그림 ${i + 1}` }); parts.push({ inline_data: { mime_type: "image/png", data: blockPng(b, 768) } }); });
+  try {
+    const data = await gemCall(parts, SCHEMA_LAB, 0);
+    const res = data.blocks || [];
+    list.forEach((b0, i) => {
+      const b = blocks.find((x) => x.m.sig === sigs[i]); if (!b) return;
+      const B = bbox(b.strokes.flatMap((s) => s.pts)), W = B.w + 32, H = B.h + 32; // blockPng 와 같은 여백(16)
+      b.m.labels = ((res[i] || {}).labels || []).filter((l) => l && l.text && Array.isArray(l.box) && l.box.length === 4).map((l) => {
+        const [y0, x0, y1, x1] = l.box.map((v) => Math.max(0, Math.min(1000, +v || 0)));
+        return { text: fixArrow(fixTex(String(l.text))), box: { x: (x0 / 1000) * W - 16, y: (y0 / 1000) * H - 16, w: ((x1 - x0) / 1000) * W, h: ((y1 - y0) / 1000) * H } };
+      }).filter((l) => l.box.w > 4 && l.box.h > 4);
+      b.m.labSig = b.m.sig;
+    });
+    say(`그림 ${list.length}개의 글씨를 읽었어요 🏷 (정리본·완성본에서 보여요)`);
+  } catch (e) {
+    list.forEach((b) => { b.m.labTry = b.m.sig; });
+    if (e.retry && !e.auth) gemWaitUntil = Date.now() + e.wait;
+    console.warn("그림 글씨 읽기 실패", e);
+  } finally { busy = false; }
+  render(); save(); aiIdle();
+  if (labList().length) scheduleRecognize();
+}
+// 🪄 AI 다시 그리기
+const SCHEMA_SVG = { type: "OBJECT", properties: { svg: { type: "STRING" } }, required: ["svg"] };
+function cleanSvg(txt, W, H, pad) {
+  const doc = new DOMParser().parseFromString(String(txt || "").replace(/^[\s\S]*?(<svg)/i, "$1"), "image/svg+xml");
+  const root = doc.documentElement;
+  if (!root || root.nodeName.toLowerCase() !== "svg" || doc.querySelector("parsererror")) return null;
+  root.querySelectorAll("script,foreignObject,iframe,image,use,a,style").forEach((x) => x.remove());
+  for (const e of [root, ...root.querySelectorAll("*")]) for (const at of [...e.attributes]) { if (/^on/i.test(at.name) || /href$/i.test(at.name) || /url\(\s*['"]?(?!#)/i.test(at.value)) e.removeAttribute(at.name); }
+  root.setAttribute("xmlns", NS);
+  let vb = (root.getAttribute("viewBox") || "").trim().split(/[\s,]+/).map(Number);
+  if (vb.length !== 4 || vb.some((v) => !isFinite(v)) || vb[2] <= 0 || vb[3] <= 0) vb = [0, 0, W, H];
+  const sx = vb[2] / W, sy = vb[3] / H; // 이미지 여백(pad)만큼 잘라서 덩어리 크기에 맞춤
+  root.setAttribute("viewBox", [vb[0] + pad * sx, vb[1] + pad * sy, (W - pad * 2) * sx, (H - pad * 2) * sy].map((v) => +v.toFixed(2)).join(" "));
+  root.setAttribute("width", W - pad * 2); root.setAttribute("height", H - pad * 2); root.setAttribute("preserveAspectRatio", "none");
+  if (!root.querySelector("path,line,rect,circle,ellipse,polyline,polygon,text")) return null;
+  return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(new XMLSerializer().serializeToString(root));
+}
+async function aiRedraw() {
+  const u = selUnit(); const b = u && u.b; if (!b || b.type !== "draw") return;
+  if (!(gem.key && gem.model)) return toast("트릭스터디 → 📝 노트 탭의 AI 설정에서 Gemini 키를 넣어 주세요");
+  const bt = $("selBar").querySelector('[data-a="redraw"]'); if (bt.classList.contains("busy")) return;
+  bt.classList.add("busy"); toast("🪄 AI 가 그림을 다시 그리는 중… (10~30초)");
+  const inner = innerDraws(b), all = { box: b.box, strokes: [...b.strokes, ...inner.flatMap((x) => x.strokes)] }; // 그림 안의 작은 덩어리(글씨 등)도 같이
+  const B = bbox(b.strokes.flatMap((s) => s.pts)), W = Math.round(B.w + 32), H = Math.round(B.h + 32), key = b.key, sig = b.m.sig;
+  const cols = [...new Set(b.strokes.filter((s) => !s.img).map((s) => s.c || INK))].join(", ");
+  const topic = topicFor([b]);
+  const parts = [{ text: `학생이 공부 노트에 손으로 그린 그림이에요${topic ? ` (노트: ${topic})` : ""}. 이 그림을 교과서 도식처럼 깔끔한 SVG 로 다시 그려 주세요.
+꼭 지킬 것:
+- viewBox="0 0 ${W} ${H}" (이미지와 같은 크기·좌표). 각 요소의 위치·크기·비율·개수는 원래 그림 그대로. 없는 요소를 더하거나 빼지 마세요.
+- 손으로 쓴 글자는 같은 자리에 <text> 로 (쓴 그대로, 고치지 말 것). font-family="sans-serif", 원래 글자 크기와 비슷하게.
+- 선 색은 원래 색 그대로 (쓰인 색: ${cols}). 선 두께 2~3, 선 끝 둥글게(stroke-linecap="round"). 면은 연한 색으로 살짝 칠해도 좋지만 배경 사각형은 그리지 마세요(투명).
+- 곡선은 매끈하게, 직선·원·화살표는 반듯하게.
+- <script>, <image>, <foreignObject>, 외부 링크 금지.
+JSON 만 출력: {"svg":"<svg ...>...</svg>"}` }, { inline_data: { mime_type: "image/png", data: blockPng(all, 1024, true) } }];
+  try {
+    const data = await gemCall(parts, SCHEMA_SVG, 0.2, "tidy");
+    const img = cleanSvg(data.svg, W, H, 16);
+    if (!img) throw new Error("AI 가 그린 그림을 읽을 수 없어요");
+    const nb = blocks.find((x) => x.m.sig === sig) || blocks.find((x) => x.key === key);
+    if (!nb) throw new Error("그새 그림이 바뀌었어요");
+    snapshot();
+    Object.assign(nb.m, { redraw: img, redrawSig: nb.m.sig, useRedraw: true });
+    if (!isClean()) setView("clean");
+    render(); save(); toast("🪄 다시 그렸어요! 마음에 안 들면 ↩ 로 손그림, 🪄 로 다시 그리기");
+  } catch (e) { toast("🪄 실패: " + (e.message || e)); console.warn(e); }
+  finally { bt.classList.remove("busy"); placeSelBar(); }
+}
+function innerDraws(b) { return blocks.filter((x) => x !== b && x.type === "draw" && !x.hl && !x.strokes.some((s) => s.img) && inside(x.box, b.box)); }
+function toggleRedraw() {
+  const u = selUnit(); const b = u && u.b; if (!b || !b.m.redraw) return;
+  b.m.useRedraw = !b.m.useRedraw; if (b.m.useRedraw && !isClean()) setView("clean");
+  render(); save(); toast(b.m.useRedraw ? "🪄 AI 그림으로 보여요" : "↩ 내 손그림으로 보여요");
+}
 const isClean = () => view === "clean" || view === "final";
 // 보이는 쪽(+앞뒤 여유)만 그림 — 노트가 길어도 가볍게. all=true 면 전부 (PDF·배치처럼 전체가 필요할 때)
 let drawn = [-1e9, 1e9];
@@ -1231,11 +1457,18 @@ function render(fast, all) {
     el("rect", { class: "setBox", x: B.x - 16, y: B.y - 26, width: B.w + 32, height: B.h + 38, rx: 16 }, gBox);
     const t = el("text", { class: "tag", x: B.x - 12, y: B.y - 30, fill: "#8a4fd6" }, gBox); t.textContent = `🔗 세트 (${kids.length + 1})`;
   }
+  const underAi = new Set(); // AI 가 다시 그린 그림 안에 들어간 작은 덩어리는 숨김
+  if (isClean()) for (const b of blocks) if (b.type === "draw" && b.m.useRedraw && b.m.redraw && b.m.redrawSig === b.m.sig && vis(b.box)) innerDraws(b).forEach((x) => underAi.add(x));
   for (const b of blocks) {
-    if (!vis(b.box)) continue;
+    if (!vis(b.box) || underAi.has(b)) continue;
     const cleanText = b.type === "text" && !b.m.stale && b.m.lines && b.m.lines.some((l) => l.text); // 묶음이 바뀌어 다시 읽는 중엔 원본 표시
     const inkOp = view === "ink" ? 1 : view === "both" ? (cleanText ? 0.22 : 1) : (cleanText ? 0 : 1);
+    const T = isClean() && b.type === "draw" && !b.hl ? drawTidy(b) : null; // 정리본·완성본: 다듬은 그림
+    if (T && T.redraw) { el("image", { href: T.redraw, x: b.box.x, y: b.box.y, width: b.box.w, height: b.box.h, preserveAspectRatio: "none" }, gInk); }
     if (inkOp > 0) for (const s of b.strokes) {
+      if (T && !s.img && !s.hl && (T.redraw || T.hide.has(s))) continue;
+      const fit = T && !s.img && !s.hl && T.fit.get(s);
+      if (fit) { el("path", { class: "stroke tidy", d: fit, stroke: s.c, "stroke-width": T.w.get(s), fill: "none" }, gInk); continue; }
       if (s.img) { // 사진
         const B = bbox(s.pts), im = imgCache.get(s.img);
         const layer = s.back ? gBack : gInk; // 배경 도형(흰 사각형·말풍선 등)은 글씨 뒤에
@@ -1245,6 +1478,10 @@ function render(fast, all) {
       }
       if (s.hl) { el("path", { class: "stroke hlStroke", d: pathD(s.pts), stroke: s.c, "stroke-width": s.w }, gBack); continue; } // 형광펜: 글씨 뒤
       el("path", { class: "stroke", d: pathD(s.pts), stroke: s.c, "stroke-width": widthOf(s), opacity: inkOp }, gInk);
+    }
+    if (T && !T.redraw) for (const lb of T.labels) { // 그림 속 글씨 → 깔끔한 글자
+      const fo = el("foreignObject", { x: lb.x, y: lb.y + lb.h / 2 - lb.fs * 0.75, width: Math.max(lb.w, lb.fs * lb.text.length * 1.2) + 40, height: lb.fs * 1.6 }, gClean);
+      const dv = document.createElement("div"); dv.className = "labT"; dv.style.cssText = `font-size:${lb.fs}px;color:${lb.c}`; dv.innerHTML = richHTML({ text: lb.text, unsure: [] }); fo.appendChild(dv);
     }
     const pad = 6, bx0 = b.box, bx = isClean() && cleanText && b.m._ch ? { x: bx0.x, y: bx0.y, w: (b.m._cw || bx0.w) + 6, h: Math.max(b.m._ch - 4, 20) } : bx0;
     if ((SHOWBOX && !b.strokes[0].hl) || (picking && sel === b.key)) {
@@ -1579,6 +1816,11 @@ function placeSelBar() {
   if (!u || dragging) { bar.hidden = true; return; }
   const B = bbox(u.group.flatMap((g) => [{ x: g.box.x, y: g.box.y }, { x: g.box.x + g.box.w, y: g.box.y + g.box.h }]));
   bar.hidden = false;
+  const db = u.b.type === "draw" && !u.b.hl ? u.b : null;
+  bar.querySelector('[data-a="redraw"]').hidden = !db;
+  bar.querySelector('[data-a="orig"]').hidden = !(db && db.m.redraw && db.m.redrawSig === db.m.sig);
+  if (db) bar.querySelector('[data-a="orig"]').textContent = db.m.useRedraw ? "↩" : "🪄✓";
+  bar.querySelector('[data-a="orig"]').title = db && db.m.useRedraw ? "내 손그림으로 되돌리기" : "AI 가 다시 그린 그림 보기";
   const sr = svg.getBoundingClientRect(), pr = paper.getBoundingClientRect(); // (SVG 에는 offsetLeft 가 없어서 화면 위치로 계산)
   const left = sr.left - pr.left + paper.scrollLeft + B.x * Z, top = sr.top - pr.top + paper.scrollTop + (B.y - offY()) * Z - 44;
   // 화면 밖이면 보이는 자리로 (위로 넘치면 덩어리 안쪽 위, 옆으로 넘치면 안쪽)
@@ -1603,13 +1845,14 @@ function zoomSel(k) {
 }
 $("boxT").onclick = () => { boxesOn = !boxesOn; render(true); save(); toast(boxesOn ? "▢ 글/그림 영역을 보여요" : "▢ 영역 표시를 숨겼어요 (✋ 선택으로 누른 것만 보여요)"); };
 $("selBar").addEventListener("pointerdown", (e) => e.stopPropagation());
-$("selBar").onclick = (e) => { const a = e.target.closest("button") && e.target.closest("button").dataset.a; if (a === "del") deleteSel(); if (a === "in") zoomSel(1.15); if (a === "out") zoomSel(1 / 1.15); };
+$("selBar").onclick = (e) => { const a = e.target.closest("button") && e.target.closest("button").dataset.a; if (a === "del") deleteSel(); if (a === "in") zoomSel(1.15); if (a === "out") zoomSel(1 / 1.15); if (a === "redraw") aiRedraw(); if (a === "orig") toggleRedraw(); };
 document.addEventListener("keydown", (e) => { if ((e.key === "Delete" || e.key === "Backspace") && selUnit() && !e.target.closest("input,textarea,[contenteditable]")) { e.preventDefault(); deleteSel(); } });
 paper.addEventListener("scroll", placeSelBar, { passive: true });
 function scaleBlocks(gs, k, ax, ay) {
   for (const g of gs) {
     for (const st of g.strokes) st.pts.forEach((q) => { q.x = +(ax + (q.x - ax) * k).toFixed(1); q.y = +(ay + (q.y - ay) * k).toFixed(1); });
     (g.m.lines || []).forEach((l) => { if (l.rel) l.box = { x: l.box.x * k, y: l.box.y * k, w: l.box.w * k, h: l.box.h * k }; if (l._f) l._f *= k; });
+    (g.m.labels || []).forEach((l) => { l.box = { x: l.box.x * k, y: l.box.y * k, w: l.box.w * k, h: l.box.h * k }; });
     g.box = bbox(g.strokes.flatMap((st) => st.pts));
   }
 }
