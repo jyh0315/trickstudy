@@ -99,6 +99,9 @@ select { font: 14px var(--font-body); border: 2px solid var(--ink); border-radiu
 .selBar[hidden] { display: none; }
 .selBar button { font: 15px var(--font-title); width: 34px; height: 30px; border: 2px solid var(--ink); border-radius: 9px; background: #fff; cursor: pointer; color: var(--ink); }
 .selBar button[data-a="del"] { background: #ffe1dc; }
+.cvp-skin { display: flex; align-items: center; gap: 6px; font: 14px var(--font-title); }
+.cvp-skin[hidden] { display: none; }
+.cvp-skin select { font: 14px var(--font-body); border: 2px solid var(--ink); border-radius: 10px; padding: 4px 6px; background: #fff; }
 .cvp-ctl { display: flex; align-items: center; gap: 8px; }
 .cvp-ctl input { flex: 1; accent-color: var(--pink-d); }
 .cvp-foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
@@ -1745,7 +1748,7 @@ function spinePick(id, opts) {
     const ov = document.createElement("div"); ov.className = "cvp";
     ov.innerHTML = `<div class="cvp-box"><h3>${opts.title || "📸 사진 찍기"}</h3>
       <div class="cvp-row"><div class="cvp-stage" id="cvp-stage"><div class="cvp-msg">${esc(res.name || "대표 사도")} 부르는 중…</div></div>
-        <div class="cvp-side"><div class="cvp-moods" id="cvp-moods"></div>
+        <div class="cvp-side"><label class="cvp-skin" id="cvp-skinw" hidden>🎨 스킨 <select id="cvp-skin"></select></label><div class="cvp-moods" id="cvp-moods"></div>
           <button class="btn pink cvp-shot" id="cvp-shot" disabled>📸 찰칵!</button>
           <div class="cvp-ctl"><button class="btn small" id="cvp-pause" disabled>⏸ 멈추기</button><input type="range" id="cvp-t" min="0" max="1000" value="0" disabled title="멈춘 뒤 끌어서 원하는 순간 고르기"></div>
           <div class="meta" id="cvp-an"></div>
@@ -1764,8 +1767,17 @@ function spinePick(id, opts) {
     if (typeof SPINE_DATA === "undefined" || !SPINE_DATA[id]) return useStatic();
     try { await loadScript("js/vendor/spine-player.min.js"); patchPMA(); } catch (e) { return useStatic(); }
     const d = SPINE_DATA[id], idx = Math.min(((st.skins || {})[id] || {}).cur || 0, d.skins.length - 1);
-    const bases = SPINE_HOSTS.map((h) => encodeURI(h.url + h.dir(d.dir) + "/" + d.skins[idx][0]));
+    let bases = [];
     const stage = ov.querySelector("#cvp-stage");
+    // 스킨 고르기 (처음엔 로비에서 고른 스킨)
+    const skinSel = ov.querySelector("#cvp-skin");
+    if (d.skins.length > 1) {
+      ov.querySelector("#cvp-skinw").hidden = false;
+      skinSel.innerHTML = d.skins.map((sk, i) => `<option value="${i}">${sk[1] === "Base" ? "기본" : esc(sk[1].replace("Skin", "스킨"))}</option>`).join("");
+      skinSel.value = String(idx);
+      skinSel.onchange = () => { try { player && player.dispose(); } catch (e) { /* 무시 */ } ov.querySelector("#cvp-shot").disabled = true; ov.querySelector("#cvp-moods").innerHTML = ""; ov.querySelector("#cvp-an").textContent = ""; stage.innerHTML = `<div class="cvp-msg">갈아입는 중…</div>`; startSkin(+skinSel.value); };
+    }
+    const startSkin = (i) => { bases = SPINE_HOSTS.map((h) => encodeURI(h.url + h.dir(d.dir) + "/" + d.skins[i][0])); tryHost(0); };
     const tryHost = (hi) => {
       if (hi >= bases.length) return useStatic();
       stage.innerHTML = ""; const host = document.createElement("div"); host.className = "cvp-host"; stage.appendChild(host);
@@ -1774,18 +1786,18 @@ function spinePick(id, opts) {
       player = new spine.SpinePlayer(host, {
         skelUrl: bases[hi] + ".skel.asset", atlasUrl: bases[hi] + ".atlas.asset", showControls: false, showLoading: false,
         alpha: true, backgroundColor: "#00000000", premultipliedAlpha: true, preserveDrawingBuffer: true,
-        viewport: { padLeft: 0, padRight: 0, padTop: 0, padBottom: 0, transitionTime: 0 },
+        viewport: { padLeft: "6%", padRight: "6%", padTop: "5%", padBottom: "4%", transitionTime: 0, animations: {} },
         success: (p) => {
           ok = true; clearTimeout(to);
           const data = p.skeleton.data, anims = data.animations.map((a) => a.name), idle = anims.find((n) => /^Idle_/.test(n)) || anims[0];
           const sk = data.skins.find((x) => x.name === "Normal") || data.skins.find((x) => x.name !== "default");
           if (sk) { p.skeleton.setSkin(sk); p.skeleton.setSlotsToSetupPose(); }
           p.animationState.setAnimation(0, idle, true); p.animationState.apply(p.skeleton); p.skeleton.updateWorldTransform();
-          const off = new spine.Vector2(), size = new spine.Vector2(); p.skeleton.getBounds(off, size);
-          const good = Number.isFinite(off.y) && size.y > 0 && size.y < 5000;
-          const H = (good ? Math.min(Math.max(off.y + size.y + 30, 650), 1150) : 900) + 60, W = H * 0.78;
-          Object.assign(p.config.viewport, { x: -W / 2, y: -30, width: W, height: H }); p.setViewport(idle);
+          // 화면 틀: 동작마다 그 동작 전체가 들어가게 자동으로 (큰 사도·큰 동작이 잘리지 않게)
+          const vp = p.config.viewport; delete vp.x; delete vp.y; delete vp.width; delete vp.height;
+          p.setViewport(idle);
           if (p.paused) p.play();
+          ov.querySelector("#cvp-pause").textContent = "⏸ 멈추기"; ov.querySelector("#cvp-t").disabled = true;
           // 표정 버튼: 그 사도에게 있는 동작만, 누를 때마다 같은 종류의 다음 동작
           const box = ov.querySelector("#cvp-moods"), at = {};
           const known = (n) => MOODS.some(([, re]) => re.test(n));
@@ -1829,7 +1841,7 @@ function spinePick(id, opts) {
         error: () => { if (ok) return; ok = true; clearTimeout(to); try { player.dispose(); } catch (e) { /* 무시 */ } tryHost(hi + 1); },
       });
     };
-    tryHost(0);
+    startSkin(idx);
   });
 }
 async function coverSado() {
