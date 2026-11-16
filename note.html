@@ -137,6 +137,7 @@ body.zen .paper { height: 100vh !important; border: 0; border-radius: 0; box-sha
   html, body { background: #fff !important; padding: 0 !important; margin: 0 !important; }
   body > *:not(#print) { display: none !important; }
   #print { display: block; }
+  #print, #print * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; } /* 표지 색·배경이 인쇄에서 빠지지 않게 */
   .pp { width: 210mm; height: 297mm; overflow: hidden; page-break-after: always; break-after: page; position: relative; }
   .pp:last-child { page-break-after: auto; break-after: auto; }
   .pp svg, .pg svg { width: 210mm; height: 297mm; display: block; }
