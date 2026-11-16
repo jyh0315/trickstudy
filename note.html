@@ -139,13 +139,16 @@ body.zen .paper { height: 100vh !important; border: 0; border-radius: 0; box-sha
 .pdfopt { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .pdfopt button { text-align: left; padding: 12px !important; font-size: 15px !important; line-height: 1.4; }
 .pdfopt button small { display: block; font: 12px var(--font-body); color: var(--ink-soft); margin-top: 4px; }
+.cvsw { display: flex; flex-wrap: wrap; gap: 8px; }
+.cvsw button { width: 74px; height: 50px; border: 2px solid var(--ink); border-radius: 12px; cursor: pointer; font: 12px var(--font-title); display: grid; place-items: end center; padding-bottom: 4px; }
+.cvsw button.on { outline: 3px solid var(--pink-d); outline-offset: 2px; }
 @media (max-width: 520px) { .pdfopt { grid-template-columns: 1fr; } }
 .cover { width: 210mm; height: 297mm; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10mm; background: linear-gradient(#fff8e6, #fdecc8); font-family: var(--font-title); color: var(--ink); text-align: center; }
 .cover .cv-frame { width: 120mm; height: 150mm; border: 2mm solid var(--ink); border-radius: 12mm; background: #fffdf6 radial-gradient(circle at 50% 35%, #fff 0, #ffe9b8 70%); display: flex; align-items: flex-end; justify-content: center; overflow: hidden; }
 .cover .cv-frame img { width: 100%; height: 100%; object-fit: contain; }
 .cover h1 { font-size: 15mm; margin: 0; line-height: 1.2; max-width: 180mm; }
 .cover .cv-sub { font: 6mm var(--font-body); color: var(--ink-soft); }
-.cover .cv-badge { font-size: 5mm; padding: 2mm 6mm; border: 1mm solid var(--ink); border-radius: 99mm; background: var(--yellow); }
+.cover .cv-badge { color: var(--ink); font-size: 5mm; padding: 2mm 6mm; border: 1mm solid var(--ink); border-radius: 99mm; background: var(--yellow); }
 .tb { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 8px; position: sticky; top: 0; z-index: 5; background: var(--cream); padding: 4px 0; }
 .tb .seg button { padding: 4px 7px; font-size: 13px; }
 .tb .btn { padding: 4px 7px; font-size: 13px; }
@@ -307,7 +310,7 @@ async function saveNow() {
   saveT = 0;
   if (!note || lockedOut) return;
   Object.assign(note, {
-    title: $("title").value.trim() || "제목 없는 노트", paper: $("paperSel").value, bg: $("bgSel").value,
+    title: $("title").value.trim() || "제목 없는 노트", paper: $("paperSel").value, bg: $("bgSel").value, coverBg: note.coverBg || 0,
     data: { strokes, meta, nextId, heads }, mode, page, zoom: zFit ? 0 : Z, view, focusUI, sideOn, boxes: boxesOn,
     check: $("gCheck").checked, auto: $("gAuto").checked, updated: Date.now(), scroll: Math.round(paper.scrollTop),
     stats: { pages: pageCount(), blocks: blocks.length, imgs: strokes.filter((st) => st.img).length },
@@ -2215,6 +2218,11 @@ function spinePick(id, opts) {
   });
 }
 /* PDF 모양 고르기: 한 장에 한 쪽 / 접어서 만드는 책 */
+const COVERS = [["크림", "#fff8e6", "#fdecc8"], ["분홍", "#fff0f4", "#ffcfdf"], ["하늘", "#eef7ff", "#c9e2fa"], ["민트", "#eefaf3", "#c6ecd7"], ["연보라", "#f6f0ff", "#d9cbf6"], ["레몬", "#fffbe0", "#fbec98"], ["복숭아", "#fff3ea", "#ffd2b5"], ["흰색", "#ffffff", "#ffffff"], ["밤하늘", "#4a4170", "#221d3a", 1], ["초코", "#7a5442", "#3e2a22", 1]];
+function coverStyle() {
+  const c = COVERS[(note && note.coverBg) || 0] || COVERS[0];
+  return `background:linear-gradient(${c[1]},${c[2]})${c[3] ? ";color:#fff;--ink-soft:#e8e0ff" : ""}`;
+}
 function pdfLayoutPick() {
   return new Promise((done) => {
     let last = "one"; try { last = localStorage.getItem("trickstudy-note-pdf") || "one"; } catch (e) { /* 무시 */ }
@@ -2222,8 +2230,11 @@ function pdfLayoutPick() {
     ov.innerHTML = `<div class="cvp-box" style="max-width:520px"><h3>📕 어떤 모양으로 뽑을까요?</h3><div class="pdfopt">
       <button class="btn${last === "one" ? " yellow" : ""}" data-k="one">📄 한 쪽씩<small>A4 한 장에 한 쪽</small></button>
       <button class="btn${last === "book" ? " yellow" : ""}" data-k="book">📖 접는 책<small>A4 한 장(가로)에 두 쪽씩. 양면으로 뽑아 반으로 접어 겹치면 책이 돼요 (표지↔마지막 쪽, 2쪽↔끝에서 둘째 쪽…)</small></button>
-      </div><div class="cvp-foot"><button class="btn" data-k="">취소</button></div></div>`;
+      </div><h3 style="margin:14px 0 8px;font-size:16px">🎨 표지 색</h3><div class="cvsw">${COVERS.map((c, i) => `<button title="${c[0]}" data-c="${i}" class="${i === (note.coverBg || 0) ? "on" : ""}" style="background:linear-gradient(${c[1]},${c[2]})"><span style="color:${c[3] ? "#fff" : "var(--ink)"}">${c[0]}</span></button>`).join("")}</div>
+      <div class="cvp-foot"><button class="btn" data-k="">취소</button></div></div>`;
     ov.onclick = (e) => {
+      const sw = e.target.closest("[data-c]");
+      if (sw) { note.coverBg = +sw.dataset.c; ov.querySelectorAll("[data-c]").forEach((x) => x.classList.toggle("on", x === sw)); save(); return; }
       const b = e.target.closest("[data-k]"); if (!b && e.target !== ov) return;
       const k = b ? b.dataset.k : ""; ov.remove();
       if (k) { try { localStorage.setItem("trickstudy-note-pdf", k); } catch (e2) { /* 무시 */ } }
@@ -2271,7 +2282,7 @@ $("pdfBtn").onclick = async () => {
     const inner = world.innerHTML;
     const title = esc($("title").value.trim() || "노트"), date = new Date().toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric" });
     const sums = note.pages.map((p2, i) => (p2 && p2.summary ? `<div>${i + 1}쪽 · ${esc(p2.summary)}</div>` : "")).join("");
-    const pgs = [`<div class="cover"><div class="cv-badge">트릭스터디 노트</div><div class="cv-frame"><img src="${cov.src}" alt=""></div>
+    const pgs = [`<div class="cover" style="${coverStyle()}"><div class="cv-badge">트릭스터디 노트</div><div class="cv-frame"><img src="${cov.src}" alt=""></div>
       <h1>${title}</h1><div class="cv-sub">${date}${cov.name ? ` · 대표 사도 ${esc(cov.name)}` : ""} · ${n}쪽</div>${sums ? `<div class="cv-sub" style="font-size:4.2mm;line-height:1.6">${sums}</div>` : ""}</div>`];
     for (let i = 0; i < n; i++) pgs.push(`<svg xmlns="${NS}" viewBox="0 ${i * PAGE_H} ${PAGE_W} ${PAGE_H}"><g>${paperMarkup(i, kind)}</g><g>${inner}</g></svg>`);
     $("print").innerHTML = kindPdf === "book" ? bookletHtml(pgs) : pgs.map((x) => `<div class="pp"><div class="pg">${x}</div></div>`).join("");
