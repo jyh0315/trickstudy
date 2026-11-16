@@ -2720,3 +2720,9 @@ a.icon-btn { text-decoration: none; display: inline-grid; place-items: center; }
 .nt-backup { margin-top: 12px; padding: 10px 12px; border: 2px dashed var(--ink-soft); border-radius: 14px; background: #fffdf6; }
 .nt-backup.warn { border: 2px solid var(--red-d); background: #fff1ee; }
 .nt-bk-st { font-size: 14px; line-height: 1.5; }
+/* 사도 미리보기: 동작 고르기 */
+.pose-moods .btn.on { background: var(--yellow); }
+.pose-moods small { opacity: .6; font-size: 11px; }
+.pose-ctl { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.pose-ctl input { flex: 1; accent-color: var(--pink-d); }
+.pose-an { font-size: 12px; color: var(--ink-soft); min-width: 70px; text-align: right; }

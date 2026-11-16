@@ -469,12 +469,44 @@ TS.detailHooks.push((c) => {
     }).join("")}</div>
     ${canLive(c.id) ? "" : `<p class="hint" style="margin:6px 0 0">${liveOn() ? "이 기기에서는 움직이는 사도를 표시할 수 없어요." : "기록 → 설정에서 ‘움직이는 사도’를 켜면 스킨이 보여요."}</p>`}</div>`;
 });
+/* 동작 고르기: 그 사도에게 있는 동작을 종류별로, 누를 때마다 차례대로 (무작위 X) + 멈추고 슬라이더로 원하는 순간 */
+const POSE_KINDS = [["대기", /^Idle_/], ["기쁨", /^(Happy|Smile|Laugh)_/], ["뿌듯", /^(Proud|Pride)_/], ["부끄럼", /^Shy_/], ["춤", /^Dance_/], ["놀람", /^(Surprise|Panic)_/], ["삐짐", /^(Sulky|Angry|Mad)_/], ["슬픔", /^(Sad|Sorry|Tear)_/], ["졸림", /^(Sleep|Tired|Close)_/], ["냠냠", /^Eat_/], ["터치", /^Touch_/], ["쓰다듬", /^Pat_/], ["간지럼", /^Tickle_/]];
+function posePanel(el, ctrl) {
+  const p = ctrl.player, anims = ctrl.anims, box = el.querySelector("#pose-moods");
+  if (!box || !p) return;
+  const known = (n) => POSE_KINDS.some(([, re]) => re.test(n));
+  const groups = POSE_KINDS.map(([lb, re]) => [lb, anims.filter((n) => re.test(n))]).concat([["그 밖의 포즈", anims.filter((n) => !known(n))]]).filter(([, l]) => l.length);
+  box.innerHTML = groups.map(([lb, l]) => `<button class="btn small white" data-pm="${lb}">${lb}${l.length > 1 ? ` <small>${l.length}</small>` : ""}</button>`).join("");
+  const pauseBtn = el.querySelector("#pose-pause"), slider = el.querySelector("#pose-t"), lab = el.querySelector("#pose-an"), at = {};
+  const showPose = () => { p.animationState.apply(p.skeleton); p.skeleton.updateWorldTransform(); if (p.drawFrame) p.drawFrame(false); };
+  box.querySelectorAll("[data-pm]").forEach((b) => (b.onclick = () => {
+    const list = groups.find((g) => g[0] === b.dataset.pm)[1];
+    at[b.dataset.pm] = ((at[b.dataset.pm] ?? -1) + 1) % list.length;
+    const name = list[at[b.dataset.pm]];
+    ctrl.busyUntil = Infinity; // 고른 동작을 계속 보여 줌 (가끔 다른 대기 동작으로 바뀌지 않게)
+    p.animationState.setAnimation(0, name, true);
+    const vp = p.config.viewport; delete vp.x; delete vp.y; delete vp.width; delete vp.height; // 동작 전체가 들어가게 틀 자동
+    Object.assign(vp, { padLeft: "6%", padRight: "6%", padTop: "6%", padBottom: "4%" }); if (!vp.animations) vp.animations = {};
+    p.setViewport(name);
+    lab.textContent = `${b.dataset.pm} ${at[b.dataset.pm] + 1}/${list.length}`;
+    box.querySelectorAll("[data-pm]").forEach((x) => x.classList.toggle("on", x === b));
+    if (p.paused) { slider.value = 0; showPose(); }
+  }));
+  pauseBtn.disabled = false;
+  pauseBtn.onclick = () => {
+    if (p.paused) { p.play(); pauseBtn.textContent = "⏸ 멈추기"; slider.disabled = true; return; }
+    p.pause(); pauseBtn.textContent = "▶ 다시 움직이기"; slider.disabled = false;
+    const e = p.animationState.getCurrent(0), dur = (e && e.animation.duration) || 1; slider.value = Math.round(((e ? e.trackTime : 0) % dur) / dur * 1000);
+  };
+  slider.oninput = () => { const e = p.animationState.getCurrent(0); if (!e) return; e.trackTime = (slider.value / 1000) * (e.animation.duration || 1); showPose(); };
+}
 function skinModal(id, i) {
   const c = TS.SADO_MAP[id], d = SPINE_DATA[id], own = skinOwned(id, i), cur = curSkin(id);
   const label = i === 0 ? "기본" : d.skins[i][1].replace("Skin", "스킨");
   TS.modal(`<h2>🎨 ${TS.esc(c.name)} · ${TS.esc(label)}</h2>
     <div class="skin-preview" id="skin-prev"><span class="skin-loading">불러오는 중…</span></div>
-    <div class="skin-acts">${["happy", "touch", "pat", "dance", "sad"].map((k) => `<button class="btn small white" data-sk-act="${k}">${{ happy: "😊 기뻐", touch: "👉 콕", pat: "🤚 쓰담", dance: "💃 춤", sad: "😢 슬퍼" }[k]}</button>`).join("")}</div>
+    <div class="skin-acts pose-moods" id="pose-moods"><span class="hint" style="margin:0">동작 불러오는 중…</span></div>
+    <div class="pose-ctl"><button class="btn small white" id="pose-pause" disabled>⏸ 멈추기</button><input type="range" id="pose-t" min="0" max="1000" value="0" disabled title="멈춘 뒤 끌어서 원하는 순간 보기"><span class="pose-an" id="pose-an"></span></div>
     <div class="modal-actions">
       ${own ? (i === cur ? '<span class="tag" style="background:var(--yellow);font-size:15px;padding:6px 14px">장착 중</span>' : '<button class="btn yellow" id="sk-eq">이 스킨 장착</button>')
         : `<button class="btn pink" id="sk-buy" ${S().candy < SKIN_COST ? "disabled" : ""}><i class="ic-candy"></i> ${SKIN_COST}개로 해금</button>`}
@@ -484,10 +516,9 @@ function skinModal(id, i) {
     (el, close) => {
       const prev = mount(el.querySelector("#skin-prev"), id, {
         skin: i, frame: "fit",
-        onReady: () => { const l = el.querySelector(".skin-loading"); if (l) l.remove(); },
+        onReady: (ctrl) => { const l = el.querySelector(".skin-loading"); if (l) l.remove(); posePanel(el, ctrl); },
         onFail: () => { const l = el.querySelector(".skin-loading"); if (l) l.textContent = "애니메이션을 불러올 수 없어요 😢"; },
       });
-      el.querySelectorAll("[data-sk-act]").forEach((b) => (b.onclick = () => prev && prev.play(b.dataset.skAct)));
       const eq = el.querySelector("#sk-eq");
       if (eq) eq.onclick = () => { skinState(id).cur = i; TS.save(); TS.toast(`🎨 ${c.name} 스킨 변경!`); close(); mountStage(true); TS.refresh(); };
       const buy = el.querySelector("#sk-buy");
