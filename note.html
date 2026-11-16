@@ -244,7 +244,8 @@ mark.uns { background: #ffe08a; border-bottom: 2px dotted #d8483b; color: inheri
   <label class="opt" title="같은 자리를 펜으로 빠르게 2번 = 펜↔선택, 3번 = 그 덩어리 글↔그림"><input type="checkbox" id="tapKeys" checked> 따닥 단축키</label>
   <label class="opt"><input type="checkbox" id="gAuto" checked> 쓰다 멈추면 자동으로 읽기</label>
   <label class="opt"><input type="checkbox" id="gCheck"> 💡 개념 확인 메모</label>
-  <label class="opt">✨ 정리본 그림 <select id="gDraw"><option value="soft">부드럽게 (모양 그대로, 떨림만)</option><option value="strong">반듯하게 (원·네모·세모로)</option><option value="off">손그림 그대로</option></select></label>
+  <label class="opt">✨ 정리본 그림 <select id="gDraw"><option value="off">손그림 그대로</option><option value="smooth">부드럽게 (모양 그대로, 떨림만)</option><option value="strong">반듯하게 (원·네모·세모로)</option></select></label>
+  <label class="opt"><input type="checkbox" id="gHold" checked> ✋ 그리고 펜을 잠깐 멈추면 도형으로</label>
   <label class="opt"><input type="checkbox" id="gLab" checked> 🏷 그림 속 글씨도 AI 로 읽기</label>
   <span class="meta" id="gUse"></span>
   <button class="btn" id="clear">🗑 이 노트 전부 지우기</button>
@@ -321,7 +322,7 @@ async function saveNow() {
   Object.assign(note, {
     title: $("title").value.trim() || "제목 없는 노트", paper: $("paperSel").value, bg: $("bgSel").value, coverBg: note.coverBg || 0,
     data: { strokes, meta, nextId, heads }, mode, page, zoom: zFit ? 0 : Z, view, focusUI, sideOn, boxes: boxesOn,
-    check: $("gCheck").checked, auto: $("gAuto").checked, drawTidy: $("gDraw").value, labRead: $("gLab").checked, updated: Date.now(), scroll: Math.round(paper.scrollTop),
+    check: $("gCheck").checked, auto: $("gAuto").checked, drawTidy: $("gDraw").value, hold: $("gHold").checked, labRead: $("gLab").checked, updated: Date.now(), scroll: Math.round(paper.scrollTop),
     stats: { pages: pageCount(), blocks: blocks.length, imgs: strokes.filter((st) => st.img).length },
   });
   try { await notePut(note); $("saveState").textContent = "저장됨 ✓"; } catch (e) { $("saveState").textContent = "⚠️ 저장 실패"; toast("저장하지 못했어요: " + (e.message || e)); }
@@ -362,7 +363,7 @@ async function loadNote() {
   focusUI = n.focusUI !== false; sideOn = !!n.sideOn; boxesOn = n.boxes !== false;
   if (n.zoom) { Z = n.zoom; zFit = false; }
   $("title").value = n.title || ""; $("paperSel").value = n.paper || "lined"; $("bgSel").value = n.bg || "#ffffff"; if (!$("bgSel").value) $("bgSel").value = "#ffffff";
-  $("gCheck").checked = !!n.check; $("gAuto").checked = n.auto !== false; $("gDraw").value = n.drawTidy === false ? "off" : ["soft", "strong", "off"].includes(n.drawTidy) ? n.drawTidy : "soft"; $("gLab").checked = n.labRead !== false;
+  $("gCheck").checked = !!n.check; $("gAuto").checked = n.auto !== false; $("gDraw").value = ["smooth", "strong"].includes(n.drawTidy) ? n.drawTidy : "off"; $("gHold").checked = n.hold !== false; $("gLab").checked = n.labRead !== false;
   document.title = (n.title || "노트") + " · 트릭스터디";
 }
 /* 되돌리기: 가장 잦은 "획 하나 쓰기"는 노트 전체를 복사하지 않고 그 획 번호 + 덩어리 정보만 기억.
@@ -499,10 +500,37 @@ svg.addEventListener("pointermove", (e) => {
     }
     render(true); return;
   }
-  if (!live) return;
+  if (!live || live.snapped) return;
   for (const ev of evs) { const p = pt(ev); const l = live.pts[live.pts.length - 1]; if (Math.hypot(p.x - l.x, p.y - l.y) >= 1.2) live.pts.push(p); }
   liveEl.setAttribute("d", pathD(live.pts));
+  if (!live.hl && $("gHold").checked) { // 펜을 멈추고 기다리면 도형으로
+    const l = live.pts[live.pts.length - 1];
+    if (!holdAt || Math.hypot(l.x - holdAt.x, l.y - holdAt.y) > 3) { holdAt = { x: l.x, y: l.y }; clearTimeout(holdT); holdT = setTimeout(snapLive, 550); }
+  }
 });
+let holdT = 0, holdAt = null;
+// 다듬은 모양 → 획 점들 (꼭짓점은 두 번 넣어 뾰족하게)
+function shapePts(f, P) {
+  const p0 = P.reduce((a, q) => a + (q.p || 0.5), 0) / P.length, t0 = P[0].t, mk = (q) => ({ x: +q.x.toFixed(1), y: +q.y.toFixed(1), t: t0, p: +p0.toFixed(2) });
+  if (f.el) { const { cx, cy, rx, ry } = f.el, out = []; for (let i = 0; i <= 72; i++) { const a = (i / 72) * Math.PI * 2 + Math.PI; out.push(mk({ x: cx + rx * Math.cos(a), y: cy + ry * Math.sin(a) })); } return out; }
+  if (f.cp) { const out = []; for (const q of f.cp.concat([f.cp[0]])) { out.push(mk(q), mk(q)); } return out; }
+  if (f.k === "line" || f.k === "poly") { const out = []; f.pts.forEach((q, i) => { out.push(mk(q)); if (i && i < f.pts.length - 1) out.push(mk(q)); }); return out; }
+  return null;
+}
+function snapLive() {
+  if (!live || live.hl || live.snapped || activePointer == null) return;
+  const P = live.pts, B = bbox(P); if (Math.hypot(B.w, B.h) < 16 || P.length < 4) return;
+  let f = fitShape0(P, true, true), pts = f && shapePts(f, P);
+  if (!pts) { // 도형이 아니면 떨림만 다듬어 부드럽게
+    const a = P[0], z = P[P.length - 1], closed = Math.hypot(z.x - a.x, z.y - a.y) < Math.max(16, Math.hypot(B.w, B.h) * 0.2);
+    const R = Math.max(2, Math.min(9, Math.hypot(B.w, B.h) * 0.035)), sm = avgPts(closed ? P.concat([P[0]]) : P, R, closed);
+    pts = sm.map((q, i) => ({ x: +q.x.toFixed(1), y: +q.y.toFixed(1), t: P[Math.min(i, P.length - 1)].t, p: P[Math.min(i, P.length - 1)].p }));
+    f = { k: "smooth" };
+  }
+  live.pts = pts; live.snapped = 1; liveEl.setAttribute("d", pathD(pts));
+  try { navigator.vibrate && navigator.vibrate(12); } catch (e) { /* 무시 */ }
+  toast({ line: "📏 직선", rect: "▭ 네모", ellipse: "◯ 동그라미", tri: "△ 세모", poly: "📐 반듯하게", smooth: "〰 부드럽게" }[f.k] || "✨");
+}
 /* 따닥(2번) = 펜 ↔ 직접 묶기, 따다닥(3번) = 그 자리 덩어리 글 ↔ 그림 */
 let tapDown = null, taps = [], tapT = 0;
 function isTap() { return tapDown && tapDown.far < 6 && performance.now() - tapDown.t < 260; }
@@ -554,9 +582,11 @@ function endPointer(e) {
     fitBoard();
     return;
   }
+  clearTimeout(holdT); holdAt = null;
   if (!live) return;
   snapshotAdd(live.id);
   if (live.hl) straightenHl(live);
+  delete live.snapped;
   strokes.push(live); if (tapped) onTap(tapped.x, tapped.y, live.id); live = null; $("gLive").innerHTML = "";
   regroup(); save(); scheduleRecognize(); fitBoard();
 }
@@ -947,6 +977,7 @@ function countUse(m) { const u = usage(); u.n++; u.by[m] = (u.by[m] || 0) + 1; t
 function showUse() { const u = usage(); $("gUse").textContent = `📊 오늘 보낸 횟수 ${u.n}번` + (u.n ? " (" + Object.entries(u.by).map(([k, v]) => k.replace("gemini-", "") + " " + v).join(", ") + ")" : ""); }
 $("gAuto").onchange = () => { save(); if ($("gAuto").checked) scheduleRecognize(); };
 $("gDraw").onchange = () => { render(true); save(); };
+$("gHold").onchange = () => save();
 $("gLab").onchange = () => { render(true); save(); if ($("gLab").checked) scheduleRecognize(); };
 $("gNow").onclick = () => { clearTimeout(recT); recognizeAll(true); };
 
@@ -1317,14 +1348,14 @@ function fitShape(s, strong) {
   const c = fitCache.get(s); if (c && c.sig === sig) return c.v;
   const v = fitShape0(P, strong); fitCache.set(s, { sig, v }); return v;
 }
-function fitShape0(P, strong) {
+function fitShape0(P, strong, quick) {
   if (P.length < 3) return null;
   const B = bbox(P), diag = Math.hypot(B.w, B.h); if (diag < 12) return null;
   let len = 0; for (let i = 1; i < P.length; i++) len += dist(P[i], P[i - 1]);
   const a = P[0], z = P[P.length - 1], chord = dist(a, z);
   if (chord / len > 0.94 || (chord > diag * 0.9 && maxDev(P, [a, z]) < Math.max(3.5, chord * 0.045))) { const [p, q] = snapSeg(a, z); return { k: "line", pts: [p, q], d: polyD([p, q]) }; }
   const closed = chord < Math.max(16, diag * 0.2) && len > diag * 1.6;
-  if (!strong || (closed && diag < 45)) { // 부드럽게: 모양은 그대로, 떨림만 (작은 도형도 손그림 모양 유지)
+  if (!strong || (closed && diag < 45 && !quick)) { // 부드럽게: 모양은 그대로, 떨림만 (작은 도형도 손그림 모양 유지)
     const R = Math.max(2, Math.min(9, diag * 0.035));
     if (closed) { const sm = rdp(avgPts(P.slice(0, -1).concat([P[0]]), R, true), 0.7); if (sm.length > 3) { sm.pop(); return { k: "smooth", d: smoothD(sm, true) }; } }
     const sm = rdp(avgPts(P, R, false), 0.7);
@@ -1337,18 +1368,18 @@ function fitShape0(P, strong) {
     const loop = poly.concat([poly[0]]), tight = maxDev(P, loop) < Math.max(5, diag * 0.06);
     if (poly.length === 4 && tight && [0, 1, 2, 3].every((i) => Math.abs(ang(i) - 90) < 22)) {
       const e = Math.abs(Math.atan2(poly[1].y - poly[0].y, poly[1].x - poly[0].x) * 180 / Math.PI) % 90;
-      if (e < 12 || e > 78) { const R = bbox(poly); return { k: "rect", d: `M${f1(R.x)} ${f1(R.y)}h${f1(R.w)}v${f1(R.h)}h${f1(-R.w)}Z` }; }
-      return { k: "poly", d: polyD(poly, true) };
+      if (e < 12 || e > 78) { const R = bbox(poly); return { k: "rect", cp: [{ x: R.x, y: R.y }, { x: R.x + R.w, y: R.y }, { x: R.x + R.w, y: R.y + R.h }, { x: R.x, y: R.y + R.h }], d: `M${f1(R.x)} ${f1(R.y)}h${f1(R.w)}v${f1(R.h)}h${f1(-R.w)}Z` }; }
+      return { k: "poly", cp: poly, d: polyD(poly, true) };
     }
-    if (poly.length === 3 && tight) return { k: "tri", d: polyD(poly, true) };
+    if (poly.length === 3 && tight) return { k: "tri", cp: poly, d: polyD(poly, true) };
     const cx = B.x + B.w / 2, cy = B.y + B.h / 2; let rx = B.w / 2, ry = B.h / 2, dev = 0;
     for (const q of P) dev += Math.abs(Math.hypot((q.x - cx) / Math.max(1, rx), (q.y - cy) / Math.max(1, ry)) - 1);
     dev /= P.length;
     if (dev < 0.09) {
       if (Math.abs(rx - ry) / Math.max(rx, ry) < 0.15) rx = ry = (rx + ry) / 2;
-      return { k: "ellipse", d: `M${f1(cx - rx)} ${f1(cy)}a${f1(rx)} ${f1(ry)} 0 1 0 ${f1(rx * 2)} 0a${f1(rx)} ${f1(ry)} 0 1 0 ${f1(-rx * 2)} 0Z` };
+      return { k: "ellipse", el: { cx, cy, rx, ry }, d: `M${f1(cx - rx)} ${f1(cy)}a${f1(rx)} ${f1(ry)} 0 1 0 ${f1(rx * 2)} 0a${f1(rx)} ${f1(ry)} 0 1 0 ${f1(-rx * 2)} 0Z` };
     }
-    if ((poly.length === 4 || poly.length === 5) && tight) return { k: "poly", d: polyD(poly, true) };
+    if ((poly.length === 4 || poly.length === 5) && tight) return { k: "poly", cp: poly, d: polyD(poly, true) };
     const sm = rdp(P, Math.max(1.5, diag * 0.018)); if (dist(sm[0], sm[sm.length - 1]) < 4) sm.pop();
     return { k: "smooth", d: smoothD(sm, true) };
   }
