@@ -277,7 +277,11 @@ let recognizer = null, recLang = null;
 
 /* 노트 저장: 브라우저 저장소(IndexedDB) "trickstudy-notes" 에 노트마다 따로 */
 let saveT = 0;
-function save() { clearTimeout(saveT); $("saveState").textContent = "저장 중…"; saveT = setTimeout(saveNow, 600); }
+function save() {
+  clearTimeout(saveT); $("saveState").textContent = "저장 중…";
+  const wait = strokes.length > 6000 ? 2500 : strokes.length > 2500 ? 1500 : 600; // 긴 노트는 모아서
+  saveT = setTimeout(() => { if (activePointer != null) return save(); saveNow(); }, wait); // 쓰는 중이면 펜을 뗀 뒤에
+}
 let lockedOut = false;
 let boxesOn = true; // 글/그림 영역 표시 // 다른 탭이 이 노트를 가져가면 이 탭은 저장하지 않음
 async function saveNow() {
@@ -659,11 +663,16 @@ function regroup() {
   const n = strokes.length, par = [...Array(n).keys()];
   const find = (i) => (par[i] === i ? i : (par[i] = find(par[i])));
   const bb = strokes.map((s) => bbox(s.pts));
+  // 빠르게: 칸(격자)에 획을 나눠 담아 두고, 가까운 칸에 있는 획끼리만 비교 (노트가 길어져도 느려지지 않게)
+  const C = 128, grid = new Map(), mark = new Int32Array(n).fill(-1);
+  const cellKeys = (B, e, fn) => { const x0 = Math.floor((B.x - e) / C), x1 = Math.floor((B.x + B.w + e) / C), y0 = Math.floor((B.y - e) / C), y1 = Math.floor((B.y + B.h + e) / C); for (let x = x0; x <= x1; x++) for (let y = y0; y <= y1; y++) fn(x * 1000003 + y); };
+  for (let i = 0; i < n; i++) cellKeys(bb[i], 0, (k) => { let a = grid.get(k); if (!a) grid.set(k, (a = [])); a.push(i); });
+  const cand = (i, e) => { const out = []; cellKeys(bb[i], e, (k) => { const a = grid.get(k); if (a) for (const j of a) if (mark[j] !== i) { mark[j] = i; out.push(j); } }); mark.fill(-1, 0, 0); for (const j of out) mark[j] = -1; return out.sort((x, y) => x - y); };
   // 1) 획 역할 정하기: 큰 획 = 그림(D), 작은 획 = 글(T). 단, 그림 선에 붙어 있거나(화살촉) 그림 안에 들어간 작은 획은 그림
   const role = strokes.map((s) => (kindOf(s) === "big" ? "D" : "T"));
   for (let i = 0; i < n; i++) {
     if (role[i] !== "T") continue;
-    for (let j = 0; j < n; j++) {
+    for (const j of cand(i, 12)) {
       if (role[j] !== "D" || kindOf(strokes[j]) !== "big") continue;
       if (strokes[j].img || strokes[j].hl || strokes[i].hl) continue; // 사진·도형·스티커·형광펜 위에 쓴 글씨는 글 그대로
       if (!!strokes[i].fin !== !!strokes[j].fin) continue;
@@ -681,13 +690,16 @@ function regroup() {
     let len = 0; for (let k = 1; k < s0.pts.length; k++) len += Math.hypot(s0.pts[k].x - s0.pts[k - 1].x, s0.pts[k].y - s0.pts[k - 1].y);
     const straight = Math.hypot(l.x - f.x, l.y - f.y) / Math.max(1, len);
     if (!(straight > 0.9 && B.h < Math.max(14, B.w * 0.18) && B.w < 700)) continue;
-    const textNear = strokes.some((t, j) => role[j] === "T" && bb[j].x < B.x + B.w && bb[j].x + bb[j].w > B.x && (Math.abs(bb[j].y + bb[j].h - B.y) < 36 || Math.abs(bb[j].y - (B.y + B.h)) < 36));
+    const textNear = cand(i, 40).some((j) => role[j] === "T" && bb[j].x < B.x + B.w && bb[j].x + bb[j].w > B.x && (Math.abs(bb[j].y + bb[j].h - B.y) < 36 || Math.abs(bb[j].y - (B.y + B.h)) < 36));
     if (textNear) role[i] = "T";
   }
   // 2) 묶기
-  for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) {
+  const byLock = new Map(); // 같은 고정 덩어리는 거리와 상관없이 하나로
+  for (let i = 0; i < n; i++) { const lk = strokes[i].lock; if (!lk) continue; if (byLock.has(lk)) par[find(i)] = find(byLock.get(lk)); else byLock.set(lk, i); }
+  for (let i = 0; i < n; i++) for (const j of cand(i, g + 1)) {
+    if (j <= i) continue;
     const a = strokes[i], b = strokes[j];
-    if (a.lock && a.lock === b.lock) { par[find(i)] = find(j); continue; }
+    if (a.lock && a.lock === b.lock) continue; // (위에서 이미 묶음)
     if (!!a.fin !== !!b.fin) continue; // 완성본에서 덧쓴 필기와 원래 필기는 섞지 않음
     if (a.hl || b.hl) continue; // 형광펜은 획마다 따로 (글씨와 안 섞임)
     if (a.lock && b.lock) continue; // 서로 다른 고정 덩어리는 안 섞음
@@ -746,7 +758,7 @@ function regroup() {
     b.m.parent = b.parent;
   }
   blocks.sort((a, b) => a.box.y - b.box.y || a.box.x - b.box.x);
-  for (const k of Object.keys(meta)) if (!blocks.some((b) => b.key === k)) delete meta[k];
+  const liveKeys = new Set(blocks.map((b) => b.key)); for (const k of Object.keys(meta)) if (!liveKeys.has(k)) delete meta[k];
   render();
 }
 function blockAt(p) { // 겹치면 가장 작은 덩어리 (배경 도형 위에 쓴 글씨를 누르면 글씨가 골라짐)
@@ -1113,29 +1125,40 @@ function mainColor(ss) {
   return best;
 }
 const isClean = () => view === "clean" || view === "final";
-function render(fast) {
+// 보이는 쪽(+앞뒤 여유)만 그림 — 노트가 길어도 가볍게. all=true 면 전부 (PDF·배치처럼 전체가 필요할 때)
+let drawn = [-1e9, 1e9];
+function visRange() {
+  if (mode === "page") return [page * PAGE_H - 40, (page + 1) * PAGE_H + 40];
+  const t = paper.scrollTop / Z, h = paper.clientHeight / Z;
+  return [t - PAGE_H * 0.7, t + h + PAGE_H * 0.7];
+}
+function render(fast, all) {
   renderHeads();
+  const [vy0, vy1] = all ? [-1e9, 1e9] : visRange(); drawn = [vy0, vy1];
+  const vis = (bx) => bx.y + bx.h >= vy0 && bx.y <= vy1;
   const gInk = $("gInk"), gBox = $("gBoxes"), gClean = $("gClean"), gBack = $("gBack");
   gInk.innerHTML = ""; gBox.innerHTML = ""; gClean.innerHTML = ""; gBack.innerHTML = "";
   const FINAL = view === "final"; // 완성본: 상자·표시 없이 정리된 모습만
   const SHOWBOX = !FINAL && boxesOn, picking = tool === "move" || tool === "lasso";
   const selMain = (() => { const sb = sel && blocks.find((x) => x.key === sel); return sb ? (sb.parent ? blocks.find((x) => x.key === sb.parent) || sb : sb) : null; })();
   $("boxT").classList.toggle("off", !boxesOn);
+  const kidsOf = new Map(); for (const x of blocks) if (x.parent) { if (!kidsOf.has(x.parent)) kidsOf.set(x.parent, []); kidsOf.get(x.parent).push(x); }
   if (picking) for (const b of blocks) { // 크기 조절 손잡이: 덩어리(세트면 세트 전체) 오른쪽 아래 (영역 표시를 끄면 고른 것만)
-    if (b.parent) continue;
+    if (b.parent || !vis(b.box)) continue;
     if (!SHOWBOX && b !== selMain) continue;
     const G = gripPos(b);
     el("rect", { class: "grip" + (sel === b.key ? " on" : ""), x: G.x - 11, y: G.y - 11, width: 22, height: 22, rx: 6 }, gBox);
     el("path", { class: "gripMark", d: `M${G.x - 5} ${G.y + 5} L${G.x + 5} ${G.y - 5} M${G.x} ${G.y + 5} L${G.x + 5} ${G.y}` }, gBox);
   }
   if (SHOWBOX) for (const b of blocks) { // 세트 테두리 (보라색)
-    const kids = blocks.filter((x) => x.parent === b.key && x.m.setp);
-    if (!kids.length) continue;
+    const kids = (kidsOf.get(b.key) || []).filter((x) => x.m.setp);
+    if (!kids.length || !vis(b.box)) continue;
     const B = bbox([b, ...kids].flatMap((x) => [{ x: x.box.x, y: x.box.y }, { x: x.box.x + x.box.w, y: x.box.y + x.box.h }]));
     el("rect", { class: "setBox", x: B.x - 16, y: B.y - 26, width: B.w + 32, height: B.h + 38, rx: 16 }, gBox);
     const t = el("text", { class: "tag", x: B.x - 12, y: B.y - 30, fill: "#8a4fd6" }, gBox); t.textContent = `🔗 세트 (${kids.length + 1})`;
   }
   for (const b of blocks) {
+    if (!vis(b.box)) continue;
     const cleanText = b.type === "text" && !b.m.stale && b.m.lines && b.m.lines.some((l) => l.text); // 묶음이 바뀌어 다시 읽는 중엔 원본 표시
     const inkOp = view === "ink" ? 1 : view === "both" ? (cleanText ? 0.22 : 1) : (cleanText ? 0 : 1);
     if (inkOp > 0) for (const s of b.strokes) {
@@ -1169,7 +1192,7 @@ function render(fast) {
     }
   }
   placeSelBar();
-  if (!fast) renderSide();
+  if (!fast && sideOn) renderSide(); // 목록을 숨겼으면 안 그림
 }
 // 노트 전체 정리 글씨 크기 = 필기한 글 줄 높이의 중간값 기준 (16~26px), 모든 덩어리 같은 크기
 function cleanFS() {
@@ -1269,14 +1292,18 @@ function fitPaper() { // 종이 칸이 화면 아래 끝까지 차게
   $("side").style.maxHeight = paper.style.height;
 }
 function fitZoom() { if (zFit) Z = Math.max(0.3, Math.min(3, (paper.clientWidth - 28) / PAGE_W)); $("zNum").textContent = Math.round(Z * 100) + "%"; }
-function fitBoard() {
+let lastFit = "";
+function fitBoard(force) {
   fitZoom();
   $("pnav").hidden = mode !== "page";
   const pages = mode === "page" ? 1 : Math.max(pageCount(), Math.ceil((contentBottom() + PAGE_H * 0.35) / PAGE_H));
   const y0 = offY(), H = pages * PAGE_H;
+  const sig = [y0, H, Z, mode, page, $("paperSel").value].join("|");
+  $("pNum").textContent = `${page + 1} / ${pageCount()}`;
+  if (!force && sig === lastFit) { updatePageLabel(); return; } // 그대로면 다시 안 그림
+  lastFit = sig;
   svg.setAttribute("viewBox", `0 ${y0} ${PAGE_W} ${H}`);
   svg.style.width = PAGE_W * Z + "px"; svg.style.height = H * Z + "px";
-  $("pNum").textContent = `${page + 1} / ${pageCount()}`;
   drawPages(mode === "page" ? page : 0, mode === "page" ? page + 1 : pages);
   updatePageLabel(); render(true);
 }
@@ -1312,7 +1339,7 @@ function goPage(n) {
 }
 $("pPrev").onclick = () => goPage(page - 1);
 $("pNext").onclick = () => goPage(page + 1);
-$("paperSel").onchange = () => { fitBoard(); save(); };
+$("paperSel").onchange = () => { fitBoard(true); save(); };
 seg("mode", (v) => {
   const wasPage = mode === "page", vp = viewPage();
   mode = v;
@@ -1383,6 +1410,12 @@ const endPan = (e) => {
   if (mode === "page" && Z <= (paper.clientWidth - 28) / PAGE_W + 0.01 && Math.abs(dx) > 70 && Math.abs(dx) > Math.abs(dy) * 1.5) goPage(page + (dx < 0 ? 1 : -1));
 };
 svg.addEventListener("pointerup", endPan); svg.addEventListener("pointercancel", endPan);
+let scrollRaf = 0;
+paper.addEventListener("scroll", () => {
+  if (mode === "page" || scrollRaf) return;
+  const t = paper.scrollTop / Z, h = paper.clientHeight / Z;
+  if (t < drawn[0] + PAGE_H * 0.25 || t + h > drawn[1] - PAGE_H * 0.25) scrollRaf = requestAnimationFrame(() => { scrollRaf = 0; render(true); });
+}, { passive: true });
 paper.addEventListener("scroll", () => { updatePageLabel(); if (mode === "inf" && paper.scrollTop + paper.clientHeight > svg.clientHeight * 1 - 200 * Z) fitBoard(); }, { passive: true });
 
 /* ───────── ⛶ 집중 모드: 노트만 화면 가득 + 작은 도구판 ───────── */
@@ -1425,7 +1458,7 @@ function applyUI() {
   requestAnimationFrame(() => { fitPaper(); fitBoard(); });
 }
 $("setT").onclick = () => { focusUI = !focusUI; applyUI(); save(); toast(focusUI ? "설정 칸을 숨겼어요 (⚙️ 다시 누르면 보여요)" : "설정 칸을 보여요"); };
-$("sideT").onclick = () => { sideOn = !sideOn; applyUI(); save(); };
+$("sideT").onclick = () => { sideOn = !sideOn; applyUI(); save(); if (sideOn) renderSide(); };
 addEventListener("resize", () => { fitPaper(); fitBoard(); });
 
 /* ───────── 소제목(AI 정리가 만듦) ───────── */
@@ -1495,7 +1528,7 @@ function scaleBlocks(gs, k, ax, ay) {
 }
 function normalizeClean(us) { // 글씨 크기가 폭에도 묶여 있어서 몇 번 반복해 맞춤
   let n = 0;
-  for (let it = 0; it < 3; it++) { render(true); const c = normalizeOnce(us); n += c; if (!c) break; }
+  for (let it = 0; it < 3; it++) { render(true, true); const c = normalizeOnce(us); n += c; if (!c) break; }
   return n;
 }
 function normalizeOnce(us) {
@@ -1609,7 +1642,7 @@ $("layoutBtn").onclick = () => {
   let us = units();
   if (!us.length) return toast("배치할 덩어리가 없어요");
   snapshot();
-  if (isClean()) { render(); us = units(); } // 정리본으로 보고 있으면 정리 글씨 크기로 배치
+  if (isClean()) { render(true, true); us = units(); } // 정리본으로 보고 있으면 정리 글씨 크기로 배치
   // 이미 AI 정리로 소제목이 있으면 그 구역 순서를 유지
   const { plan, newHeads } = planLayout(sectionsFromHeads(readingOrder(us)));
   animateTo(plan, newHeads, () => { toast("✨ 가지런히 놓았어요 (↶ 되돌리기 가능)"); if (mode === "page") goPage(0); else paper.scrollTo({ top: 0, behavior: "smooth" }); });
@@ -1671,7 +1704,7 @@ JSON 만 출력: {"title":"...","sections":[{"title":"...","items":[1,2]}]}` }];
     const rest = us.filter((u) => !used.has(u)); // 빠뜨린 건 맨 뒤에
     if (rest.length) sections.push({ title: sections.length ? "기타" : "", items: rest });
     snapshot();
-    if (!isClean()) setView("clean"); render(); // AI 정리는 정리본(같은 크기 글씨) 기준으로 배치
+    if (!isClean()) setView("clean"); render(true, true); // AI 정리는 정리본(같은 크기 글씨) 기준으로 배치
     const ub = new Map(units().map((x) => [x.b, x.box])); for (const u of us) if (ub.has(u.b)) u.box = ub.get(u.b);
     noteTitle = String(data.title || "").slice(0, 30);
     if (noteTitle && (!$("title").value.trim() || $("title").value.trim() === "새 노트")) { $("title").value = noteTitle; }
@@ -2104,7 +2137,7 @@ $("pdfBtn").onclick = async () => {
     btn.textContent = "📸 표지 찍는 중…";
     const cov = await coverPick();
     if (!cov) return; // 취소
-    view = "final"; render(true); // 완성본 모습으로
+    view = "final"; render(true, true); // 완성본 모습으로 (PDF 는 모든 쪽)
     const n = Math.max(1, Math.ceil((contentBottom() + 1) / PAGE_H)), kind = $("paperSel").value;
     const world = $("world").cloneNode(true);
     world.querySelector("#gLive").remove(); world.querySelector("#gPages").innerHTML = ""; world.querySelectorAll("[id]").forEach((x) => x.removeAttribute("id"));
