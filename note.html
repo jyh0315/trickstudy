@@ -1182,8 +1182,8 @@ function render(fast, all) {
       // 정리 글씨: 노트 전체가 같은 크기로, 덩어리 왼쪽 위부터 줄줄이. 쓴 줄은 꺾지 않고 한 줄 그대로
       //  (종이 오른쪽 끝을 넘을 때만 그 줄을 줄임) → 덩어리가 넓어지면 배치가 그 크기로 자리를 잡음
       const fsz = cleanFS(), W = Math.max(bx0.w, PAGE_W - bx0.x - 16);
-      const fo = el("foreignObject", { x: bx.x, y: bx.y - 2, width: W + 30, height: 10 }, gClean);
-      const dv = document.createElement("div"); dv.className = "cleanB"; dv.style.cssText = `font-size:${fsz}px;max-width:${W}px`;
+      const fo = el("foreignObject", { x: bx.x, y: bx.y + 3, width: W + 30, height: 10 }, gClean); // 노트 줄 칸 안에 앉게 살짝 아래로
+      const dv = document.createElement("div"); dv.className = "cleanB"; dv.style.cssText = `font-size:${fsz}px;max-width:${W}px;line-height:${LINE}px`; // 줄 간격 = 노트 줄 간격
       const bc = mainColor(b.strokes);
       dv.innerHTML = b.m.lines.filter((l) => l.text).map((l) => { const c = l.c || bc; return `<div${c !== INK ? ` style="color:${c}"` : ""}>${richHTML(l)}</div>`; }).join("");
       fo.appendChild(dv);
@@ -1310,7 +1310,7 @@ function fitBoard(force) {
 // 종이 무늬 (줄·격자·무지) + 장 경계 — PDF 에도 그대로 씀
 function paperMarkup(i, kind) {
   const y = i * PAGE_H; let h = `<rect class="pageBg" x="0" y="${y}" width="${PAGE_W}" height="${PAGE_H}"/>`;
-  if (kind === "lined") { for (let ly = 80; ly < PAGE_H - 30; ly += LINE) h += `<line class="ruled" x1="0" x2="${PAGE_W}" y1="${y + ly}" y2="${y + ly}"/>`; h += `<line class="marginL" x1="60" x2="60" y1="${y}" y2="${y + PAGE_H}"/>`; }
+  if (kind === "lined") { for (let ly = 80; ly < PAGE_H - 30; ly += LINE) h += `<line class="ruled" x1="0" x2="${PAGE_W}" y1="${y + ly}" y2="${y + ly}"/>`; }
   if (kind === "grid") { for (let gx = 20; gx < PAGE_W; gx += 20) h += `<line class="gridL" x1="${gx}" x2="${gx}" y1="${y}" y2="${y + PAGE_H}"/>`; for (let gy = 20; gy < PAGE_H; gy += 20) h += `<line class="gridL" x1="0" x2="${PAGE_W}" y1="${y + gy}" y2="${y + gy}"/>`; }
   return h;
 }
@@ -1587,7 +1587,8 @@ function planLayout(sections) {
   let sky = [{ x: M, w: W - M, y: M }];
   const P = pageH || 0;
   const pageFix = (y, h) => { if (!P) return y; const top = Math.floor(y / P) * P, end = top + P; return y + h > end - M / 2 && y > top + M + 1 ? end + M : y; };
-  const snapY = (y) => Math.ceil(y / (LINE / 2)) * (LINE / 2);
+  // 노트 줄에 맞추기: 덩어리 윗변(= 상자 y + 6)이 그 쪽의 줄(쪽 위에서 80 + 40×k)에 오게
+  const snapY = (y) => { const top = Math.floor((y + 6) / PAGE_H) * PAGE_H; const k = Math.max(-1, Math.ceil((y + 6 - top - 80) / LINE)); return top + 80 + k * LINE - 6; };
   const flatAt = (y) => { sky = [{ x: M, w: W - M, y }]; };
   const maxY = () => Math.max(...sky.map((sg) => sg.y));
   function place(w, h) {
@@ -1596,7 +1597,7 @@ function planLayout(sections) {
     for (const x of xs) {
       if (x + w > W + 1 && x !== M) continue;
       let y = 0; for (const sg of sky) if (sg.x < x + w && sg.x + sg.w > x) y = Math.max(y, sg.y);
-      y = pageFix(snapY(y), h);
+      y = snapY(pageFix(snapY(y), h));
       if (!best || y < best.y - 4 || (Math.abs(y - best.y) <= 4 && x < best.x)) best = { x, y };
     }
     // 스카이라인 갱신
@@ -1614,8 +1615,8 @@ function planLayout(sections) {
   for (const sec of sections) {
     if (sec.title) {
       let y = snapY(maxY() + (plan.length || newHeads.length ? GAP / 2 : 0));
-      y = pageFix(y, LINE + 8 + (sec.items[0] ? sec.items[0].box.h : 0));
-      newHeads.push({ text: sec.title, x: M, y: y + 26 }); flatAt(y + LINE + 8);
+      y = snapY(pageFix(y, LINE + 8 + (sec.items[0] ? sec.items[0].box.h : 0)));
+      newHeads.push({ text: sec.title, x: M, y: y + 6 + 31 }); flatAt(y + LINE); // 소제목도 줄 칸 하나에 맞춰 앉음
     }
     for (const u of sec.items) { const b = place(Math.min(u.box.w, W - M), u.box.h); plan.push({ u, x: b.x, y: b.y }); }
   }
