@@ -150,12 +150,18 @@ body.zen .paper { height: 100vh !important; border: 0; border-radius: 0; box-sha
 .pdfopt button { text-align: left; padding: 12px !important; font-size: 15px !important; line-height: 1.4; }
 .pdfopt button small { display: block; font: 12px var(--font-body); color: var(--ink-soft); margin-top: 4px; }
 .cvsw { display: flex; flex-wrap: wrap; gap: 8px; }
+.cvbg { display: grid; grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); gap: 6px; max-height: 170px; overflow: auto; padding: 4px; border: 2px dashed var(--ink-soft); border-radius: 12px; background: #fff; }
+.cvbg button { aspect-ratio: 16 / 10; border: 2px solid var(--ink); border-radius: 8px; padding: 0; overflow: hidden; cursor: pointer; background: #fff8e6; font: 12px var(--font-title); color: var(--ink); }
+.cvbg button img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.cvbg button.on { outline: 3px solid var(--pink-d); outline-offset: 1px; }
 .cvsw button { width: 74px; height: 50px; border: 2px solid var(--ink); border-radius: 12px; cursor: pointer; font: 12px var(--font-title); display: grid; place-items: end center; padding-bottom: 4px; }
 .cvsw button.on { outline: 3px solid var(--pink-d); outline-offset: 2px; }
 @media (max-width: 520px) { .pdfopt { grid-template-columns: 1fr; } }
 .cover { width: 210mm; height: 297mm; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10mm; background: linear-gradient(#fff8e6, #fdecc8); font-family: var(--font-title); color: var(--ink); text-align: center; }
 .cover .cv-frame { width: 120mm; height: 150mm; border: 2mm solid var(--ink); border-radius: 12mm; background: #fffdf6 radial-gradient(circle at 50% 35%, #fff 0, #ffe9b8 70%); display: flex; align-items: flex-end; justify-content: center; overflow: hidden; }
-.cover .cv-frame img { width: 100%; height: 100%; object-fit: contain; }
+.cover .cv-frame { position: relative; }
+.cover .cv-frame img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+.cover .cv-frame img.cv-bg { object-fit: cover; }
 .cover h1 { font-size: 15mm; margin: 0; line-height: 1.2; max-width: 180mm; }
 .cover .cv-sub { font: 6mm var(--font-body); color: var(--ink-soft); }
 .cover .cv-badge { color: var(--ink); font-size: 5mm; padding: 2mm 6mm; border: 1mm solid var(--ink); border-radius: 99mm; background: var(--yellow); }
@@ -323,7 +329,7 @@ async function saveNow() {
   saveT = 0;
   if (!note || lockedOut) return;
   Object.assign(note, {
-    title: $("title").value.trim() || "제목 없는 노트", paper: $("paperSel").value, bg: $("bgSel").value, coverBg: note.coverBg || 0,
+    title: $("title").value.trim() || "제목 없는 노트", paper: $("paperSel").value, bg: $("bgSel").value, coverBg: note.coverBg || 0, coverImg: note.coverImg || "",
     data: { strokes, meta, nextId, heads }, mode, page, zoom: zFit ? 0 : Z, view, focusUI, sideOn, boxes: boxesOn,
     check: $("gCheck").checked, auto: $("gAuto").checked, drawTidy: $("gDraw").value, hold: $("gHold").checked, labRead: $("gLab").checked, updated: Date.now(), scroll: Math.round(paper.scrollTop),
     stats: { pages: pageCount(), blocks: blocks.length, imgs: strokes.filter((st) => st.img).length },
@@ -2534,7 +2540,22 @@ async function isBlankImg(url) {
     return n < 40; // 보이는 점이 거의 없으면 빈 사진
   } catch (e) { return false; }
 }
-function coverPick() { return spinePick(gameState().partner || "erpin", { title: "📸 표지 사진 찍기", ok: "이 사진으로 PDF 만들기 →" }); }
+function coverPick(bg) { return spinePick(gameState().partner || "erpin", { title: "📸 표지 사진 찍기", ok: "이 사진으로 PDF 만들기 →", bg }); }
+// 표지 배경 사진: "ssbg/017" (게임 배경) 또는 "img:<id>" (내 사진) → 주소
+async function coverBgSrc() {
+  const v = note && note.coverImg; if (!v) return "";
+  if (v.startsWith("ssbg/")) return `assets/${v}.webp`;
+  if (v.startsWith("img:")) { const o = await loadImg(v.slice(4)); return o ? o.url : ""; }
+  return "";
+}
+async function coverPhoto(file) { // 내 사진 → 줄여서 저장
+  const bm = await createImageBitmap(file), k = Math.min(1, 1400 / Math.max(bm.width, bm.height));
+  const c = document.createElement("canvas"); c.width = Math.round(bm.width * k); c.height = Math.round(bm.height * k);
+  c.getContext("2d").drawImage(bm, 0, 0, c.width, c.height);
+  const blob = await new Promise((ok) => c.toBlob(ok, "image/jpeg", 0.88));
+  const id = "img" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  await imgPut(id, blob); await loadImg(id); return "img:" + id;
+}
 // 움직이는 사도를 보면서 표정을 고르고 찰칵 → { name, src(그림 주소) } / 취소면 null
 function spinePick(id, opts) {
   opts = opts || {};
@@ -2542,6 +2563,7 @@ function spinePick(id, opts) {
     const st = gameState(), c = (typeof SADO !== "undefined" && SADO.find((x) => x.id === id)) || {};
     const res = { name: c.name || "", src: `assets/chibi/${id}.webp` };
     const ov = document.createElement("div"); ov.className = "cvp";
+    if (opts.bg) requestAnimationFrame(() => { const sg = ov.querySelector("#cvp-stage"); if (sg) sg.style.background = `#fffdf6 url("${opts.bg}") center/cover`; }); // 표지 배경 미리보기 (찍히는 사진은 투명 배경 그대로)
     ov.innerHTML = `<div class="cvp-box"><h3>${opts.title || "📸 사진 찍기"}</h3>
       <div class="cvp-row"><div class="cvp-stage" id="cvp-stage"><div class="cvp-msg">${esc(res.name || "대표 사도")} 부르는 중…</div></div>
         <div class="cvp-side"><label class="cvp-skin" id="cvp-skinw" hidden>🎨 스킨 <select id="cvp-skin"></select></label><div class="cvp-moods" id="cvp-moods"></div>
@@ -2654,8 +2676,20 @@ function pdfLayoutPick() {
       <button class="btn${last === "one" ? " yellow" : ""}" data-k="one">📄 한 쪽씩<small>A4 한 장에 한 쪽</small></button>
       <button class="btn${last === "book" ? " yellow" : ""}" data-k="book">📖 접는 책<small>A4 한 장(가로)에 두 쪽씩. 양면으로 뽑아 반으로 접어 겹치면 책이 돼요 (표지↔마지막 쪽, 2쪽↔끝에서 둘째 쪽…)</small></button>
       </div><h3 style="margin:14px 0 8px;font-size:16px">🎨 표지 색</h3><div class="cvsw">${COVERS.map((c, i) => `<button title="${c[0]}" data-c="${i}" class="${i === (note.coverBg || 0) ? "on" : ""}" style="background:linear-gradient(${c[1]},${c[2]})"><span style="color:${c[3] ? "#fff" : "var(--ink)"}">${c[0]}</span></button>`).join("")}</div>
+      <h3 style="margin:14px 0 8px;font-size:16px">🖼 표지 사도 뒤 배경</h3><div class="cvbg" id="cvbg"><button data-b="" class="${note.coverImg ? "" : "on"}"><span>없음</span></button><button data-b="mine" class="${(note.coverImg || "").startsWith("img:") ? "on" : ""}"><span>📷 내 사진</span></button></div>
+      <input type="file" accept="image/*" id="cvbgFile" hidden>
       <div class="cvp-foot"><button class="btn" data-k="">취소</button></div></div>`;
+    (async () => { // 게임 배경 목록 (작게, 보일 때만 불러옴)
+      try { if (typeof SS_BACKGROUNDS === "undefined") await loadScript("js/ssbg-list.js"); } catch (e) { return; }
+      const g = ov.querySelector("#cvbg"); if (!g || typeof SS_BACKGROUNDS === "undefined") return;
+      g.insertAdjacentHTML("beforeend", SS_BACKGROUNDS.map((n) => `<button data-b="ssbg/${n}" class="${note.coverImg === "ssbg/" + n ? "on" : ""}"><img loading="lazy" src="assets/ssbg/${n}.webp" alt=""></button>`).join(""));
+      const on = g.querySelector(".on"); if (on && on.dataset.b) on.scrollIntoView({ block: "nearest" });
+    })();
+    const pickBg = (v) => { note.coverImg = v; ov.querySelectorAll("[data-b]").forEach((x) => x.classList.toggle("on", x.dataset.b === v || (x.dataset.b === "mine" && v.startsWith("img:")))); save(); };
+    ov.querySelector("#cvbgFile").onchange = async (e) => { const f = e.target.files[0]; if (!f) return; try { pickBg(await coverPhoto(f)); toast("📷 표지 배경으로 넣었어요"); } catch (er) { toast("사진을 못 열었어요"); } };
     ov.onclick = (e) => {
+      const bgb = e.target.closest("[data-b]");
+      if (bgb) { if (bgb.dataset.b === "mine") ov.querySelector("#cvbgFile").click(); else pickBg(bgb.dataset.b); return; }
       const sw = e.target.closest("[data-c]");
       if (sw) { note.coverBg = +sw.dataset.c; ov.querySelectorAll("[data-c]").forEach((x) => x.classList.toggle("on", x === sw)); save(); return; }
       const b = e.target.closest("[data-k]"); if (!b && e.target !== ov) return;
@@ -2696,7 +2730,8 @@ $("pdfBtn").onclick = async () => {
     const kindPdf = await pdfLayoutPick();
     if (!kindPdf) return; // 취소
     btn.textContent = "📸 표지 찍는 중…";
-    const cov = await coverPick();
+    const bgSrc = await coverBgSrc();
+    const cov = await coverPick(bgSrc);
     if (!cov) return; // 취소
     view = "final"; render(true, true); // 완성본 모습으로 (PDF 는 모든 쪽)
     const n = Math.max(1, Math.ceil((contentBottom() + 1) / PAGE_H)), kind = $("paperSel").value;
@@ -2705,7 +2740,7 @@ $("pdfBtn").onclick = async () => {
     const inner = world.innerHTML;
     const title = esc($("title").value.trim() || "노트"), date = new Date().toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric" });
     const sums = note.pages.map((p2, i) => (p2 && p2.summary ? `<div>${i + 1}쪽 · ${esc(p2.summary)}</div>` : "")).join("");
-    const pgs = [`<div class="cover" style="${coverStyle()}"><div class="cv-badge">트릭스터디 노트</div><div class="cv-frame"><img src="${cov.src}" alt=""></div>
+    const pgs = [`<div class="cover" style="${coverStyle()}"><div class="cv-badge">트릭스터디 노트</div><div class="cv-frame">${bgSrc ? `<img class="cv-bg" src="${bgSrc}" alt="">` : ""}<img class="cv-sado" src="${cov.src}" alt=""></div>
       <h1>${title}</h1><div class="cv-sub">${date}${cov.name ? ` · 대표 사도 ${esc(cov.name)}` : ""} · ${n}쪽</div>${sums ? `<div class="cv-sub" style="font-size:4.2mm;line-height:1.6">${sums}</div>` : ""}</div>`];
     for (let i = 0; i < n; i++) pgs.push(`<svg xmlns="${NS}" viewBox="0 ${i * PAGE_H} ${PAGE_W} ${PAGE_H}"><g>${paperMarkup(i, kind)}</g><g>${inner}</g></svg>`);
     $("print").innerHTML = kindPdf === "book" ? bookletHtml(pgs) : pgs.map((x) => `<div class="pp"><div class="pg">${x}</div></div>`).join("");

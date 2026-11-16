@@ -31,7 +31,7 @@
     getImg: (id) => tx("img", "readonly", (s) => s.get(id)),
     putImg: (id, blob) => tx("img", "readwrite", (s) => s.put(blob, id)),
     delImg: (id) => tx("img", "readwrite", (s) => s.delete(id)),
-    imgIds: (n) => [...new Set(((n.data && n.data.strokes) || []).filter((s) => s.img).map((s) => s.img))],
+    imgIds: (n) => [...new Set([...((n.data && n.data.strokes) || []).filter((s) => s.img).map((s) => s.img), ...(n.coverImg && n.coverImg.startsWith("img:") ? [n.coverImg.slice(4)] : [])])],
   };
 
   /* ───── 노트 파일 ───── */
