@@ -244,7 +244,7 @@ mark.uns { background: #ffe08a; border-bottom: 2px dotted #d8483b; color: inheri
   <label class="opt" title="같은 자리를 펜으로 빠르게 2번 = 펜↔선택, 3번 = 그 덩어리 글↔그림"><input type="checkbox" id="tapKeys" checked> 따닥 단축키</label>
   <label class="opt"><input type="checkbox" id="gAuto" checked> 쓰다 멈추면 자동으로 읽기</label>
   <label class="opt"><input type="checkbox" id="gCheck"> 💡 개념 확인 메모</label>
-  <label class="opt"><input type="checkbox" id="gDraw" checked> ✨ 정리본에서 그림 선 다듬기</label>
+  <label class="opt">✨ 정리본 그림 <select id="gDraw"><option value="soft">부드럽게 (모양 그대로, 떨림만)</option><option value="strong">반듯하게 (원·네모·세모로)</option><option value="off">손그림 그대로</option></select></label>
   <label class="opt"><input type="checkbox" id="gLab" checked> 🏷 그림 속 글씨도 AI 로 읽기</label>
   <span class="meta" id="gUse"></span>
   <button class="btn" id="clear">🗑 이 노트 전부 지우기</button>
@@ -321,7 +321,7 @@ async function saveNow() {
   Object.assign(note, {
     title: $("title").value.trim() || "제목 없는 노트", paper: $("paperSel").value, bg: $("bgSel").value, coverBg: note.coverBg || 0,
     data: { strokes, meta, nextId, heads }, mode, page, zoom: zFit ? 0 : Z, view, focusUI, sideOn, boxes: boxesOn,
-    check: $("gCheck").checked, auto: $("gAuto").checked, drawTidy: $("gDraw").checked, labRead: $("gLab").checked, updated: Date.now(), scroll: Math.round(paper.scrollTop),
+    check: $("gCheck").checked, auto: $("gAuto").checked, drawTidy: $("gDraw").value, labRead: $("gLab").checked, updated: Date.now(), scroll: Math.round(paper.scrollTop),
     stats: { pages: pageCount(), blocks: blocks.length, imgs: strokes.filter((st) => st.img).length },
   });
   try { await notePut(note); $("saveState").textContent = "저장됨 ✓"; } catch (e) { $("saveState").textContent = "⚠️ 저장 실패"; toast("저장하지 못했어요: " + (e.message || e)); }
@@ -362,7 +362,7 @@ async function loadNote() {
   focusUI = n.focusUI !== false; sideOn = !!n.sideOn; boxesOn = n.boxes !== false;
   if (n.zoom) { Z = n.zoom; zFit = false; }
   $("title").value = n.title || ""; $("paperSel").value = n.paper || "lined"; $("bgSel").value = n.bg || "#ffffff"; if (!$("bgSel").value) $("bgSel").value = "#ffffff";
-  $("gCheck").checked = !!n.check; $("gAuto").checked = n.auto !== false; $("gDraw").checked = n.drawTidy !== false; $("gLab").checked = n.labRead !== false;
+  $("gCheck").checked = !!n.check; $("gAuto").checked = n.auto !== false; $("gDraw").value = n.drawTidy === false ? "off" : ["soft", "strong", "off"].includes(n.drawTidy) ? n.drawTidy : "soft"; $("gLab").checked = n.labRead !== false;
   document.title = (n.title || "노트") + " · 트릭스터디";
 }
 /* 되돌리기: 가장 잦은 "획 하나 쓰기"는 노트 전체를 복사하지 않고 그 획 번호 + 덩어리 정보만 기억.
@@ -1294,19 +1294,42 @@ function maxDev(P, poly) { // 원래 점들이 꺾은선에서 가장 멀리 떨
   for (const q of P) { let best = 1e9; for (let i = 1; i < poly.length; i++) best = Math.min(best, segDist(q, poly[i - 1], poly[i])); m = Math.max(m, best); }
   return m;
 }
-const fitCache = new WeakMap();
-function fitShape(s) {
-  const P = s.pts, sig = P.length + ":" + P[0].x + "," + P[0].y + ":" + P[P.length - 1].x + "," + P[P.length - 1].y;
-  const c = fitCache.get(s); if (c && c.sig === sig) return c.v;
-  const v = fitShape0(P); fitCache.set(s, { sig, v }); return v;
+// 떨림 없애기: 각 점을 앞뒤 R 거리 안 점들의 평균으로 (모양은 그대로)
+function avgPts(P, R, closed) {
+  const n = P.length; if (n < 4) return P.slice();
+  const L = [0]; for (let i = 1; i < n; i++) L.push(L[i - 1] + dist(P[i], P[i - 1]));
+  const T = L[n - 1], out = [];
+  for (let i = 0; i < n; i++) {
+    if (!closed && (i === 0 || i === n - 1)) { out.push(P[i]); continue; }
+    let sx = 0, sy = 0, c = 0;
+    for (let j = 0; j < n; j++) {
+      let d = Math.abs(L[j] - L[i]); if (closed) d = Math.min(d, T - d);
+      if (d <= R) { const w = 1 - d / (R + 1e-6) * 0.5; sx += P[j].x * w; sy += P[j].y * w; c += w; }
+    }
+    out.push({ x: sx / c, y: sy / c });
+  }
+  if (closed) out[n - 1] = out[0];
+  return out;
 }
-function fitShape0(P) {
+const fitCache = new WeakMap();
+function fitShape(s, strong) {
+  const P = s.pts, sig = (strong ? "S" : "s") + P.length + ":" + P[0].x + "," + P[0].y + ":" + P[P.length - 1].x + "," + P[P.length - 1].y;
+  const c = fitCache.get(s); if (c && c.sig === sig) return c.v;
+  const v = fitShape0(P, strong); fitCache.set(s, { sig, v }); return v;
+}
+function fitShape0(P, strong) {
   if (P.length < 3) return null;
   const B = bbox(P), diag = Math.hypot(B.w, B.h); if (diag < 12) return null;
   let len = 0; for (let i = 1; i < P.length; i++) len += dist(P[i], P[i - 1]);
   const a = P[0], z = P[P.length - 1], chord = dist(a, z);
   if (chord / len > 0.94 || (chord > diag * 0.9 && maxDev(P, [a, z]) < Math.max(3.5, chord * 0.045))) { const [p, q] = snapSeg(a, z); return { k: "line", pts: [p, q], d: polyD([p, q]) }; }
   const closed = chord < Math.max(16, diag * 0.2) && len > diag * 1.6;
+  if (!strong || (closed && diag < 45)) { // 부드럽게: 모양은 그대로, 떨림만 (작은 도형도 손그림 모양 유지)
+    const R = Math.max(2, Math.min(9, diag * 0.035));
+    if (closed) { const sm = rdp(avgPts(P.slice(0, -1).concat([P[0]]), R, true), 0.7); if (sm.length > 3) { sm.pop(); return { k: "smooth", d: smoothD(sm, true) }; } }
+    const sm = rdp(avgPts(P, R, false), 0.7);
+    return { k: "smooth", pts: sm, d: smoothD(sm) };
+  }
   if (closed) {
     let poly = rdp(P, Math.max(4, diag * 0.08));
     if (poly.length > 2 && dist(poly[0], poly[poly.length - 1]) < Math.max(16, diag * 0.2)) poly = poly.slice(0, -1);
@@ -1321,7 +1344,7 @@ function fitShape0(P) {
     const cx = B.x + B.w / 2, cy = B.y + B.h / 2; let rx = B.w / 2, ry = B.h / 2, dev = 0;
     for (const q of P) dev += Math.abs(Math.hypot((q.x - cx) / Math.max(1, rx), (q.y - cy) / Math.max(1, ry)) - 1);
     dev /= P.length;
-    if (dev < 0.12) {
+    if (dev < 0.09) {
       if (Math.abs(rx - ry) / Math.max(rx, ry) < 0.15) rx = ry = (rx + ry) / 2;
       return { k: "ellipse", d: `M${f1(cx - rx)} ${f1(cy)}a${f1(rx)} ${f1(ry)} 0 1 0 ${f1(rx * 2)} 0a${f1(rx)} ${f1(ry)} 0 1 0 ${f1(-rx * 2)} 0Z` };
     }
@@ -1360,9 +1383,10 @@ function drawTidy(b) {
       out.labels.push({ ...L, text: l.text, c: mainColor(mine), fs: Math.round(Math.max(12, Math.min(fs0, L.h * 0.85))) });
     }
   }
-  if (!$("gDraw").checked) return out;
+  const dmode = $("gDraw").value; if (dmode === "off") return out;
+  const strong = dmode === "strong";
   const fits = new Map();
-  for (const s of ss) { if (out.hide.has(s)) continue; const f = fitShape(s); if (f) { fits.set(s, f); out.fit.set(s, f.d); } out.w.set(s, +(widthOf(s) * 0.95).toFixed(2)); }
+  for (const s of ss) { if (out.hide.has(s)) continue; const f = fitShape(s, strong); if (f) { fits.set(s, f); out.fit.set(s, f.d); } out.w.set(s, +(widthOf(s) * 0.95).toFixed(2)); }
   // 화살촉 찾기
   const ends = [];
   for (const s of ss) { if (out.hide.has(s)) continue; const f = fits.get(s); if (!f || f.k === "rect" || f.k === "ellipse" || f.k === "tri") continue; const S = bbox(s.pts); if (Math.hypot(S.w, S.h) < 40) continue; for (const e of endInfo(s, f)) ends.push({ s, e }); }
