@@ -273,7 +273,7 @@ mark.uns { background: #ffe08a; border-bottom: 2px dotted #d8483b; color: inheri
 </div>
 
 <div class="wrap">
-  <div class="paper" id="paper"><svg id="board" xmlns="http://www.w3.org/2000/svg"><g id="world"><g id="gPages"></g><g id="gBack"></g><g id="gBoxes"></g><g id="gHeads"></g><g id="gInk"></g><g id="gClean"></g><g id="gLive"></g></g></svg><div class="selBar" id="selBar" hidden><button data-a="del" title="지우기 (Delete 키)">🗑</button><button data-a="out" title="작게">－</button><button data-a="in" title="크게">＋</button><button data-a="redraw" class="wide" title="AI 가 이 그림을 깔끔한 도식으로 다시 그려요 (정리본·완성본에서 보여요)">🪄</button><button data-a="orig" class="wide" title="AI 가 다시 그린 그림 ↔ 내 손그림">↩</button></div></div>
+  <div class="paper" id="paper"><svg id="board" xmlns="http://www.w3.org/2000/svg"><g id="world"><g id="gPages"></g><g id="gBack"></g><g id="gBoxes"></g><g id="gHeads"></g><g id="gInk"></g><g id="gClean"></g><g id="gLive"></g></g></svg><div class="selBar" id="selBar" hidden><button data-a="del" title="지우기 (Delete 키)">🗑</button><button data-a="out" title="작게">－</button><button data-a="in" title="크게">＋</button><button data-a="merge" class="wide" title="겹치거나 맞닿은 그림과 하나로 합치기">🧩</button><button data-a="redraw" class="wide" title="AI 가 이 그림을 깔끔한 도식으로 다시 그려요 (정리본·완성본에서 보여요)">🪄</button><button data-a="orig" class="wide" title="AI 가 다시 그린 그림 ↔ 내 손그림">↩</button></div></div>
   <div class="side" id="side"><div class="card empty">아직 덩어리가 없어요. 써 보세요!</div></div>
 </div>
 <div id="toast"></div>
@@ -575,6 +575,22 @@ function straightenHl(st) {
     st.pts = [{ ...a, y: y ?? a.y }, { ...b, y: y ?? b.y }];
   }
 }
+// 그림 덩어리 여러 개를 하나로 (원래 세트·이름표 관계는 합친 그림으로 옮김)
+function mergeDraws(ds) {
+  const key = "G" + ds[0].strokes[0].id + "_" + nextId, old = new Set(ds.map((d) => d.key));
+  for (const d of ds) d.strokes.forEach((st) => { st.lock = key; st.lockAt = nextId; });
+  meta[key] = { type: "draw" };
+  for (const b of blocks) if (b.parent && old.has(b.parent) && !old.has(b.key)) { const k = lockBlock(b, "L"); meta[k].parent = key; if (b.m.setp) meta[k].setp = true; }
+  return key;
+}
+function mergeNear() { // 🧩 고른 그림과 겹치거나 맞닿은 그림을 하나로
+  const u = selUnit(); const b = u && u.b; if (!b || b.type !== "draw") return;
+  const others = nearDraws(b);
+  if (!others.length) return toast("붙어 있는 다른 그림이 없어요 (올가미로 여러 그림을 감싸도 합쳐져요)");
+  snapshot(); sel = mergeDraws([b, ...others]); regroup(); fitBoard(); save();
+  toast(`🧩 그림 ${others.length + 1}개를 하나로 합쳤어요 (↶ 되돌리기 가능)`);
+}
+function nearDraws(b) { return blocks.filter((x) => x !== b && x.type === "draw" && !x.hl && !x.parent && near(b.box, x.box, 14)); }
 function lockBlock(b, pre) {
   const key = b.key[0] === "S" ? pre + b.strokes[0].id : b.key;
   b.strokes.forEach((s) => { s.lock = key; s.lockAt = nextId; });
@@ -594,6 +610,13 @@ function finishLasso(d) {
   const whole = touched.filter((b) => b.strokes.filter((st) => ps.has(st)).length >= b.strokes.length * 0.8);
   const draws = whole.filter((b) => b.type === "draw");
   // 덩어리 여러 개를 통째로 감쌌으면 → 획을 섞지 않고 "세트"로 (글은 글대로 따로 읽고, 같이 움직임)
+  if (whole.length >= 2 && whole.length === touched.length && draws.length >= 2) { // 그림 여러 개 → 하나의 그림으로 합치고, 글은 그 그림의 세트로
+    const mk = mergeDraws(draws);
+    const rest = whole.filter((b) => b.type !== "draw");
+    for (const b of rest) { const k = lockBlock(b, "L"); meta[k].setp = true; meta[k].parent = mk; }
+    sel = mk; regroup(); save(); scheduleRecognize();
+    return toast(`🧩 그림 ${draws.length}개를 하나로 합쳤어요${rest.length ? ` (글 ${rest.length}개는 세트로)` : ""}`);
+  }
   if (whole.length >= 2 && whole.length === touched.length) {
     const main = draws.length ? draws.sort((a, c) => c.box.w * c.box.h - a.box.w * a.box.h)[0] // 그림이 있으면 가장 큰 그림이 대표
       : [...whole].sort((a, c) => a.box.y - c.box.y || a.box.x - c.box.x)[0]; // 글끼리면 맨 위(왼쪽) 글이 대표
@@ -724,6 +747,33 @@ function regroup() {
       if (near2 >= 2) { role[i] = "T"; s0.tree = 1; } else delete s0.tree;
     }
   }
+  //    점선: 짧고 곧은 획(또는 점)이 같은 방향으로 3개 이상 늘어서 있고, 옆에 다른 글자 획이 없으면 그림
+  const dc = new Array(n).fill(false), dAng = new Array(n).fill(null), ctr = bb.map((B) => ({ x: B.x + B.w / 2, y: B.y + B.h / 2 }));
+  for (let i = 0; i < n; i++) {
+    const s0 = strokes[i]; delete s0.dash;
+    if (role[i] !== "T" || s0.hl || s0.img) continue;
+    const B = bb[i], d = Math.hypot(B.w, B.h); if (d > 42) continue;
+    if (d < 6) { dc[i] = true; continue; } // 점
+    const P = s0.pts, a = P[0], z = P[P.length - 1]; let len = 0; for (let k = 1; k < P.length; k++) len += Math.hypot(P[k].x - P[k - 1].x, P[k].y - P[k - 1].y);
+    if (Math.hypot(z.x - a.x, z.y - a.y) / Math.max(1, len) > 0.85) { dc[i] = true; dAng[i] = Math.atan2(z.y - a.y, z.x - a.x); }
+  }
+  const angD = (u, v) => { let d = Math.abs(u - v) % Math.PI; return Math.min(d, Math.PI - d) * 180 / Math.PI; };
+  const linkOK = (i, j) => {
+    if (!dc[i] || !dc[j]) return false;
+    const dd = Math.hypot(ctr[j].x - ctr[i].x, ctr[j].y - ctr[i].y); if (dd < 5 || dd > 48) return false;
+    const v = Math.atan2(ctr[j].y - ctr[i].y, ctr[j].x - ctr[i].x);
+    return !(dAng[i] != null && angD(dAng[i], v) > 22) && !(dAng[j] != null && angD(dAng[j], v) > 22);
+  };
+  const bad = new Array(n).fill(false); // 가까이에 같은 줄이 아닌 글자 획이 있으면 글자의 일부 (ㅡ·ㅣ 등)
+  for (let i = 0; i < n; i++) if (dc[i]) for (const j of cand(i, 14)) if (j !== i && role[j] === "T" && !strokes[j].hl && !linkOK(i, j) && sdist(strokes[i], strokes[j], 14) < 14) { bad[i] = true; break; }
+  for (let i = 0; i < n; i++) if (bad[i]) dc[i] = false;
+  const dpar = [...Array(n).keys()], dfind = (i) => (dpar[i] === i ? i : (dpar[i] = dfind(dpar[i])));
+  for (let i = 0; i < n; i++) {
+    if (dc[i] !== true) continue;
+    for (const j of cand(i, 45)) if (j > i && linkOK(i, j)) dpar[dfind(i)] = dfind(j);
+  }
+  const dcnt = new Map(); for (let i = 0; i < n; i++) if (dc[i] === true) dcnt.set(dfind(i), (dcnt.get(dfind(i)) || 0) + 1);
+  for (let i = 0; i < n; i++) if (dc[i] === true && dcnt.get(dfind(i)) >= 3) { role[i] = "D"; strokes[i].dash = 1; }
   for (let i = 0; i < n; i++) {
     if (role[i] !== "T") continue;
     for (const j of cand(i, 12)) {
@@ -1304,7 +1354,7 @@ function drawTidy(b) {
     const fs0 = cleanFS();
     for (const l of b.m.labels) {
       const L = { x: b.box.x + l.box.x, y: b.box.y + l.box.y, w: l.box.w, h: l.box.h }, E = { x: L.x - 6, y: L.y - 6, w: L.w + 12, h: L.h + 12 };
-      const mine = ss.filter((s) => { if (kindOf(s) === "big") return false; const S = bbox(s.pts); return inside(S, E) || (S.x + S.w / 2 > E.x && S.x + S.w / 2 < E.x + E.w && S.y + S.h / 2 > E.y && S.y + S.h / 2 < E.y + E.h && S.w < E.w * 1.2 && S.h < E.h * 1.4); });
+      const mine = ss.filter((s) => { if (kindOf(s) === "big" || s.dash) return false; const S = bbox(s.pts); return inside(S, E) || (S.x + S.w / 2 > E.x && S.x + S.w / 2 < E.x + E.w && S.y + S.h / 2 > E.y && S.y + S.h / 2 < E.y + E.h && S.w < E.w * 1.2 && S.h < E.h * 1.4); });
       if (!mine.length) continue;
       mine.forEach((s) => out.hide.add(s));
       out.labels.push({ ...L, text: l.text, c: mainColor(mine), fs: Math.round(Math.max(12, Math.min(fs0, L.h * 0.85))) });
@@ -1336,7 +1386,7 @@ function drawTidy(b) {
 // 🏷 그림 속 글씨 읽기 (AI)
 function labList() {
   if (!(gem.key && gem.model) || !$("gLab").checked) return [];
-  return blocks.filter((b) => b.type === "draw" && !b.hl && b.m.labSig !== b.m.sig && b.m.labTry !== b.m.sig && b.strokes.filter((s) => !s.img && !s.hl && kindOf(s) === "small").length >= 2);
+  return blocks.filter((b) => b.type === "draw" && !b.hl && b.m.labSig !== b.m.sig && b.m.labTry !== b.m.sig && b.strokes.filter((s) => !s.img && !s.hl && !s.dash && kindOf(s) === "small").length >= 2);
 }
 const SCHEMA_LAB = { type: "OBJECT", properties: { blocks: { type: "ARRAY", items: { type: "OBJECT", properties: { labels: { type: "ARRAY", items: { type: "OBJECT", properties: { text: { type: "STRING" }, box: { type: "ARRAY", items: { type: "INTEGER" } } }, required: ["text", "box"] } } }, required: ["labels"] } } }, required: ["blocks"] };
 async function readLabels() {
@@ -1818,6 +1868,7 @@ function placeSelBar() {
   bar.hidden = false;
   const db = u.b.type === "draw" && !u.b.hl ? u.b : null;
   bar.querySelector('[data-a="redraw"]').hidden = !db;
+  bar.querySelector('[data-a="merge"]').hidden = !(db && nearDraws(db).length);
   bar.querySelector('[data-a="orig"]').hidden = !(db && db.m.redraw && db.m.redrawSig === db.m.sig);
   if (db) bar.querySelector('[data-a="orig"]').textContent = db.m.useRedraw ? "↩" : "🪄✓";
   bar.querySelector('[data-a="orig"]').title = db && db.m.useRedraw ? "내 손그림으로 되돌리기" : "AI 가 다시 그린 그림 보기";
@@ -1845,7 +1896,7 @@ function zoomSel(k) {
 }
 $("boxT").onclick = () => { boxesOn = !boxesOn; render(true); save(); toast(boxesOn ? "▢ 글/그림 영역을 보여요" : "▢ 영역 표시를 숨겼어요 (✋ 선택으로 누른 것만 보여요)"); };
 $("selBar").addEventListener("pointerdown", (e) => e.stopPropagation());
-$("selBar").onclick = (e) => { const a = e.target.closest("button") && e.target.closest("button").dataset.a; if (a === "del") deleteSel(); if (a === "in") zoomSel(1.15); if (a === "out") zoomSel(1 / 1.15); if (a === "redraw") aiRedraw(); if (a === "orig") toggleRedraw(); };
+$("selBar").onclick = (e) => { const a = e.target.closest("button") && e.target.closest("button").dataset.a; if (a === "del") deleteSel(); if (a === "in") zoomSel(1.15); if (a === "out") zoomSel(1 / 1.15); if (a === "redraw") aiRedraw(); if (a === "merge") mergeNear(); if (a === "orig") toggleRedraw(); };
 document.addEventListener("keydown", (e) => { if ((e.key === "Delete" || e.key === "Backspace") && selUnit() && !e.target.closest("input,textarea,[contenteditable]")) { e.preventDefault(); deleteSel(); } });
 paper.addEventListener("scroll", placeSelBar, { passive: true });
 function scaleBlocks(gs, k, ax, ay) {
