@@ -202,6 +202,7 @@ mark.uns { background: #ffe08a; border-bottom: 2px dotted #d8483b; color: inheri
 <div class="tb" id="tb">
   <span class="seg" id="tool"><button data-v="pen" class="on">✏️ 펜</button><button data-v="erase">🧽 지우개</button><button data-v="move" title="선택: 덩어리를 끌면 옮기기 · 빈 곳에서 빙 둘러 그리면 묶기 · 노란 손잡이로 크기 (펜으로 따닥 = 펜↔선택)">✋ 선택</button></span>
   <span class="seg" id="view"><button data-v="ink">원본</button><button data-v="both" class="on">겹쳐</button><button data-v="clean">정리본</button><button data-v="final" title="상자·표시 없이 완전히 정리된 모습만">완성본</button></span>
+  <button class="btn" id="boxT" title="글/그림 영역 표시 켜기·끄기 (꺼도 ✋ 선택으로 누른 것은 보여요)">▢ 영역</button>
   <span class="seg" id="color"><button data-v="#3b2a20" class="on">⚫</button><button data-v="#d8483b">🔴</button><button data-v="#2f7fd0">🔵</button><button data-v="#2e9e6a">🟢</button></span>
   <button class="btn" id="undo" title="되돌리기 (Ctrl+Z)">↶</button>
   <button class="btn" id="gNow" title="지금 읽기 — 자동 읽기를 껐을 때 이 버튼으로 한 번에 읽어요">📖 읽기</button>
@@ -243,13 +244,14 @@ let recognizer = null, recLang = null;
 /* 노트 저장: 브라우저 저장소(IndexedDB) "trickstudy-notes" 에 노트마다 따로 */
 let saveT = 0;
 function save() { clearTimeout(saveT); $("saveState").textContent = "저장 중…"; saveT = setTimeout(saveNow, 600); }
-let lockedOut = false; // 다른 탭이 이 노트를 가져가면 이 탭은 저장하지 않음
+let lockedOut = false;
+let boxesOn = true; // 글/그림 영역 표시 // 다른 탭이 이 노트를 가져가면 이 탭은 저장하지 않음
 async function saveNow() {
   saveT = 0;
   if (!note || lockedOut) return;
   Object.assign(note, {
     title: $("title").value.trim() || "제목 없는 노트", paper: $("paperSel").value,
-    data: { strokes, meta, nextId, heads }, mode, page, zoom: zFit ? 0 : Z, view, focusUI, sideOn,
+    data: { strokes, meta, nextId, heads }, mode, page, zoom: zFit ? 0 : Z, view, focusUI, sideOn, boxes: boxesOn,
     check: $("gCheck").checked, auto: $("gAuto").checked, updated: Date.now(), scroll: Math.round(paper.scrollTop),
     stats: { pages: pageCount(), blocks: blocks.length, imgs: strokes.filter((st) => st.img).length },
   });
@@ -288,7 +290,7 @@ async function loadNote() {
   const d = n.data || {};
   strokes = d.strokes || []; meta = d.meta || {}; nextId = d.nextId || 1; heads = d.heads || [];
   mode = n.mode || "inf"; page = n.page || 0; view = n.view || "both";
-  focusUI = n.focusUI !== false; sideOn = !!n.sideOn;
+  focusUI = n.focusUI !== false; sideOn = !!n.sideOn; boxesOn = n.boxes !== false;
   if (n.zoom) { Z = n.zoom; zFit = false; }
   $("title").value = n.title || ""; $("paperSel").value = n.paper || "lined";
   $("gCheck").checked = !!n.check; $("gAuto").checked = n.auto !== false;
@@ -378,6 +380,7 @@ svg.addEventListener("pointerdown", (e) => {
   }
   clearTimeout(recT);
   live = { id: nextId++, pts: [p], w: e.pointerType === "pen" ? 2.6 : 3, c: color };
+  if (view === "final") live.fin = 1; // 완성본 위에 덧쓴 필기 → 원래 필기와 따로 묶음
   liveEl = el("path", { class: "stroke", stroke: color, "stroke-width": live.w }, $("gLive"));
   liveEl.setAttribute("d", pathD(live.pts));
 });
@@ -582,6 +585,7 @@ function regroup() {
     if (role[i] !== "T") continue;
     for (let j = 0; j < n; j++) {
       if (role[j] !== "D" || kindOf(strokes[j]) !== "big") continue;
+      if (!!strokes[i].fin !== !!strokes[j].fin) continue;
       const A = strokes[i], Bs = strokes[j];
       if (A.lock && A.lock === Bs.lock) { /* 같은 덩어리 */ } else if ((Bs.lock && A.id < Bs.lockAt) || (A.lock && Bs.id < A.lockAt)) continue; // 옮긴 그림이 원래 있던 글을 먹지 않게
       const B = bb[j];
@@ -603,6 +607,7 @@ function regroup() {
   for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) {
     const a = strokes[i], b = strokes[j];
     if (a.lock && a.lock === b.lock) { par[find(i)] = find(j); continue; }
+    if (!!a.fin !== !!b.fin) continue; // 완성본에서 덧쓴 필기와 원래 필기는 섞지 않음
     if (a.lock && b.lock) continue; // 서로 다른 고정 덩어리는 안 섞음
     // 옮기거나 직접 묶은 덩어리는 원래 있던 획과 섞이지 않고, 그 뒤에 옆에 새로 쓴 획만 붙음
     const L = a.lock ? a : b.lock ? b : null, o = L === a ? b : a;
@@ -650,6 +655,7 @@ function regroup() {
     const bMax = Math.max(...b.strokes.map((st) => st.id));
     for (const d of blocks) {
       if (d.type !== "draw" || !near(b.box, d.box, best)) continue;
+      if (!!b.strokes[0].fin !== !!d.strokes[0].fin) continue; // 덧쓴 필기는 원래 그림의 이름표로 안 붙음
       if (Math.min(...d.strokes.map((st) => st.id)) > bMax) continue; // 글보다 나중에 생긴 그림·사진은 그 글을 이름표로 안 가져감
       for (const s of b.strokes) for (const t of d.strokes) { const v = sdist(s, t, 0); if (v < best) { best = v; pb = d; } }
     }
@@ -1025,13 +1031,17 @@ function render(fast) {
   const gInk = $("gInk"), gBox = $("gBoxes"), gClean = $("gClean");
   gInk.innerHTML = ""; gBox.innerHTML = ""; gClean.innerHTML = "";
   const FINAL = view === "final"; // 완성본: 상자·표시 없이 정리된 모습만
-  if ((tool === "move" || tool === "lasso") && !FINAL) for (const b of blocks) { // 크기 조절 손잡이: 덩어리(세트면 세트 전체) 오른쪽 아래
+  const SHOWBOX = !FINAL && boxesOn, picking = tool === "move" || tool === "lasso";
+  const selMain = (() => { const sb = sel && blocks.find((x) => x.key === sel); return sb ? (sb.parent ? blocks.find((x) => x.key === sb.parent) || sb : sb) : null; })();
+  $("boxT").classList.toggle("off", !boxesOn);
+  if (picking) for (const b of blocks) { // 크기 조절 손잡이: 덩어리(세트면 세트 전체) 오른쪽 아래 (영역 표시를 끄면 고른 것만)
     if (b.parent) continue;
+    if (!SHOWBOX && b !== selMain) continue;
     const G = gripPos(b);
     el("rect", { class: "grip" + (sel === b.key ? " on" : ""), x: G.x - 11, y: G.y - 11, width: 22, height: 22, rx: 6 }, gBox);
     el("path", { class: "gripMark", d: `M${G.x - 5} ${G.y + 5} L${G.x + 5} ${G.y - 5} M${G.x} ${G.y + 5} L${G.x + 5} ${G.y}` }, gBox);
   }
-  if (!FINAL) for (const b of blocks) { // 세트 테두리 (보라색)
+  if (SHOWBOX) for (const b of blocks) { // 세트 테두리 (보라색)
     const kids = blocks.filter((x) => x.parent === b.key && x.m.setp);
     if (!kids.length) continue;
     const B = bbox([b, ...kids].flatMap((x) => [{ x: x.box.x, y: x.box.y }, { x: x.box.x + x.box.w, y: x.box.y + x.box.h }]));
@@ -1051,7 +1061,7 @@ function render(fast) {
       el("path", { class: "stroke", d: pathD(s.pts), stroke: s.c, "stroke-width": widthOf(s), opacity: inkOp }, gInk);
     }
     const pad = 6, bx0 = b.box, bx = isClean() && cleanText && b.m._ch ? { x: bx0.x, y: bx0.y, w: (b.m._cw || bx0.w) + 6, h: Math.max(b.m._ch - 4, 20) } : bx0;
-    if (!FINAL) {
+    if (SHOWBOX || (picking && sel === b.key)) {
       el("rect", { class: "box " + b.type + (b.parent ? " label" : "") + (sel === b.key ? " sel" : ""), x: bx.x - pad, y: bx.y - pad, width: bx.w + pad * 2, height: bx.h + pad * 2, rx: 10 }, gBox);
       const tag = el("text", { class: "tag", x: bx.x - pad + 2, y: bx.y - pad - 4, fill: b.type === "text" ? "#2f7fd0" : "#c23f68" }, gBox);
       tag.textContent = b.parent ? (b.m.setp ? (b.type === "text" ? "설명" : "그림") : "이름표") : b.type === "text" ? "글" : "그림";
@@ -1291,7 +1301,7 @@ const M = 28, GAP = 22, LINE = 40, CLEAN_FS = 22;
 // 정리본 기준 배치: 글 덩어리마다 "바뀐 글씨" 크기가 CLEAN_FS 가 되도록 덩어리 전체(필기 포함)를 키우거나 줄임
 /* 고른 덩어리 옆 작은 버튼: 🗑 지우기 · － ＋ 크기 (스티커·사진·글·그림 모두) */
 function selUnit() {
-  const b = tool === "move" && view !== "final" && sel && blocks.find((x) => x.key === sel);
+  const b = tool === "move" && sel && blocks.find((x) => x.key === sel);
   if (!b) return null;
   const main = b.parent ? blocks.find((x) => x.key === b.parent) || b : b; // 세트·이름표면 대표 기준
   return { b, main, group: [main, ...blocks.filter((x) => x.parent === main.key)] };
@@ -1323,6 +1333,7 @@ function zoomSel(k) {
   sel = u.main.key[0] === "S" ? "L" + u.main.strokes[0].id : u.main.key;
   regroup(); fitBoard(); save();
 }
+$("boxT").onclick = () => { boxesOn = !boxesOn; render(true); save(); toast(boxesOn ? "▢ 글/그림 영역을 보여요" : "▢ 영역 표시를 숨겼어요 (✋ 선택으로 누른 것만 보여요)"); };
 $("selBar").addEventListener("pointerdown", (e) => e.stopPropagation());
 $("selBar").onclick = (e) => { const a = e.target.closest("button") && e.target.closest("button").dataset.a; if (a === "del") deleteSel(); if (a === "in") zoomSel(1.15); if (a === "out") zoomSel(1 / 1.15); };
 document.addEventListener("keydown", (e) => { if ((e.key === "Delete" || e.key === "Backspace") && selUnit() && !e.target.closest("input,textarea,[contenteditable]")) { e.preventDefault(); deleteSel(); } });
