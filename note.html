@@ -669,7 +669,7 @@ function regroup() {
   for (let i = 0; i < n; i++) cellKeys(bb[i], 0, (k) => { let a = grid.get(k); if (!a) grid.set(k, (a = [])); a.push(i); });
   const cand = (i, e) => { const out = []; cellKeys(bb[i], e, (k) => { const a = grid.get(k); if (a) for (const j of a) if (mark[j] !== i) { mark[j] = i; out.push(j); } }); mark.fill(-1, 0, 0); for (const j of out) mark[j] = -1; return out.sort((x, y) => x - y); };
   // 1) 획 역할 정하기: 큰 획 = 그림(D), 작은 획 = 글(T). 단, 그림 선에 붙어 있거나(화살촉) 그림 안에 들어간 작은 획은 그림
-  const role = strokes.map((s) => (kindOf(s) === "big" ? "D" : "T"));
+  const role = strokes.map((s) => (s.hl || kindOf(s) === "big" ? "D" : "T")); // 형광펜은 늘 그림 쪽 (글로 읽지 않음)
   for (let i = 0; i < n; i++) {
     if (role[i] !== "T") continue;
     for (const j of cand(i, 12)) {
@@ -726,7 +726,9 @@ function regroup() {
     const changed = m.sig !== sig;
     if (changed) { m.sig = sig; m.stale = true; }
     const d = ss.filter((s) => s.r === "D").length;
-    const nb = { key, strokes: ss, box, m, type: m.type || (d * 3 >= ss.length && d > 0 ? "draw" : "text") };
+    const allHl = ss.every((st) => st.hl);
+    const nb = { key, strokes: ss, box, m, type: allHl ? "draw" : m.type || (d * 3 >= ss.length && d > 0 ? "draw" : "text") };
+    if (allHl) { nb.hl = true; m.stale = false; } // 형광펜 덩어리는 AI 가 읽지 않음
     if (changed && nb.type === "text") reuseOld(nb, ss, prevOf);
     return nb;
   });
@@ -1222,6 +1224,7 @@ function renderSide() {
   if (!blocks.length) { side.innerHTML = '<div class="card empty">아직 덩어리가 없어요. 써 보세요!</div>'; return; }
   side.innerHTML = "";
   blocks.forEach((b, i) => {
+    if (b.hl) return; // 형광펜은 목록에 안 보임
     if (mode === "page" && Math.floor((b.box.y + b.box.h / 2) / PAGE_H) !== page) return; // 페이지 모드: 지금 장의 덩어리만
     const c = document.createElement("div");
     c.className = "card" + (sel === b.key ? " sel" : "");
