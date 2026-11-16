@@ -40,6 +40,7 @@ h1 { font: 22px var(--font-title); margin: 0; }
 .btn { font: 14px var(--font-title); border: 2px solid var(--ink); border-radius: 12px; background: var(--paper); padding: 6px 12px; cursor: pointer; color: var(--ink); box-shadow: 0 3px 0 var(--ink); }
 .btn:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--ink); }
 .btn.pink { background: var(--pink); }
+.btn.yellow { background: var(--yellow); }
 label.opt { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; }
 select { font: 14px var(--font-body); border: 2px solid var(--ink); border-radius: 10px; padding: 4px 6px; background: var(--paper); }
 .wrap { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 12px; align-items: start; }
@@ -129,8 +130,16 @@ body.zen .paper { height: 100vh !important; border: 0; border-radius: 0; box-sha
   #print { display: block; }
   .pp { width: 210mm; height: 297mm; overflow: hidden; page-break-after: always; break-after: page; position: relative; }
   .pp:last-child { page-break-after: auto; break-after: auto; }
-  .pp svg { width: 210mm; height: 297mm; display: block; }
+  .pp svg, .pg svg { width: 210mm; height: 297mm; display: block; }
+  .pp2 { width: 297mm; height: 210mm; overflow: hidden; display: flex; page-break-after: always; break-after: page; }
+  .pp2:last-child { page-break-after: auto; break-after: auto; }
+  .pp2 .half { width: 148.5mm; height: 210mm; overflow: hidden; position: relative; background: #fff; }
+  .pp2 .half > .pg { width: 210mm; height: 297mm; transform: scale(.70711); transform-origin: 0 0; }
 }
+.pdfopt { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.pdfopt button { text-align: left; padding: 12px !important; font-size: 15px !important; line-height: 1.4; }
+.pdfopt button small { display: block; font: 12px var(--font-body); color: var(--ink-soft); margin-top: 4px; }
+@media (max-width: 520px) { .pdfopt { grid-template-columns: 1fr; } }
 .cover { width: 210mm; height: 297mm; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10mm; background: linear-gradient(#fff8e6, #fdecc8); font-family: var(--font-title); color: var(--ink); text-align: center; }
 .cover .cv-frame { width: 120mm; height: 150mm; border: 2mm solid var(--ink); border-radius: 12mm; background: #fffdf6 radial-gradient(circle at 50% 35%, #fff 0, #ffe9b8 70%); display: flex; align-items: flex-end; justify-content: center; overflow: hidden; }
 .cover .cv-frame img { width: 100%; height: 100%; object-fit: contain; }
@@ -219,6 +228,7 @@ mark.uns { background: #ffe08a; border-bottom: 2px dotted #d8483b; color: inheri
 <div class="say"><p id="say">스타일러스로 써 보세요! 잠깐 멈추면 글은 읽고, 그림은 따로 묶어 둘게요.</p></div>
 <div class="bar">
   <label class="opt">종이 <select id="paperSel"><option value="lined">줄 노트</option><option value="blank">무지</option><option value="grid">격자</option></select></label>
+  <label class="opt">배경 <select id="bgSel"><option value="#ffffff">⬜ 흰색</option><option value="#fff8e6">🟨 크림</option><option value="#fffbd6">💛 연노랑</option><option value="#eaf6ff">🩵 하늘</option><option value="#e9f8ef">💚 민트</option><option value="#fff0f4">🩷 분홍</option><option value="#f3edff">💜 연보라</option><option value="#f2efe9">🤎 모래</option></select></label>
   <label class="opt">묶기 간격 <input type="range" id="gap" min="10" max="80" value="34"></label>
   <label class="opt"><input type="checkbox" id="penOnly" checked> 펜만 쓰기(손바닥 무시)</label>
   <label class="opt" title="같은 자리를 펜으로 빠르게 2번 = 펜↔선택, 3번 = 그 덩어리 글↔그림"><input type="checkbox" id="tapKeys" checked> 따닥 단축키</label>
@@ -267,6 +277,7 @@ mark.uns { background: #ffe08a; border-bottom: 2px dotted #d8483b; color: inheri
   <button data-a="exit" title="집중 끝내기 (Esc)" class="zx">⛶ 나가기</button>
 </div>
 <div id="print"></div>
+<style id="pageSize"></style>
 
 <script>
 "use strict";
@@ -296,7 +307,7 @@ async function saveNow() {
   saveT = 0;
   if (!note || lockedOut) return;
   Object.assign(note, {
-    title: $("title").value.trim() || "제목 없는 노트", paper: $("paperSel").value,
+    title: $("title").value.trim() || "제목 없는 노트", paper: $("paperSel").value, bg: $("bgSel").value,
     data: { strokes, meta, nextId, heads }, mode, page, zoom: zFit ? 0 : Z, view, focusUI, sideOn, boxes: boxesOn,
     check: $("gCheck").checked, auto: $("gAuto").checked, updated: Date.now(), scroll: Math.round(paper.scrollTop),
     stats: { pages: pageCount(), blocks: blocks.length, imgs: strokes.filter((st) => st.img).length },
@@ -338,7 +349,7 @@ async function loadNote() {
   mode = n.mode || "inf"; page = n.page || 0; view = n.view || "both";
   focusUI = n.focusUI !== false; sideOn = !!n.sideOn; boxesOn = n.boxes !== false;
   if (n.zoom) { Z = n.zoom; zFit = false; }
-  $("title").value = n.title || ""; $("paperSel").value = n.paper || "lined";
+  $("title").value = n.title || ""; $("paperSel").value = n.paper || "lined"; $("bgSel").value = n.bg || "#ffffff"; if (!$("bgSel").value) $("bgSel").value = "#ffffff";
   $("gCheck").checked = !!n.check; $("gAuto").checked = n.auto !== false;
   document.title = (n.title || "노트") + " · 트릭스터디";
 }
@@ -1360,7 +1371,7 @@ function fitBoard(force) {
   $("pnav").hidden = mode !== "page";
   const pages = mode === "page" ? 1 : Math.max(pageCount(), Math.ceil((contentBottom() + PAGE_H * 0.35) / PAGE_H));
   const y0 = offY(), H = pages * PAGE_H;
-  const sig = [y0, H, Z, mode, page, $("paperSel").value].join("|");
+  const sig = [y0, H, Z, mode, page, $("paperSel").value, $("bgSel").value].join("|");
   $("pNum").textContent = `${page + 1} / ${pageCount()}`;
   if (!force && sig === lastFit) { updatePageLabel(); return; } // 그대로면 다시 안 그림
   lastFit = sig;
@@ -1371,7 +1382,7 @@ function fitBoard(force) {
 }
 // 종이 무늬 (줄·격자·무지) + 장 경계 — PDF 에도 그대로 씀
 function paperMarkup(i, kind) {
-  const y = i * PAGE_H; let h = `<rect class="pageBg" x="0" y="${y}" width="${PAGE_W}" height="${PAGE_H}"/>`;
+  const y = i * PAGE_H; let h = `<rect class="pageBg" x="0" y="${y}" width="${PAGE_W}" height="${PAGE_H}" style="fill:${$("bgSel").value}"/>`;
   if (kind === "lined") { for (let ly = 80; ly < PAGE_H - 30; ly += LINE) h += `<line class="ruled" x1="0" x2="${PAGE_W}" y1="${y + ly}" y2="${y + ly}"/>`; }
   if (kind === "grid") { for (let gx = 20; gx < PAGE_W; gx += 20) h += `<line class="gridL" x1="${gx}" x2="${gx}" y1="${y}" y2="${y + PAGE_H}"/>`; for (let gy = 20; gy < PAGE_H; gy += 20) h += `<line class="gridL" x1="0" x2="${PAGE_W}" y1="${y + gy}" y2="${y + gy}"/>`; }
   return h;
@@ -1401,7 +1412,7 @@ function goPage(n) {
 }
 $("pPrev").onclick = () => goPage(page - 1);
 $("pNext").onclick = () => goPage(page + 1);
-$("paperSel").onchange = () => { fitBoard(true); save(); };
+$("paperSel").onchange = $("bgSel").onchange = () => { fitBoard(true); save(); };
 seg("mode", (v) => {
   const wasPage = mode === "page", vp = viewPage();
   mode = v;
@@ -2203,6 +2214,35 @@ function spinePick(id, opts) {
     startSkin(idx);
   });
 }
+/* PDF 모양 고르기: 한 장에 한 쪽 / 접어서 만드는 책 */
+function pdfLayoutPick() {
+  return new Promise((done) => {
+    let last = "one"; try { last = localStorage.getItem("trickstudy-note-pdf") || "one"; } catch (e) { /* 무시 */ }
+    const ov = document.createElement("div"); ov.className = "cvp";
+    ov.innerHTML = `<div class="cvp-box" style="max-width:520px"><h3>📕 어떤 모양으로 뽑을까요?</h3><div class="pdfopt">
+      <button class="btn${last === "one" ? " yellow" : ""}" data-k="one">📄 한 쪽씩<small>A4 한 장에 한 쪽</small></button>
+      <button class="btn${last === "book" ? " yellow" : ""}" data-k="book">📖 접는 책<small>A4 한 장(가로)에 두 쪽씩. 양면으로 뽑아 반으로 접어 겹치면 책이 돼요 (표지↔마지막 쪽, 2쪽↔끝에서 둘째 쪽…)</small></button>
+      </div><div class="cvp-foot"><button class="btn" data-k="">취소</button></div></div>`;
+    ov.onclick = (e) => {
+      const b = e.target.closest("[data-k]"); if (!b && e.target !== ov) return;
+      const k = b ? b.dataset.k : ""; ov.remove();
+      if (k) { try { localStorage.setItem("trickstudy-note-pdf", k); } catch (e2) { /* 무시 */ } }
+      done(k || null);
+    };
+    document.body.appendChild(ov);
+  });
+}
+/* 중철(가운데 접기) 배치: 4쪽 배수로 빈 쪽을 채우고, 종이 s 앞면 = [끝-2s | 2s], 뒷면 = [2s+1 | 끝-1-2s] */
+function bookletHtml(pgs) {
+  const a = pgs.slice(); while (a.length % 4) a.push("");
+  const N = a.length, half = (x) => `<div class="half"><div class="pg">${x}</div></div>`;
+  let h = "";
+  for (let s2 = 0; s2 < N / 4; s2++) {
+    h += `<div class="pp2">${half(a[N - 1 - 2 * s2])}${half(a[2 * s2])}</div>`;
+    h += `<div class="pp2">${half(a[2 * s2 + 1])}${half(a[N - 2 - 2 * s2])}</div>`;
+  }
+  return h;
+}
 async function coverSado() {
   let st = {}; try { st = JSON.parse(localStorage.getItem("trickcal-study") || "{}") || {}; } catch (e) { st = {}; }
   const id = st.partner || "erpin", c = (typeof SADO !== "undefined" && SADO.find((x) => x.id === id)) || {};
@@ -2219,6 +2259,8 @@ $("pdfBtn").onclick = async () => {
   const before = view;
   try {
     await saveNow();
+    const kindPdf = await pdfLayoutPick();
+    if (!kindPdf) return; // 취소
     btn.textContent = "📸 표지 찍는 중…";
     const cov = await coverPick();
     if (!cov) return; // 취소
@@ -2229,13 +2271,14 @@ $("pdfBtn").onclick = async () => {
     const inner = world.innerHTML;
     const title = esc($("title").value.trim() || "노트"), date = new Date().toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric" });
     const sums = note.pages.map((p2, i) => (p2 && p2.summary ? `<div>${i + 1}쪽 · ${esc(p2.summary)}</div>` : "")).join("");
-    let h = `<div class="pp"><div class="cover"><div class="cv-badge">트릭스터디 노트</div><div class="cv-frame"><img src="${cov.src}" alt=""></div>
-      <h1>${title}</h1><div class="cv-sub">${date}${cov.name ? ` · 대표 사도 ${esc(cov.name)}` : ""} · ${n}쪽</div>${sums ? `<div class="cv-sub" style="font-size:4.2mm;line-height:1.6">${sums}</div>` : ""}</div></div>`;
-    for (let i = 0; i < n; i++) h += `<div class="pp"><svg xmlns="${NS}" viewBox="0 ${i * PAGE_H} ${PAGE_W} ${PAGE_H}"><g>${paperMarkup(i, kind)}</g><g>${inner}</g></svg></div>`;
-    $("print").innerHTML = h;
+    const pgs = [`<div class="cover"><div class="cv-badge">트릭스터디 노트</div><div class="cv-frame"><img src="${cov.src}" alt=""></div>
+      <h1>${title}</h1><div class="cv-sub">${date}${cov.name ? ` · 대표 사도 ${esc(cov.name)}` : ""} · ${n}쪽</div>${sums ? `<div class="cv-sub" style="font-size:4.2mm;line-height:1.6">${sums}</div>` : ""}</div>`];
+    for (let i = 0; i < n; i++) pgs.push(`<svg xmlns="${NS}" viewBox="0 ${i * PAGE_H} ${PAGE_W} ${PAGE_H}"><g>${paperMarkup(i, kind)}</g><g>${inner}</g></svg>`);
+    $("print").innerHTML = kindPdf === "book" ? bookletHtml(pgs) : pgs.map((x) => `<div class="pp"><div class="pg">${x}</div></div>`).join("");
+    $("pageSize").textContent = kindPdf === "book" ? "@media print { @page { size: A4 landscape; margin: 0; } }" : "";
     await Promise.all([...$("print").querySelectorAll("img")].map((im) => (im.complete ? 0 : new Promise((r) => { im.onload = im.onerror = r; }))));
     if (document.fonts && document.fonts.ready) await document.fonts.ready;
-    toast("인쇄 창에서 대상: ‘PDF로 저장’, 용지: A4 를 골라 주세요");
+    toast(kindPdf === "book" ? "인쇄 창에서 용지 A4·가로, 양면 인쇄는 ‘짧은 쪽으로 넘기기’를 골라 주세요" : "인쇄 창에서 대상: ‘PDF로 저장’, 용지: A4 를 골라 주세요");
     await new Promise((r) => setTimeout(r, 300));
     const old = document.title; document.title = $("title").value.trim() || "노트"; // PDF 파일 이름
     window.print();
