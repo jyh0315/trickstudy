@@ -175,6 +175,12 @@ body.noside .side { display: none; }
 .cleanB { display: inline-block; font-family: var(--font-body); color: var(--ink); line-height: 1.55; white-space: nowrap; }
 .cleanB > div { white-space: nowrap; width: max-content; }
 .cleanB .katex { font-size: 1.05em; }
+/* 나무 모양 가지선 */
+.cleanB .tc { display: inline-block; width: 1.5em; height: 40px; vertical-align: top; position: relative; }
+.cleanB .tc.v::before, .cleanB .tc.t::before, .cleanB .tc.l::before { content: ""; position: absolute; left: .55em; top: 0; border-left: 2px solid currentColor; opacity: .75; }
+.cleanB .tc.v::before, .cleanB .tc.t::before { bottom: 0; }
+.cleanB .tc.l::before { height: 50%; }
+.cleanB .tc.t::after, .cleanB .tc.l::after { content: ""; position: absolute; left: .55em; right: .15em; top: 50%; border-top: 2px solid currentColor; opacity: .75; }
 .card .txt .katex { font-size: 1.05em; }
 .ai { background: var(--paper); border: 2px solid var(--ink); border-radius: 14px; padding: 6px 12px; margin-bottom: 10px; }
 .ai summary { cursor: pointer; font: 15px var(--font-title); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
@@ -655,10 +661,23 @@ function reuseOld(nb, ss, prevOf) {
     r.items.sort((a, c) => a.lb.x - c.lb.x);
     const x0 = Math.min(...r.items.map((i) => i.lb.x)), x1 = Math.max(...r.items.map((i) => i.lb.x + i.lb.w));
     const text = r.items.map((i) => i.l.text).join(" ");
-    return { text, orig: text, c: (r.items.find((i) => i.l.c) || { l: {} }).l.c, alts: [], unsure: r.items.flatMap((i) => i.l.unsure || []), box: { x: x0, y: r.y0, w: x1 - x0, h: r.y1 - r.y0 } };
+    return { text, orig: text, c: (r.items.find((i) => i.l.c) || { l: {} }).l.c, lv: (r.items[0].l.lv | 0), alts: [], unsure: r.items.flatMap((i) => i.l.unsure || []), box: { x: x0, y: r.y0, w: x1 - x0, h: r.y1 - r.y0 } };
   });
   nb.m.lines = relLines(nb, lines); nb.m.stale = false; nb.m.merged = true; nb.m.hint = "";
   nb.m.check = read.map((o) => o.check).filter(Boolean).join(" ");
+}
+// 가로·세로로만 꺾인 선인지 (가지선 ├, 괄호 [, 세로줄 │, 가로 연결선 ─) — 동그라미·그림 곡선은 아님
+function isTreeLine(s, B) {
+  const P = s.pts; if (P.length < 2) return false;
+  const diag = Math.hypot(B.w, B.h); if (diag < 50) return false;
+  const a = P[0], z = P[P.length - 1];
+  if (Math.hypot(z.x - a.x, z.y - a.y) < diag * 0.25 && P.length > 8) return false; // 닫힌 모양(동그라미)
+  let axis = 0, tot = 0;
+  for (let i = 1; i < P.length; i++) {
+    const dx = P[i].x - P[i - 1].x, dy = P[i].y - P[i - 1].y, L = Math.hypot(dx, dy); if (!L) continue;
+    tot += L; if (Math.abs(dx) < L * 0.36 || Math.abs(dy) < L * 0.36) axis += L; // 약 20° 안쪽이면 가로·세로
+  }
+  return tot > 0 && axis / tot > 0.72;
 }
 function regroup() {
   const g = +$("gap").value;
@@ -672,6 +691,16 @@ function regroup() {
   const cand = (i, e) => { const out = []; cellKeys(bb[i], e, (k) => { const a = grid.get(k); if (a) for (const j of a) if (mark[j] !== i) { mark[j] = i; out.push(j); } }); mark.fill(-1, 0, 0); for (const j of out) mark[j] = -1; return out.sort((x, y) => x - y); };
   // 1) 획 역할 정하기: 큰 획 = 그림(D), 작은 획 = 글(T). 단, 그림 선에 붙어 있거나(화살촉) 그림 안에 들어간 작은 획은 그림
   const role = strokes.map((s) => (s.hl || kindOf(s) === "big" ? "D" : "T")); // 형광펜은 늘 그림 쪽 (글로 읽지 않음)
+  //    가지선·괄호·세로줄(구조선): 거의 가로·세로로만 꺾인 선인데 글자가 여럿 붙어 있으면 그 글의 일부 (트리·마인드맵)
+  for (let i = 0; i < n; i++) {
+    const s0 = strokes[i];
+    if (role[i] !== "D" || s0.img || s0.hl) continue;
+    if (isTreeLine(s0, bb[i])) {
+      let near2 = 0;
+      for (const j of cand(i, 44)) { if (role[j] === "T" && !strokes[j].hl && sdist(strokes[j], s0, 44) < 44 && ++near2 >= 2) break; }
+      if (near2 >= 2) { role[i] = "T"; s0.tree = 1; } else delete s0.tree;
+    }
+  }
   for (let i = 0; i < n; i++) {
     if (role[i] !== "T") continue;
     for (const j of cand(i, 12)) {
@@ -870,6 +899,7 @@ const GPROMPT = `학생의 손글씨 필기 조각들을 글자로 옮겨 주세
 - 글자 모양이 분명하면 문맥과 달라도 쓴 그대로 옮기세요. 문맥(과목·단원, 같은 페이지의 다른 글, 예전에 고친 예)은 모양이 애매한 글자를 고를 때만 참고하세요.
 - 학생이 쓴 내용이 개념상 틀려 보여도 절대 고치지 마세요.
 - 줄은 위에서 아래 순서로, 이미지 속 실제 줄 수와 같게 나누세요.
+- 가지선·괄호·세로줄로 항목의 상위·하위를 나타낸 구조(트리·마인드맵)가 있으면: 그 덩어리의 tree 를 true 로, 줄은 "상위 항목 → 바로 아래에 그 하위 항목들" 순서로 나열하고, 각 줄의 lv 에 단계(맨 위 0, 그 아래 1, 그 아래 2…)를 넣으세요. 옆으로 뻗은 가지도 하위 항목이에요. 선·괄호 자체는 글자로 옮기지 마세요. 그런 구조가 없으면 tree 는 false, lv 는 모두 0.
 - 화살표는 LaTeX 말고 글자 → ← ↑ ↓ ⇒ 를 그대로 쓰세요.
 - 수식(분수·지수·근호·그리스 문자 등)만 LaTeX 로 $...$ 안에 (예: $x^2+1$). JSON 문자열 안이므로 역슬래시는 두 번 (예: "$\\frac{1}{2}$").
 - unsure: 이 줄에서 모양만으로는 확실하지 않아서 문맥으로 고른 낱말, 또는 자신 없는 낱말을 text 에 나온 그대로 넣으세요. 없으면 [].
@@ -916,8 +946,8 @@ function parseLoose0(txt) {
 }
 const S = (t, o) => Object.assign({ type: t }, o || {});
 const SCHEMA_READ = S("OBJECT", { properties: { blocks: S("ARRAY", { items: S("OBJECT", { properties: {
-  lines: S("ARRAY", { items: S("OBJECT", { properties: { text: S("STRING"), alts: S("ARRAY", { items: S("STRING") }), unsure: S("ARRAY", { items: S("STRING") }) }, required: ["text"] }) }),
-  check: S("STRING") }, required: ["lines"] }) }) }, required: ["blocks"] });
+  lines: S("ARRAY", { items: S("OBJECT", { properties: { text: S("STRING"), lv: S("INTEGER"), alts: S("ARRAY", { items: S("STRING") }), unsure: S("ARRAY", { items: S("STRING") }) }, required: ["text"] }) }),
+  tree: S("BOOLEAN"), check: S("STRING") }, required: ["lines"] }) }) }, required: ["blocks"] });
 const SCHEMA_TIDY = S("OBJECT", { properties: { title: S("STRING"), sections: S("ARRAY", { items: S("OBJECT", { properties: { title: S("STRING"), items: S("ARRAY", { items: S("INTEGER") }) }, required: ["title", "items"] }) }) }, required: ["sections"] });
 // 공통 호출: 형식(스키마)을 정해서 요청 → 붐비면 다른 모델 → 형식이 깨지면 한 번 더
 // 모델별 쉬는 시간: 오늘 무료 한도를 다 쓴 모델은 내일까지, 잠깐 한도(분당)는 알려준 시간만큼 건너뜀
@@ -1034,7 +1064,7 @@ function applyLines(b, glines) {
   }
   const out = glines.map((g, i) => {
     const text = fixArrow(String(g.text || ""));
-    return { text, orig: text, c: ls[i].strokes ? mainColor(ls[i].strokes) : mainColor(b.strokes), alts: (g.alts || []).map(String).filter((a) => a && a !== text).slice(0, 4), unsure: (g.unsure || []).map(String).filter((u) => u && text.includes(u)), box: { ...ls[i].box } };
+    return { text, orig: text, c: ls[i].strokes ? mainColor(ls[i].strokes) : mainColor(b.strokes), alts: (g.alts || []).map(String).filter((a) => a && a !== text).slice(0, 4), unsure: (g.unsure || []).map(String).filter((u) => u && text.includes(u)), lv: Math.max(0, Math.min(6, g.lv | 0)), box: { ...ls[i].box } };
   });
   return relLines(b, out);
 }
@@ -1070,7 +1100,7 @@ async function recognizeAll(manual, onlyKey) {
         const r = res[i], b = blocks.find((x) => x.m.sig === sigs[i]);
         if (!b) return; // 그새 묶음이 바뀜 → 새 묶음은 다시 읽음
         b.m.stale = false;
-        if (r && r.lines) { b.m.merged = false; b.m.hint = ""; b.m.reread = ""; b.m.check = realCheck(r.check); b.m.lines = applyLines(b, r.lines); b.m.ms = ms; b.m.edited = false; b.m.engine = gemRecognize.used; }
+        if (r && r.lines) { b.m.merged = false; b.m.hint = ""; b.m.reread = ""; b.m.check = realCheck(r.check); b.m.lines = applyLines(b, r.lines); b.m.tree = !!r.tree && b.m.lines.some((l) => l.lv > 0); b.m.ms = ms; b.m.edited = false; b.m.engine = gemRecognize.used; }
       });
       if (blocks.some((b) => b.type === "text" && b.m.stale)) scheduleRecognize();
       aiStat("ok", "🤖"); lastMs = ms; say(`글 덩어리 ${list.length}개를 읽었어요! (${(ms / 1000).toFixed(1)}초${gemRecognize.used !== gem.model ? " · 붐벼서 " + gemRecognize.used + " 사용" : ""}) 틀린 건 오른쪽에서 고치거나 후보를 골라요.`);
@@ -1129,6 +1159,20 @@ function mainColor(ss) {
   for (const st of ss || []) { if (st.img) continue; let len = 0; for (let i = 1; i < st.pts.length; i++) len += Math.abs(st.pts[i].x - st.pts[i - 1].x) + Math.abs(st.pts[i].y - st.pts[i - 1].y); w[st.c || INK] = (w[st.c || INK] || 0) + len + 1; }
   let best = INK, bv = -1; for (const k in w) if (w[k] > bv) { bv = w[k]; best = k; }
   return best;
+}
+// 나무 모양 앞부분: 줄마다 단계(lv)에 따라 │ ├ └ 칸을 만듦 (손으로 그은 선 대신 반듯한 가지선)
+function treeCells(rows) {
+  const lv = rows.map((l) => Math.max(0, l.lv | 0));
+  const laterSib = (k) => { for (let j = k + 1; j < rows.length; j++) { if (lv[j] < lv[k]) return false; if (lv[j] === lv[k]) return true; } return false; };
+  return rows.map((_, k) => {
+    if (!lv[k]) return "";
+    let h = "";
+    for (let d = 1; d < lv[k]; d++) { // 위쪽 단계의 세로줄이 계속 이어지는지
+      let anc = -1; for (let j = k - 1; j >= 0; j--) if (lv[j] === d) { anc = j; break; } else if (lv[j] < d) break;
+      h += `<i class="tc${anc >= 0 && laterSib(anc) ? " v" : ""}"></i>`;
+    }
+    return h + `<i class="tc ${laterSib(k) ? "t" : "l"}"></i>`;
+  });
 }
 const isClean = () => view === "clean" || view === "final";
 // 보이는 쪽(+앞뒤 여유)만 그림 — 노트가 길어도 가볍게. all=true 면 전부 (PDF·배치처럼 전체가 필요할 때)
@@ -1191,7 +1235,8 @@ function render(fast, all) {
       const fo = el("foreignObject", { x: bx.x, y: bx.y + 3, width: W + 30, height: 10 }, gClean); // 노트 줄 칸 안에 앉게 살짝 아래로
       const dv = document.createElement("div"); dv.className = "cleanB"; dv.style.cssText = `font-size:${fsz}px;max-width:${W}px;line-height:${LINE}px`; // 줄 간격 = 노트 줄 간격
       const bc = mainColor(b.strokes);
-      dv.innerHTML = b.m.lines.filter((l) => l.text).map((l) => { const c = l.c || bc; return `<div${c !== INK ? ` style="color:${c}"` : ""}>${richHTML(l)}</div>`; }).join("");
+      const rows = b.m.lines.filter((l) => l.text), pre = b.m.tree ? treeCells(rows) : null;
+      dv.innerHTML = rows.map((l, k) => { const c = l.c || bc; return `<div${c !== INK ? ` style="color:${c}"` : ""}>${pre ? pre[k] : ""}${richHTML(l)}</div>`; }).join("");
       fo.appendChild(dv);
       for (const row of dv.children) if (row.scrollWidth > W + 2) row.style.fontSize = Math.max(0.55, W / row.scrollWidth).toFixed(3) + "em"; // 줄바꿈 안 되는 긴 수식만 그 줄만 줄임
       const h = dv.scrollHeight; fo.setAttribute("height", h + 8); b.m._ch = h; b.m._cw = Math.min(W, Math.max(...[...dv.children].map((r) => r.scrollWidth), 40));
@@ -1237,7 +1282,7 @@ function renderSide() {
     if (b.type === "text") {
       const t = document.createElement("div");
       t.className = "txt"; t.contentEditable = "true"; t.spellcheck = false;
-      const show = () => { const bc = mainColor(b.strokes); t.innerHTML = b.m.lines.map((l) => { const c = l.c || bc; return c !== INK ? `<span style="color:${c}">${richHTML(l)}</span>` : richHTML(l); }).join("\n"); };
+      const show = () => { const bc = mainColor(b.strokes); t.innerHTML = b.m.lines.map((l) => { const c = l.c || bc, ind = b.m.tree && l.lv ? "　".repeat(l.lv - 1) + "└ " : ""; return ind + (c !== INK ? `<span style="color:${c}">${richHTML(l)}</span>` : richHTML(l)); }).join("\n"); };
       if (b.m.lines) { show(); t.onfocus = () => { t.textContent = b.m.lines.map((l) => l.text).join("\n"); }; } // 고칠 땐 원래 글자(수식은 $...$)로
       else t.textContent = gem.key ? (busy ? "(읽는 중…)" : "(아직 못 읽음 — 위 🤖 칩을 누르면 다시 읽어요)") : env.api === "yes" ? "(읽는 중…)" : "(이 기기에선 인식 불가 — 🔑 Gemini 키를 넣어 주세요)";
       t.onblur = () => {
