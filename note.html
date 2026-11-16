@@ -1820,7 +1820,7 @@ async function addPhoto(file, at, opt) {
     const k = Math.min(1, 1600 / Math.max(bmp.width, bmp.height)); // 긴 변 1600px 로 줄여서 저장 공간 아끼기
     const c = document.createElement("canvas"); c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
     c.getContext("2d").drawImage(bmp, 0, 0, c.width, c.height);
-    const blob = await new Promise((ok) => (opt.sticker ? c.toBlob(ok, "image/webp", 0.92) : c.toBlob(ok, "image/jpeg", 0.85))); // 스티커는 투명 배경 그대로
+    const blob = await new Promise((ok) => (opt.sticker ? c.toBlob(ok, "image/webp", 0.97) : c.toBlob(ok, "image/jpeg", 0.85))); // 스티커는 투명 배경 그대로
     const id = "img" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     await imgPut(id, blob); await loadImg(id);
     const W = PAGE_W, w = opt.w || Math.min(opt.sticker ? 200 : 420, W * 0.45, c.width), h = opt.h || (w * c.height) / c.width;
@@ -2070,10 +2070,21 @@ function snapSpine(base) {
 const MOODS = [["대기", /^Idle_/], ["기쁨", /^(Happy|Smile|Laugh)_/], ["뿌듯", /^(Proud|Pride)_/], ["부끄럼", /^Shy_/], ["춤", /^Dance_/], ["놀람", /^(Surprise|Panic)_/], ["삐짐", /^(Sulky|Angry|Mad)_/], ["슬픔", /^(Sad|Sorry|Tear)_/], ["졸림", /^(Sleep|Tired|Close)_/], ["냠냠", /^Eat_/], ["터치", /^Touch_/], ["쓰다듬", /^Pat_/], ["간지럼", /^Tickle_/]];
 const gameState = () => { try { return JSON.parse(localStorage.getItem("trickcal-study") || "{}") || {}; } catch (e) { return {}; } };
 // 움직이는 사도 찍기: 그래픽 카드 화면은 그린 직후가 아니면 비어 있을 수 있어서, 다음 화면을 그리는 그 순간에 찍음
+/* 찍는 순간에만 보이지 않게 크게(최대 3배, 2400px 이하) 그려서 선명하게 찍음 */
 function grabSpine(p, host) {
-  return new Promise((ok) => requestAnimationFrame(() => {
-    try { if (p.drawFrame) p.drawFrame(false); ok(host.querySelector("canvas").toDataURL("image/png")); } catch (e) { ok(null); }
-  }));
+  return new Promise((ok) => {
+    const st = host.style, old = { w: st.width, h: st.height, t: st.transform, o: st.transformOrigin };
+    const w = host.clientWidth || 300, h = host.clientHeight || 300, dpr = window.devicePixelRatio || 1;
+    const K = Math.max(1, Math.min(3, 2400 / (Math.max(w, h) * dpr)));
+    Object.assign(st, { width: w * K + "px", height: h * K + "px", transform: `scale(${1 / K})`, transformOrigin: "0 0" });
+    requestAnimationFrame(() => {
+      let url = null;
+      try { if (p.drawFrame) p.drawFrame(false); url = host.querySelector("canvas").toDataURL("image/png"); } catch (e) {}
+      Object.assign(st, { width: old.w, height: old.h, transform: old.t, transformOrigin: old.o });
+      try { if (p.drawFrame) p.drawFrame(false); } catch (e) {}
+      ok(url);
+    });
+  });
 }
 // 찍은 사진이 거의 투명(빈 사진)인지 확인
 async function isBlankImg(url) {
