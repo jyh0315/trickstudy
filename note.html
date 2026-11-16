@@ -62,6 +62,18 @@ select { font: 14px var(--font-body); border: 2px solid var(--ink); border-radiu
 .marginL { stroke: #ffc2c2; stroke-width: 1.2; }
 /* PDF (인쇄) */
 #print { display: none; }
+/* ⛶ 집중 모드: 노트만 */
+body.zen { padding: 0 !important; overflow: hidden; }
+body.zen .nbar, body.zen #settings, body.zen .tb, body.zen .side { display: none !important; }
+body.zen .wrap { display: block; }
+body.zen .paper { height: 100vh !important; border: 0; border-radius: 0; box-shadow: none; }
+.zen { position: fixed; left: 50%; bottom: 12px; transform: translateX(-50%); z-index: 30; display: flex; align-items: center; gap: 3px; padding: 5px 7px; background: rgba(255, 248, 230, .96); border: 2px solid var(--ink); border-radius: 16px; box-shadow: 0 4px 0 var(--ink); touch-action: none; }
+.zen[hidden] { display: none; }
+.zen button { font: 15px var(--font-title); min-width: 36px; height: 34px; border: 2px solid transparent; border-radius: 10px; background: transparent; cursor: pointer; color: var(--ink); padding: 0 6px; }
+.zen button.on { background: var(--yellow); border-color: var(--ink); }
+.zen .zx { background: var(--pink); border-color: var(--ink); }
+.zen .zsep { width: 2px; height: 22px; background: var(--ink-soft); opacity: .4; margin: 0 3px; }
+.zen .zpg[hidden] { display: none; }
 .cvp { position: fixed; inset: 0; z-index: 50; background: rgba(40, 28, 20, .55); display: grid; place-items: center; padding: 16px; }
 .cvp-box { background: var(--cream); border: var(--line); border-radius: 20px; box-shadow: var(--shadow); padding: 14px 16px; max-width: 720px; width: 100%; }
 .cvp-box h3 { margin: 0 0 10px; font: 20px var(--font-title); }
@@ -144,12 +156,14 @@ body.noside .side { display: none; }
 .head { font: 24px var(--font-title); fill: #2f5fb0; }
 .headBg { fill: #fff1a8; }
 #board * { pointer-events: none; } /* 펜 입력은 항상 판 전체가 받음 (상자를 다시 그려도 끊기지 않게) */
-#board.move { cursor: grab; } #board.erase { cursor: cell; }
+#board.move, #board.hand { cursor: grab; }
+#board.placing { cursor: copy; } #board.erase { cursor: cell; }
 .stroke { fill: none; stroke-linecap: round; stroke-linejoin: round; }
 .box { fill: none; stroke-width: 2; stroke-dasharray: 6 5; rx: 10; }
 .box.text { stroke: #4aa3df; fill: rgba(143, 211, 255, .08); } .box.draw { stroke: #e0577f; fill: rgba(255, 143, 177, .08); }
 .box.label { stroke-dasharray: 2 4; }
 .setBox { fill: rgba(183, 124, 255, .06); stroke: #b77cff; stroke-width: 2.5; stroke-dasharray: 10 6; }
+.hlStroke { stroke-opacity: .38; stroke-linecap: round; }
 .grip { fill: var(--yellow); stroke: var(--ink); stroke-width: 2.5; }
 .grip.on { fill: var(--pink); }
 .gripMark { stroke: var(--ink); stroke-width: 2; stroke-linecap: round; fill: none; }
@@ -192,6 +206,7 @@ mark.uns { background: #ffe08a; border-bottom: 2px dotted #d8483b; color: inheri
   <label class="psum" title="이 페이지가 무슨 내용인지 짧게 — AI가 글을 읽을 때 참고해요"><b id="pLabel">1쪽</b><input id="pSum" placeholder="이 페이지 요약" autocomplete="off"></label>
   <button class="aiStat" id="aiStat" title="AI 글씨 읽기 상태 — 누르면 지금 다시 읽어요">🤖 …</button>
   <span class="meta" id="saveState">저장됨</span>
+  <button class="btn" id="zenBtn" title="노트만 보기 — 화면 가득 필기 (Esc 로 나가기)">⛶ 집중</button>
   <button class="btn pink" id="pdfBtn" title="A4 PDF 로 저장 (첫 장에 대표 사도와 제목)">📕 PDF</button>
 </div>
 <div id="settings">
@@ -208,7 +223,7 @@ mark.uns { background: #ffe08a; border-bottom: 2px dotted #d8483b; color: inheri
 </div>
 </div>
 <div class="tb" id="tb">
-  <span class="seg" id="tool"><button data-v="pen" class="on">✏️ 펜</button><button data-v="erase">🧽 지우개</button><button data-v="move" title="선택: 덩어리를 끌면 옮기기 · 빈 곳에서 빙 둘러 그리면 묶기 · 노란 손잡이로 크기 (펜으로 따닥 = 펜↔선택)">✋ 선택</button></span>
+  <span class="seg" id="tool"><button data-v="pen" class="on">✏️ 펜</button><button data-v="erase">🧽 지우개</button><button data-v="move" title="선택: 덩어리를 끌면 옮기기 · 빈 곳에서 빙 둘러 그리면 묶기 · 노란 손잡이로 크기 (펜으로 따닥 = 펜↔선택)">✋ 선택</button><button data-v="hl" title="형광펜: 글씨 위에 바로 그어요 (검정 펜이면 노랑, 다른 색이면 그 색)">🖍</button><button data-v="hand" title="화면 이동: 끌어서 노트를 움직여요 (두 손가락으로도 돼요)">🖐</button></span>
   <span class="seg" id="view"><button data-v="ink">원본</button><button data-v="both" class="on">겹쳐</button><button data-v="clean">정리본</button><button data-v="final" title="상자·표시 없이 완전히 정리된 모습만">완성본</button></span>
   <button class="btn" id="boxT" title="글/그림 영역 표시 켜기·끄기 (꺼도 ✋ 선택으로 누른 것은 보여요)">▢ 영역</button>
   <span class="seg" id="color"><button data-v="#3b2a20" class="on">⚫</button><button data-v="#d8483b">🔴</button><button data-v="#2f7fd0">🔵</button><button data-v="#2e9e6a">🟢</button></span>
@@ -233,6 +248,16 @@ mark.uns { background: #ffe08a; border-bottom: 2px dotted #d8483b; color: inheri
   <div class="side" id="side"><div class="card empty">아직 덩어리가 없어요. 써 보세요!</div></div>
 </div>
 <div id="toast"></div>
+<div class="zen" id="zenBar" hidden>
+  <button data-t="pen" title="펜">✏️</button><button data-t="erase" title="지우개">🧽</button><button data-t="hl" title="형광펜">🖍</button><button data-t="move" title="선택">✋</button><button data-t="hand" title="화면 이동">🖐</button>
+  <span class="zsep"></span>
+  <button data-c="#3b2a20" title="검정">⚫</button><button data-c="#d8483b" title="빨강">🔴</button><button data-c="#2f7fd0" title="파랑">🔵</button><button data-c="#2e9e6a" title="초록">🟢</button>
+  <span class="zsep"></span>
+  <button data-a="undo" title="되돌리기">↶</button><button data-a="out" title="축소">－</button><button data-a="fit" title="폭 맞춤">↔</button><button data-a="in" title="확대">＋</button>
+  <span class="zpg" id="zenPg"><button data-a="prev" title="앞 장">◀</button><button data-a="next" title="다음 장">▶</button></span>
+  <span class="zsep"></span>
+  <button data-a="exit" title="집중 끝내기 (Esc)" class="zx">⛶ 나가기</button>
+</div>
 <div id="print"></div>
 
 <script>
@@ -356,10 +381,16 @@ function pathD(pts) {
 function widthOf(s) { const ps = s.pts.map((q) => q.p); const avg = ps.reduce((a, b) => a + b, 0) / Math.max(1, ps.length); return +(s.w * (0.55 + avg * 0.9)).toFixed(2); }
 function el(tag, attrs, parent) { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (parent) parent.appendChild(e); return e; }
 
-let live = null, liveEl = null, activePointer = null, dragging = null;
+let live = null, liveEl = null, activePointer = null, dragging = null, firstTouch = null;
 svg.addEventListener("pointerdown", (e) => {
   env.inputs.add(e.pointerType);
-  if (e.pointerType === "touch" && $("penOnly").checked && env.inputs.has("pen")) { startPan(e); return; } // 손가락 = 스크롤/넘기기 (손바닥으로 그려지지 않음)
+  if (tool === "hand" || (e.pointerType === "touch" && $("penOnly").checked && env.inputs.has("pen")) || touches.size) { startPan(e); return; } // 🖐 이동 도구 / 펜 쓰는 중 손가락 = 이동
+  if (e.pointerType === "touch" && activePointer != null && firstTouch && firstTouch.id === activePointer) { // 손가락으로 그리다 두 번째 손가락 → 그리기 취소하고 확대·이동
+    if (live) { live = null; $("gLive").innerHTML = ""; nextId--; }
+    dragging = null; activePointer = null;
+    startPan({ pointerId: firstTouch.id, clientX: firstTouch.x, clientY: firstTouch.y }); startPan(e); return;
+  }
+  if (e.pointerType === "touch") firstTouch = { id: e.pointerId, x: e.clientX, y: e.clientY };
   if (activePointer != null) return;
   activePointer = e.pointerId; svg.setPointerCapture(e.pointerId);
   const p = pt(e);
@@ -368,6 +399,11 @@ svg.addEventListener("pointerdown", (e) => {
   const hh = (tool === "move" || erasing) && headAt(p); // 소제목: 지우개로 지우고, 옮기기로 끌기
   if (hh && erasing) { snapshot(); heads = heads.filter((x) => x !== hh); render(); save(); dragging = { erase: true }; return; }
   if (hh) { snapshot(); dragging = { head: hh, x: p.x, y: p.y, moved: false }; return; }
+  if (pendingShape && !erasing) { // 📐 도형 놓기: 누르면 그 자리, 끌면 그 크기·방향
+    dragging = { place: pendingShape, x0: p.x, y0: p.y, x1: p.x, y1: p.y }; $("gLive").innerHTML = "";
+    dragging.el = el("path", { fill: "rgba(255,211,78,.18)", stroke: "#e9a91d", "stroke-width": 2, "stroke-dasharray": "6 4" }, $("gLive"));
+    return;
+  }
   if (erasing) { snapshot(); eraseAt(p); dragging = { erase: true }; return; }
   const sb = (tool === "move" || tool === "lasso") && blocks.find((x) => { if (x.parent) return false; const G = gripPos(x); return Math.abs(p.x - G.x) < 16 && Math.abs(p.y - G.y) < 16; });
   if (sb) { // 손잡이 잡음 → 크기 조절 (세트면 세트 전체)
@@ -382,12 +418,19 @@ svg.addEventListener("pointerdown", (e) => {
   }
   if (tool === "move" || tool === "lasso") { // ✋ 선택: 덩어리 위 = 옮기기, 빈 곳 = 올가미 묶기
     const b = blockAt(p);
-    if (b) { snapshot(); sel = b.key; const group = [b, ...blocks.filter((x) => x.parent === b.key)]; dragging = { b, group, x: p.x, y: p.y, moved: false }; svg.style.cursor = "grabbing"; render(); return; }
+    if (b) { snapshot(); sel = b.key; const group = [b, ...blocks.filter((x) => x.parent === b.key)];
+      if (!b.strokes[0].hl) for (const h of blocks) if (h.strokes[0].hl && !group.includes(h) && near(h.box, b.box, -4)) group.push(h); // 그 위에 그은 형광펜도 같이
+      dragging = { b, group, x: p.x, y: p.y, moved: false }; svg.style.cursor = "grabbing"; render(); return; }
     if (sel) { sel = null; render(); }
     dragging = { lasso: [p] }; $("gLive").innerHTML = ""; dragging.el = el("path", { fill: "rgba(183,124,255,.12)", stroke: "#b77cff", "stroke-width": 2, "stroke-dasharray": "5 4" }, $("gLive"));
     return;
   }
   clearTimeout(recT);
+  if (tool === "hl") { // 🖍 형광펜: 굵고 반투명, 글씨 뒤에
+    live = { id: nextId++, pts: [p], w: 18, c: hlColor(), hl: 1 };
+    liveEl = el("path", { class: "stroke hlStroke", stroke: live.c, "stroke-width": live.w }, $("gLive"));
+    liveEl.setAttribute("d", pathD(live.pts)); return;
+  }
   live = { id: nextId++, pts: [p], w: e.pointerType === "pen" ? 2.6 : 3, c: color };
   if (view === "final") live.fin = 1; // 완성본 위에 덧쓴 필기 → 원래 필기와 따로 묶음
   liveEl = el("path", { class: "stroke", stroke: color, "stroke-width": live.w }, $("gLive"));
@@ -398,6 +441,11 @@ svg.addEventListener("pointermove", (e) => {
   if (tapDown) { const q = pt(e); tapDown.far = Math.max(tapDown.far, Math.hypot(q.x - tapDown.x, q.y - tapDown.y)); }
   const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
   if (dragging && dragging.erase) { evs.forEach((ev) => eraseAt(pt(ev))); return; }
+  if (dragging && dragging.place) {
+    const q = pt(e); dragging.x1 = q.x; dragging.y1 = q.y; const d = dragging;
+    dragging.el.setAttribute("d", d.place.line ? `M${d.x0} ${d.y0} L${d.x1} ${d.y1}` : `M${d.x0} ${d.y0} H${d.x1} V${d.y1} H${d.x0} Z`);
+    return;
+  }
   if (dragging && dragging.lasso) { dragging.lasso.push(pt(e)); dragging.el.setAttribute("d", "M" + dragging.lasso.map((q) => q.x + " " + q.y).join(" L") + " Z"); return; }
   if (dragging && dragging.resize) {
     const d = dragging, p = pt(e);
@@ -460,6 +508,7 @@ function endPointer(e) {
       regroup(); save();
     } else if (d.erase) { regroup(); save(); scheduleRecognize(); }
     else if (d.lasso) finishLasso(d);
+    else if (d.place) { $("gLive").innerHTML = ""; placeShape(d); }
     else if (d.head) save();
     else if (d.resize) {
       for (const o of d.orig) o.st.pts.forEach((q) => { q.x = +q.x.toFixed(1); q.y = +q.y.toFixed(1); });
@@ -472,12 +521,25 @@ function endPointer(e) {
   }
   if (!live) return;
   snapshotAdd(live.id);
+  if (live.hl) straightenHl(live);
   strokes.push(live); if (tapped) onTap(tapped.x, tapped.y, live.id); live = null; $("gLive").innerHTML = "";
   regroup(); save(); scheduleRecognize(); fitBoard();
 }
 svg.addEventListener("pointerup", endPointer);
 svg.addEventListener("pointercancel", endPointer);
 
+// 형광펜 색: 검정 펜이면 노랑, 다른 색이면 그 색
+const hlColor = () => (color === "#3b2a20" ? "#ffd400" : color);
+// 거의 곧게 그었으면 자로 그은 것처럼 펴기
+function straightenHl(st) {
+  const P = st.pts, a = P[0], b = P[P.length - 1]; if (P.length < 3) return;
+  let len = 0; for (let i = 1; i < P.length; i++) len += Math.hypot(P[i].x - P[i - 1].x, P[i].y - P[i - 1].y);
+  if (Math.hypot(b.x - a.x, b.y - a.y) / Math.max(1, len) > 0.92) {
+    const flat = Math.abs(b.y - a.y) < Math.abs(b.x - a.x) * 0.15; // 거의 가로면 수평으로
+    const y = flat ? (a.y + b.y) / 2 : null;
+    st.pts = [{ ...a, y: y ?? a.y }, { ...b, y: y ?? b.y }];
+  }
+}
 function lockBlock(b, pre) {
   const key = b.key[0] === "S" ? pre + b.strokes[0].id : b.key;
   b.strokes.forEach((s) => { s.lock = key; s.lockAt = nextId; });
@@ -524,10 +586,13 @@ function unlock(key) {
   strokes.forEach((s) => { if (s.lock === key) { delete s.lock; delete s.lockAt; } });
   delete meta[key]; sel = null; regroup(); save(); scheduleRecognize();
 }
+function segDist(p, a, b) { const dx = b.x - a.x, dy = b.y - a.y, L = dx * dx + dy * dy || 1, t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / L)); return Math.hypot(p.x - a.x - t * dx, p.y - a.y - t * dy); }
 function eraseAt(p) {
   const r = 12, before = strokes.length;
   // 획을 먼저 지우고, 지운 획이 없을 때만 그 자리의 그림·도형을 (맨 위 하나만, 배경 도형은 맨 나중)
-  strokes = strokes.filter((s) => s.img || !s.pts.some((q) => Math.hypot(q.x - p.x, q.y - p.y) < r + s.w));
+  const hitS = (s) => s.pts.length === 2 ? segDist(p, s.pts[0], s.pts[1]) < r + s.w / 2 : s.pts.some((q) => Math.hypot(q.x - p.x, q.y - p.y) < r + (s.hl ? s.w / 2 : s.w));
+  strokes = strokes.filter((s) => s.img || s.hl || !hitS(s)); // 글씨 먼저
+  if (strokes.length === before) strokes = strokes.filter((s) => !s.hl || !hitS(s)); // 그다음 형광펜
   if (strokes.length === before) {
     const inside = (s) => { const B = bbox(s.pts); return p.x >= B.x && p.x <= B.x + B.w && p.y >= B.y && p.y <= B.y + B.h; };
     const hit = [...strokes].reverse().find((s) => s.img && !s.back && inside(s)) || [...strokes].reverse().find((s) => s.img && s.back && inside(s));
@@ -600,7 +665,7 @@ function regroup() {
     if (role[i] !== "T") continue;
     for (let j = 0; j < n; j++) {
       if (role[j] !== "D" || kindOf(strokes[j]) !== "big") continue;
-      if (strokes[j].img) continue; // 사진·도형·스티커 위에 쓴 글씨는 글 그대로 (말풍선 안 글씨 등)
+      if (strokes[j].img || strokes[j].hl || strokes[i].hl) continue; // 사진·도형·스티커·형광펜 위에 쓴 글씨는 글 그대로
       if (!!strokes[i].fin !== !!strokes[j].fin) continue;
       const A = strokes[i], Bs = strokes[j];
       if (A.lock && A.lock === Bs.lock) { /* 같은 덩어리 */ } else if ((Bs.lock && A.id < Bs.lockAt) || (A.lock && Bs.id < A.lockAt)) continue; // 옮긴 그림이 원래 있던 글을 먹지 않게
@@ -624,6 +689,7 @@ function regroup() {
     const a = strokes[i], b = strokes[j];
     if (a.lock && a.lock === b.lock) { par[find(i)] = find(j); continue; }
     if (!!a.fin !== !!b.fin) continue; // 완성본에서 덧쓴 필기와 원래 필기는 섞지 않음
+    if (a.hl || b.hl) continue; // 형광펜은 획마다 따로 (글씨와 안 섞임)
     if (a.lock && b.lock) continue; // 서로 다른 고정 덩어리는 안 섞음
     // 옮기거나 직접 묶은 덩어리는 원래 있던 획과 섞이지 않고, 그 뒤에 옆에 새로 쓴 획만 붙음
     const L = a.lock ? a : b.lock ? b : null, o = L === a ? b : a;
@@ -672,6 +738,7 @@ function regroup() {
     for (const d of blocks) {
       if (d.type !== "draw" || !near(b.box, d.box, best)) continue;
       if (!!b.strokes[0].fin !== !!d.strokes[0].fin) continue; // 덧쓴 필기는 원래 그림의 이름표로 안 붙음
+      if (d.strokes[0].hl) continue; // 형광펜에는 이름표가 안 붙음
       if (Math.min(...d.strokes.map((st) => st.id)) > bMax) continue; // 글보다 나중에 생긴 그림·사진은 그 글을 이름표로 안 가져감
       for (const s of b.strokes) for (const t of d.strokes) { const v = sdist(s, t, 0); if (v < best) { best = v; pb = d; } }
     }
@@ -1079,10 +1146,11 @@ function render(fast) {
         else { el("rect", { x: B.x, y: B.y, width: B.w, height: B.h, fill: "#eee", stroke: "#bbb" }, layer); loadImg(s.img).then((o) => o && render(true)); }
         continue;
       }
+      if (s.hl) { el("path", { class: "stroke hlStroke", d: pathD(s.pts), stroke: s.c, "stroke-width": s.w }, gBack); continue; } // 형광펜: 글씨 뒤
       el("path", { class: "stroke", d: pathD(s.pts), stroke: s.c, "stroke-width": widthOf(s), opacity: inkOp }, gInk);
     }
     const pad = 6, bx0 = b.box, bx = isClean() && cleanText && b.m._ch ? { x: bx0.x, y: bx0.y, w: (b.m._cw || bx0.w) + 6, h: Math.max(b.m._ch - 4, 20) } : bx0;
-    if (SHOWBOX || (picking && sel === b.key)) {
+    if ((SHOWBOX && !b.strokes[0].hl) || (picking && sel === b.key)) {
       el("rect", { class: "box " + b.type + (b.parent ? " label" : "") + (sel === b.key ? " sel" : ""), x: bx.x - pad, y: bx.y - pad, width: bx.w + pad * 2, height: bx.h + pad * 2, rx: 10 }, gBox);
       const tag = el("text", { class: "tag", x: bx.x - pad + 2, y: bx.y - pad - 4, fill: b.type === "text" ? "#2f7fd0" : "#c23f68" }, gBox);
       tag.textContent = b.parent ? (b.m.setp ? (b.type === "text" ? "설명" : "그림") : "이름표") : b.type === "text" ? "글" : "그림";
@@ -1253,42 +1321,101 @@ seg("mode", (v) => {
   if (v === "inf" && wasPage) paper.scrollTop = page * PAGE_H * Z;
   toast(v === "page" ? "📄 페이지 노트 — ◀ ▶ 로 넘겨요 (손가락으로 옆으로 밀어도 돼요)" : "📜 무한 노트 — A4 장이 아래로 이어져요");
 });
-/* 확대·축소: ＋/－ 버튼, Ctrl+휠, 두 손가락 벌리기 */
-function setZoom(z, cx, cy) {
-  const r = paper.getBoundingClientRect(), ax = (cx ?? r.left + r.width / 2) - r.left, ay = (cy ?? r.top + r.height / 2) - r.top;
-  const wx = (paper.scrollLeft + ax) / Z, wy = (paper.scrollTop + ay) / Z; // 손가락·마우스 아래 지점을 고정
-  zFit = false; Z = Math.max(0.3, Math.min(3, z));
-  fitBoard();
-  paper.scrollLeft = wx * Z - ax; paper.scrollTop = wy * Z - ay;
-  save();
+/* 확대·축소·이동
+   · 두 손가락: 벌리면 확대, 끌면 이동 (동시에)   · 펜을 쓰는 중엔 한 손가락 = 이동   · 🖐 이동 도구: 펜·마우스로 끌어 이동
+   · Ctrl+휠 / 트랙패드 꼬집기: 확대
+   움직이는 동안은 화면만 늘였다 줄였다(가볍게) 하고, 손을 떼면 그때 한 번만 다시 그림 */
+const clampZ = (z) => Math.max(0.3, Math.min(4, z));
+let gest = null;
+function gestStart(cx, cy) { // 화면 점 (cx,cy) 아래의 노트 지점을 기억
+  const r = svg.getBoundingClientRect();
+  gest = { k: 1, cx, cy, ex: cx, ey: cy, wx: (cx - r.left) / Z, wy: (cy - r.top) / Z + offY() };
+  svg.style.transformOrigin = `${cx - r.left}px ${cy - r.top}px`; svg.style.willChange = "transform";
 }
+function gestMove(k, cx, cy) { // 배율 k 배, 손가락 가운데가 (cx,cy) 로
+  if (!gest) return;
+  gest.k = clampZ(Z * k) / Z; gest.ex = cx; gest.ey = cy;
+  svg.style.transform = `translate(${cx - gest.cx}px, ${cy - gest.cy}px) scale(${gest.k})`;
+  $("zNum").textContent = Math.round(Z * gest.k * 100) + "%";
+}
+function gestEnd() {
+  if (!gest) return;
+  const g = gest; gest = null;
+  svg.style.transform = ""; svg.style.willChange = "";
+  if (Math.abs(g.k - 1) > 0.002) { zFit = false; Z = clampZ(Z * g.k); fitBoard(); }
+  const r = svg.getBoundingClientRect(); // 기억한 노트 지점이 손가락 가운데 아래 오게
+  paper.scrollLeft += r.left + g.wx * Z - g.ex; paper.scrollTop += r.top + (g.wy - offY()) * Z - g.ey;
+  updatePageLabel(); placeSelBar(); save();
+}
+function setZoom(z, cx, cy) { const r = paper.getBoundingClientRect(); cx = cx ?? r.left + r.width / 2; cy = cy ?? r.top + r.height / 2; gestStart(cx, cy); gestMove(clampZ(z) / Z, cx, cy); gestEnd(); }
 $("zIn").onclick = () => setZoom(Z * 1.2);
 $("zOut").onclick = () => setZoom(Z / 1.2);
 $("zFit").onclick = () => { zFit = true; fitBoard(); save(); };
-paper.addEventListener("wheel", (e) => { if (!e.ctrlKey) return; e.preventDefault(); setZoom(Z * (e.deltaY < 0 ? 1.1 : 1 / 1.1), e.clientX, e.clientY); }, { passive: false });
-let pan = null; const touches = new Map(); let pinch = null;
-function startPan(e) {
-  touches.set(e.pointerId, { x: e.clientX, y: e.clientY }); svg.setPointerCapture(e.pointerId);
-  if (touches.size === 2) { const [a, b] = [...touches.values()]; pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), z: Z }; pan = null; return; }
+let wheelK = 1, wheelT = 0;
+paper.addEventListener("wheel", (e) => {
+  if (!e.ctrlKey) return; e.preventDefault();
+  if (!gest) { gestStart(e.clientX, e.clientY); wheelK = 1; }
+  wheelK *= Math.exp(-e.deltaY * 0.0022); gestMove(wheelK, e.clientX, e.clientY);
+  clearTimeout(wheelT); wheelT = setTimeout(gestEnd, 160);
+}, { passive: false });
+const touches = new Map(); let pan = null, two = null;
+function startPan(e) { // 손가락(또는 🖐 도구) 하나 = 이동, 두 개 = 확대+이동
+  touches.set(e.pointerId, { x: e.clientX, y: e.clientY }); try { svg.setPointerCapture(e.pointerId); } catch (er) { /* 무시 */ }
+  if (touches.size >= 2) {
+    pan = null; const [a, b] = [...touches.values()];
+    two = { d: Math.max(20, Math.hypot(a.x - b.x, a.y - b.y)) }; gestStart((a.x + b.x) / 2, (a.y + b.y) / 2); return;
+  }
   pan = { id: e.pointerId, x: e.clientX, y: e.clientY, sl: paper.scrollLeft, st: paper.scrollTop };
 }
 svg.addEventListener("pointermove", (e) => {
   if (!touches.has(e.pointerId)) return;
   touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
-  if (pinch && touches.size === 2) { const [a, b] = [...touches.values()]; setZoom(pinch.z * Math.hypot(a.x - b.x, a.y - b.y) / Math.max(20, pinch.d), (a.x + b.x) / 2, (a.y + b.y) / 2); return; }
+  if (two && touches.size >= 2) { const [a, b] = [...touches.values()]; gestMove(Math.hypot(a.x - b.x, a.y - b.y) / two.d, (a.x + b.x) / 2, (a.y + b.y) / 2); return; }
   if (!pan || e.pointerId !== pan.id) return;
   paper.scrollLeft = pan.sl - (e.clientX - pan.x); paper.scrollTop = pan.st - (e.clientY - pan.y);
 });
 const endPan = (e) => {
   if (!touches.has(e.pointerId)) return;
   touches.delete(e.pointerId);
-  if (touches.size < 2) pinch = null;
+  if (two) { if (touches.size < 2) { two = null; pan = null; gestEnd(); } return; } // 두 손가락이 끝나면 그 자리에서 마무리 (남은 손가락으로 튀지 않게)
   if (!pan || e.pointerId !== pan.id) return;
   const dx = e.clientX - pan.x, dy = e.clientY - pan.y; pan = null;
   if (mode === "page" && Z <= (paper.clientWidth - 28) / PAGE_W + 0.01 && Math.abs(dx) > 70 && Math.abs(dx) > Math.abs(dy) * 1.5) goPage(page + (dx < 0 ? 1 : -1));
 };
 svg.addEventListener("pointerup", endPan); svg.addEventListener("pointercancel", endPan);
 paper.addEventListener("scroll", () => { updatePageLabel(); if (mode === "inf" && paper.scrollTop + paper.clientHeight > svg.clientHeight * 1 - 200 * Z) fitBoard(); }, { passive: true });
+
+/* ───────── ⛶ 집중 모드: 노트만 화면 가득 + 작은 도구판 ───────── */
+let zen = false;
+function syncZen() {
+  const z = document.getElementById("zenBar"); if (!z) return;
+  z.querySelectorAll("[data-t]").forEach((b) => b.classList.toggle("on", b.dataset.t === tool));
+  z.querySelectorAll("[data-c]").forEach((b) => b.classList.toggle("on", b.dataset.c === color));
+  $("zenPg").hidden = mode !== "page";
+}
+function setZen(on) {
+  if (zen === on) return;
+  zen = on; document.body.classList.toggle("zen", on); $("zenBar").hidden = !on;
+  if (on && document.documentElement.requestFullscreen && !document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => { /* 안 되면 창 안에서만 */ });
+  if (!on && document.fullscreenElement) document.exitFullscreen().catch(() => { /* 무시 */ });
+  syncZen(); requestAnimationFrame(() => { fitPaper(); fitBoard(); });
+  if (on) toast("⛶ 노트만 보기 — 아래 도구판의 ⛶ 나가기 또는 Esc");
+}
+$("zenBtn").onclick = () => setZen(true);
+document.addEventListener("fullscreenchange", () => { if (!document.fullscreenElement && zen) setZen(false); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && zen) setZen(false); });
+$("zenBar").addEventListener("pointerdown", (e) => e.stopPropagation());
+$("zenBar").onclick = (e) => {
+  const b = e.target.closest("button"); if (!b) return;
+  if (b.dataset.t) setTool(b.dataset.t);
+  if (b.dataset.c) { const cb = $("color").querySelector(`[data-v="${b.dataset.c}"]`); if (cb) cb.click(); }
+  const a = b.dataset.a;
+  if (a === "undo") $("undo").click();
+  if (a === "in") setZoom(Z * 1.2); if (a === "out") setZoom(Z / 1.2); if (a === "fit") $("zFit").click();
+  if (a === "prev") goPage(page - 1); if (a === "next") goPage(page + 1);
+  if (a === "exit") setZen(false);
+  syncZen();
+};
 
 /* ───────── 화면 정리: 설정 숨기기 / 목록 숨기기 ───────── */
 function applyUI() {
@@ -1398,7 +1525,7 @@ function units() {
   });
   // 꾸미기(사도 스티커·화살표·표시처럼 글이 없는 스티커/도형)는 가장 가까운 내용에 딸려서 같이 움직임
   //  → 배치·AI 정리 때 엉뚱한 곳으로 떨어지지 않고, 자리도 같이 차지해서 겹치지 않음
-  const isDeco = (u) => u.group.length === 1 && u.b.strokes.every((st) => st.img && st.sticker);
+  const isDeco = (u) => u.group.length === 1 && u.b.strokes.every((st) => (st.img && st.sticker) || st.hl);
   const gap = (a, c) => Math.hypot(Math.max(0, a.x - (c.x + c.w), c.x - (a.x + a.w)), Math.max(0, a.y - (c.y + c.h), c.y - (a.y + a.h)));
   const content = list.filter((u) => !isDeco(u));
   for (const d of list.filter(isDeco)) {
@@ -1589,7 +1716,7 @@ async function addPhoto(file, at, opt) {
     const blob = await new Promise((ok) => (opt.sticker ? c.toBlob(ok, "image/webp", 0.92) : c.toBlob(ok, "image/jpeg", 0.85))); // 스티커는 투명 배경 그대로
     const id = "img" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     await imgPut(id, blob); await loadImg(id);
-    const W = PAGE_W, w = opt.w || Math.min(opt.sticker ? 200 : 420, W * 0.45, c.width), h = (w * c.height) / c.width;
+    const W = PAGE_W, w = opt.w || Math.min(opt.sticker ? 200 : 420, W * 0.45, c.width), h = opt.h || (w * c.height) / c.width;
     const top = mode === "page" ? page * PAGE_H : paper.scrollTop / Z;
     let x = M, y = top + 40;
     if (at) { x = at.x; y = at.y; }
@@ -1624,7 +1751,7 @@ paper.addEventListener("drop", async (e) => {
 
 /* ───────── 도구 ───────── */
 function seg(id, cb) { $(id).querySelectorAll("button").forEach((bt) => (bt.onclick = () => { $(id).querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === bt)); cb(bt.dataset.v); })); }
-seg("tool", (v) => { tool = v; setTimeout(() => render(true)); svg.classList.toggle("move", v === "move"); svg.classList.toggle("erase", v === "erase"); if (v === "move") say("✋ 선택: 덩어리를 끌면 옮기기, 빈 곳에서 빙 둘러 그리면 묶기(그림+글을 감싸면 세트), 노란 손잡이로 크기 조절이에요."); if (v !== "move") { sel = null; render(); } });
+seg("tool", (v) => { tool = v; if (typeof pendingShape !== "undefined" && pendingShape) { pendingShape = null; svg.classList.remove("placing"); } setTimeout(() => render(true)); svg.classList.toggle("move", v === "move"); svg.classList.toggle("hand", v === "hand"); syncZen(); svg.classList.toggle("erase", v === "erase"); if (v === "move") say("✋ 선택: 덩어리를 끌면 옮기기, 빈 곳에서 빙 둘러 그리면 묶기(그림+글을 감싸면 세트), 노란 손잡이로 크기 조절이에요."); if (v !== "move") { sel = null; render(); } });
 seg("view", (v) => { view = v; render(); clearTimeout(saveT); saveNow(); });
 seg("color", (v) => (color = v));
 $("gap").oninput = () => { regroup(); };
@@ -1653,18 +1780,18 @@ const SHAPES = [
   { k: "memo", name: "메모지", w: 220, back: 1, svg: () => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 210"><rect x="10" y="12" width="200" height="190" fill="#e8c95a" opacity=".35" transform="translate(4 4)"/><path d="M10 10h200v170l-28 28H10z" fill="#fff3a8"/><path d="M210 180l-28 28v-28z" fill="#ead27a"/><rect x="80" y="2" width="60" height="18" rx="3" fill="#ff8fb1" opacity=".75"/></svg>` },
   { k: "hl", name: "형광펜 띠", w: 280, back: 1, svg: () => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 44"><rect x="2" y="4" width="276" height="36" rx="10" fill="#ffe14d" opacity=".55"/></svg>` },
   { k: "hlP", name: "분홍 형광", w: 280, back: 1, svg: () => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 44"><rect x="2" y="4" width="276" height="36" rx="10" fill="#ff8fb1" opacity=".45"/></svg>` },
-  { k: "arrowR", name: "화살표 →", w: 150, svg: (ink) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 150 40"><path d="M6 20h126M112 6l24 14-24 14" fill="none" stroke="${ink}" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>` },
-  { k: "arrowD", name: "화살표 ↓", w: 40, svg: (ink) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 140"><path d="M20 6v116M6 102l14 24 14-24" fill="none" stroke="${ink}" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>` },
-  { k: "arrowLR", name: "양쪽 ↔", w: 160, svg: (ink) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 40"><path d="M10 20h140M30 6L8 20l22 14M130 6l22 14-22 14" fill="none" stroke="${ink}" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>` },
-  { k: "arrowC", name: "굽은 화살표", w: 150, svg: (ink) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 150 110"><path d="M10 100C10 40 60 18 128 22M108 8l22 14-20 16" fill="none" stroke="${ink}" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>` },
+  { k: "arrowR", line: 1, name: "화살표 →", w: 150, svg: (ink) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 150 40"><path d="M6 20h126M112 6l24 14-24 14" fill="none" stroke="${ink}" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>` },
+  { k: "arrowD", line: 1, name: "화살표 ↓", w: 40, svg: (ink) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 140"><path d="M20 6v116M6 102l14 24 14-24" fill="none" stroke="${ink}" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>` },
+  { k: "arrowLR", line: 1, name: "양쪽 ↔", w: 160, svg: (ink) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 40"><path d="M10 20h140M30 6L8 20l22 14M130 6l22 14-22 14" fill="none" stroke="${ink}" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>` },
+  { k: "arrowC", line: 1, name: "굽은 화살표", w: 150, svg: (ink) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 150 110"><path d="M10 100C10 40 60 18 128 22M108 8l22 14-20 16" fill="none" stroke="${ink}" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>` },
   { k: "circle", name: "동그라미", w: 200, back: 1, svg: (ink) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 110"><ellipse cx="100" cy="55" rx="94" ry="49" fill="none" stroke="${ink}" stroke-width="4" stroke-dasharray="1 0"/></svg>` },
   { k: "wave", name: "물결 밑줄", w: 240, svg: (ink) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 24"><path d="M4 12q12-10 24 0t24 0 24 0 24 0 24 0 24 0 24 0 24 0 24 0 24 0" fill="none" stroke="${ink}" stroke-width="4" stroke-linecap="round"/></svg>` },
-  { k: "important", name: "중요!", w: 96, svg: () => tagSvg("★ 중요", "#ff7b6e") },
-  { k: "memorize", name: "암기", w: 90, svg: () => tagSvg("🧠 암기", "#b77cff") },
-  { k: "exam", name: "시험", w: 90, svg: () => tagSvg("📌 시험", "#4aa3df") },
-  { k: "check", name: "체크", w: 60, svg: () => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 60"><circle cx="30" cy="30" r="26" fill="#7fd6c2" stroke="#3b2a20" stroke-width="3"/><path d="M17 31l9 9 17-19" fill="none" stroke="#3b2a20" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>` },
-  { k: "star", name: "별", w: 60, svg: () => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 60"><path d="M30 4l7.6 16.4 17.9 2.1-13.2 12.3 3.5 17.7L30 43.6 14.2 52.5l3.5-17.7L4.5 22.5l17.9-2.1z" fill="#ffd34e" stroke="#3b2a20" stroke-width="3" stroke-linejoin="round"/></svg>` },
-  { k: "q", name: "물음표", w: 60, svg: () => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 60"><circle cx="30" cy="30" r="26" fill="#ffd0dc" stroke="#3b2a20" stroke-width="3"/><text x="30" y="42" text-anchor="middle" font-size="34" font-family="Jua, sans-serif" fill="#3b2a20">?</text></svg>` },
+  { k: "important", keep: 1, name: "중요!", w: 96, svg: () => tagSvg("★ 중요", "#ff7b6e") },
+  { k: "memorize", keep: 1, name: "암기", w: 90, svg: () => tagSvg("🧠 암기", "#b77cff") },
+  { k: "exam", keep: 1, name: "시험", w: 90, svg: () => tagSvg("📌 시험", "#4aa3df") },
+  { k: "check", keep: 1, name: "체크", w: 60, svg: () => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 60"><circle cx="30" cy="30" r="26" fill="#7fd6c2" stroke="#3b2a20" stroke-width="3"/><path d="M17 31l9 9 17-19" fill="none" stroke="#3b2a20" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>` },
+  { k: "star", keep: 1, name: "별", w: 60, svg: () => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 60"><path d="M30 4l7.6 16.4 17.9 2.1-13.2 12.3 3.5 17.7L30 43.6 14.2 52.5l3.5-17.7L4.5 22.5l17.9-2.1z" fill="#ffd34e" stroke="#3b2a20" stroke-width="3" stroke-linejoin="round"/></svg>` },
+  { k: "q", keep: 1, name: "물음표", w: 60, svg: () => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 60"><circle cx="30" cy="30" r="26" fill="#ffd0dc" stroke="#3b2a20" stroke-width="3"/><text x="30" y="42" text-anchor="middle" font-size="34" font-family="Jua, sans-serif" fill="#3b2a20">?</text></svg>` },
 ];
 function tagSvg(label, col) {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 110 44"><rect x="3" y="3" width="104" height="38" rx="19" fill="${col}" stroke="#3b2a20" stroke-width="3"/><text x="55" y="29" text-anchor="middle" font-size="19" font-family="Jua, Gowun Dodum, sans-serif" font-weight="bold" fill="#fff">${label}</text></svg>`;
@@ -1672,7 +1799,7 @@ function tagSvg(label, col) {
 async function svgToFile(svgText, scale) {
   const url = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svgText);
   const im = new Image(); im.src = url; await im.decode();
-  const vb = (svgText.match(/viewBox="0 0 ([\d.]+) ([\d.]+)"/) || [0, 100, 100]).slice(1).map(Number);
+  const m = svgText.match(/viewBox="[-\d.]+ [-\d.]+ ([\d.]+) ([\d.]+)"/), vb = m ? [+m[1], +m[2]] : [100, 100];
   const c = document.createElement("canvas"); c.width = Math.round(vb[0] * scale); c.height = Math.round(vb[1] * scale);
   c.getContext("2d").drawImage(im, 0, 0, c.width, c.height);
   const blob = await new Promise((ok) => c.toBlob(ok, "image/png"));
@@ -1687,12 +1814,42 @@ function shapePick() {
   const close = () => ov.remove();
   ov.querySelector("#shp-x").onclick = close;
   ov.addEventListener("click", (e) => { if (e.target === ov) close(); });
-  ov.querySelectorAll(".shp-it").forEach((b) => (b.onclick = async () => {
-    const sh = SHAPES.find((x) => x.k === b.dataset.k); close();
-    try { await addPhoto(await svgToFile(sh.svg(color), 3), null, { sticker: "shape", back: sh.back, w: sh.w }); } catch (e) { toast("붙이지 못했어요: " + (e.message || e)); }
+  ov.querySelectorAll(".shp-it").forEach((b) => (b.onclick = () => {
+    pendingShape = SHAPES.find((x) => x.k === b.dataset.k); close();
+    svg.classList.add("placing");
+    toast(`📐 「${pendingShape.name}」 놓을 곳을 누르세요 — 끌면 ${pendingShape.line ? "그 방향·길이로" : "그 크기로"} 놓여요`);
   }));
 }
+let pendingShape = null;
 $("shapeBtn").onclick = shapePick;
+// 화살표: 끈 방향 그대로 그린 SVG (시작 → 끝)
+function arrowSvg(dx, dy, ink, both, curve) {
+  const pad = 16, L = Math.hypot(dx, dy) || 1, ux = dx / L, uy = dy / L;
+  const x0 = (dx < 0 ? -dx : 0) + pad, y0 = (dy < 0 ? -dy : 0) + pad, x1 = x0 + dx, y1 = y0 + dy, W = Math.abs(dx) + pad * 2, H = Math.abs(dy) + pad * 2;
+  const head = (x, y, vx, vy) => { const h = Math.min(18, L * 0.35), a = 0.55; const bx = -vx, by = -vy; return `M${x + h * (bx * Math.cos(a) - by * Math.sin(a))} ${y + h * (bx * Math.sin(a) + by * Math.cos(a))} L${x} ${y} L${x + h * (bx * Math.cos(-a) - by * Math.sin(-a))} ${y + h * (bx * Math.sin(-a) + by * Math.cos(-a))}`; };
+  let body = `M${x0} ${y0} L${x1} ${y1}`, ex = ux, ey = uy;
+  if (curve) { const cx = (x0 + x1) / 2 - uy * L * 0.3, cy = (y0 + y1) / 2 + ux * L * 0.3; body = `M${x0} ${y0} Q${cx} ${cy} ${x1} ${y1}`; const tx = x1 - cx, ty = y1 - cy, tl = Math.hypot(tx, ty) || 1; ex = tx / tl; ey = ty / tl; }
+  const extra = curve ? L * 0.17 : 0; // 굽은 화살표가 부푼 만큼만 여유
+  return { svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${-extra} ${-extra} ${W + extra * 2} ${H + extra * 2}" width="${W + extra * 2}" height="${H + extra * 2}"><path d="${body} ${head(x1, y1, ex, ey)}${both ? " " + head(x0, y0, -ux, -uy) : ""}" fill="none" stroke="${ink}" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>`, x: Math.min(0, dx) - pad - extra, y: Math.min(0, dy) - pad - extra, w: W + extra * 2, h: H + extra * 2 };
+}
+async function placeShape(d) {
+  const sh = d.place; pendingShape = null; svg.classList.remove("placing");
+  const dx = d.x1 - d.x0, dy = d.y1 - d.y0, dragged = Math.hypot(dx, dy) > 14;
+  try {
+    if (sh.line && dragged) { // 화살표: 끈 방향 그대로
+      const a = arrowSvg(dx, dy, color, sh.k === "arrowLR", sh.k === "arrowC");
+      const f = await svgToFile(a.svg, 2);
+      return addPhoto(f, { x: d.x0 + a.x, y: d.y0 + a.y }, { sticker: "shape", w: a.w, h: a.h });
+    }
+    const f = await svgToFile(sh.svg(color), 3);
+    const vb = (sh.svg(color).match(/viewBox="0 0 ([\d.]+) ([\d.]+)"/) || [0, 100, 100]).slice(1).map(Number);
+    if (dragged && !sh.keep) { // 끈 크기 그대로 (네모·말풍선·형광 띠 등)
+      return addPhoto(f, { x: Math.min(d.x0, d.x1), y: Math.min(d.y0, d.y1) }, { sticker: "shape", back: sh.back, w: Math.max(30, Math.abs(dx)), h: Math.max(16, Math.abs(dy)) });
+    }
+    const w = dragged ? Math.max(30, Math.abs(dx)) : sh.w, h = (w * vb[1]) / vb[0]; // 누르면 기본 크기로 그 자리 가운데
+    return addPhoto(f, dragged ? { x: Math.min(d.x0, d.x1), y: Math.min(d.y0, d.y1) } : { x: d.x0 - w / 2, y: d.y0 - h / 2 }, { sticker: "shape", back: sh.back, w });
+  } catch (e) { toast("붙이지 못했어요: " + (e.message || e)); }
+}
 
 /* ───────── 🧸 사도 스티커: 사도를 골라 꼬마 그림·표정·움직이는 모습(찰칵)을 노트에 붙임 ───────── */
 function probeImg(src) { return new Promise((ok) => { const im = new Image(); im.onload = () => ok(src); im.onerror = () => ok(null); im.src = src; }); }
