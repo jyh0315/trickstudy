@@ -36,6 +36,12 @@
     const sc = (n) => (/lite/.test(n) ? 200 : 0) + (/preview|exp/.test(n) ? 0 : 100) + ver(n) * 10 - (/latest/.test(n) ? 5 : 0);
     return ok.sort((a, b) => sc(b) - sc(a));
   }
+  function tidyOf(g) { // 정리 모델 기본 = lite 가 아닌 가장 좋은 flash
+    if (g.tidyModel) return g.tidyModel;
+    const ver = (n) => { const m = n.match(/gemini-(\d+(?:\.\d+)?)/); return m ? parseFloat(m[1]) : 0; };
+    const sc = (n) => (/lite/.test(n) ? 0 : 200) + (/preview|exp/.test(n) ? 0 : 100) + ver(n) * 10 - (/latest/.test(n) ? 5 : 0);
+    return [...(g.models || [])].sort((a, b) => sc(b) - sc(a))[0] || g.model;
+  }
   function aiHTML() {
     const g0 = getJ(GKEY, {});
     if (g0.models && g0.models.length && !g0.picked) { const ms = rankModels(g0.models); if (ms.length && (ms[0] !== g0.model || ms.join() !== g0.models.join())) { g0.models = ms; g0.model = ms[0]; setJ(GKEY, g0); } } // 기본 = 가장 빠른 flash-lite
@@ -47,7 +53,8 @@
       <div class="nt-ai">
         <input type="password" id="nt-key" placeholder="${g.key ? "••••••••" + esc(g.key.slice(-4)) + " (바꾸려면 새 키 붙여 넣기)" : "Gemini API 키 붙여 넣기"}" autocomplete="off" spellcheck="false">
         <button class="btn yellow" id="nt-key-save">저장·확인</button>
-        ${g.models && g.models.length ? `<select id="nt-model">${g.models.map((m) => `<option ${m === g.model ? "selected" : ""}>${esc(m)}</option>`).join("")}</select>` : ""}
+        ${g.models && g.models.length ? `<label class="nt-ml">📖 읽기 <select id="nt-model" title="손글씨 읽기 — 빠른 모델 추천 (flash-lite)">${g.models.map((m) => `<option ${m === g.model ? "selected" : ""}>${esc(m)}</option>`).join("")}</select></label>
+          <label class="nt-ml">🤖 정리 <select id="nt-tidy" title="AI 정리(순서·소제목) — 조금 높은 모델 추천 (flash)">${g.models.map((m) => `<option ${m === tidyOf(g) ? "selected" : ""}>${esc(m)}</option>`).join("")}</select></label>` : ""}
         ${g.key ? '<button class="btn" id="nt-key-del">키 지우기</button>' : ""}
       </div>
       <p class="hint">📊 오늘 보낸 횟수 <b>${used}</b>번 · ✏️ 기억한 고친 글자 <b>${fx.length}</b>개 ${fx.length ? '<button class="btn small" id="nt-fix-clear">고친 기록 지우기</button>' : ""}<br>
@@ -62,11 +69,13 @@
       try {
         const ms = rankModels(await gemModels(key));
         if (!ms.length) throw new Error("쓸 수 있는 flash 모델이 없어요");
-        setJ(GKEY, { key, models: ms.slice(0, 8), model: ms[0] });
+        setJ(GKEY, { key, models: ms.slice(0, 12), model: ms[0] });
         TS.toast("🔑 키 확인 완료! " + ms[0] + " 로 읽을게요");
       } catch (e) { setJ(GKEY, { key }); TS.toast("키 확인 실패: " + e.message); }
       card.innerHTML = aiHTML(); bindAI(card);
     };
+    const ts = $("nt-tidy");
+    if (ts) ts.onchange = () => { const g = getJ(GKEY, {}); g.tidyModel = ts.value; setJ(GKEY, g); TS.toast("🤖 정리 모델: " + ts.value); };
     const sel = $("nt-model");
     if (sel) sel.onchange = () => { const g = getJ(GKEY, {}); g.model = sel.value; g.picked = true; /* 직접 고른 건 그대로 둠 */ setJ(GKEY, g); card.innerHTML = aiHTML(); bindAI(card); };
     const del = $("nt-key-del");

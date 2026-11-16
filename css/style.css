@@ -2726,3 +2726,4 @@ a.icon-btn { text-decoration: none; display: inline-grid; place-items: center; }
 .pose-ctl { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
 .pose-ctl input { flex: 1; accent-color: var(--pink-d); }
 .pose-an { font-size: 12px; color: var(--ink-soft); min-width: 70px; text-align: right; }
+.nt-ml { display: inline-flex; align-items: center; gap: 4px; font: 14px var(--font-title); }

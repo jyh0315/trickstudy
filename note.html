@@ -966,12 +966,22 @@ function thinkCfg(m) {
   if (/gemini-2\./.test(m)) return null;
   return { thinkingLevel: "low" }; // 3 세대 이후·latest: 낮게
 }
-async function gemCall(parts, schema, temp) {
+// 정리 모델: 직접 고른 게 없으면 lite 가 아닌 가장 좋은 flash (정식 > 미리보기, 높은 버전)
+function tidyModel() {
+  if (gem.tidyModel) return gem.tidyModel;
+  const ver = (n) => { const m = n.match(/gemini-(\d+(?:\.\d+)?)/); return m ? parseFloat(m[1]) : 0; };
+  const sc = (n) => (/lite/.test(n) ? 0 : 200) + (/preview|exp/.test(n) ? 0 : 100) + ver(n) * 10 - (/latest/.test(n) ? 5 : 0);
+  return [...(gem.models || [])].sort((a, b) => sc(b) - sc(a))[0] || gem.model;
+}
+async function gemCall(parts, schema, temp, purpose) {
   const cfg = { temperature: temp || 0, responseMimeType: "application/json" };
   if (schema) cfg.responseSchema = schema;
-  const bodyFor = (m) => { const c = Object.assign({}, cfg), th = thinkCfg(m); if (th) c.thinkingConfig = th; return JSON.stringify({ contents: [{ role: "user", parts }], generationConfig: c }); };
+  const bodyFor = (m) => { const c = Object.assign({}, cfg), th = purpose === "tidy" ? null : thinkCfg(m); if (th) c.thinkingConfig = th; /* 정리는 생각을 줄이지 않음 */ return JSON.stringify({ contents: [{ role: "user", parts }], generationConfig: c }); };
   const rest = restMap();
-  const all = [gem.model, ...(gem.models || []).filter((m) => m !== gem.model)];
+  const first = purpose === "tidy" ? tidyModel() : gem.model; // 읽기 = 빠른 모델, 정리 = 조금 높은 모델
+  const rest2 = (gem.models || []).filter((m) => m !== first);
+  if (purpose === "tidy") rest2.sort((a, b) => /lite/.test(a) - /lite/.test(b)); // 정리는 붐비면 다른 일반 flash 먼저
+  const all = [first, ...rest2];
   const order = all.filter((m) => !rest[m]);
   const why = []; let badJson = 0, quota = 0, busy = 0, internal = 0;
   for (let k = 0; k < order.length; k++) {
@@ -1016,7 +1026,7 @@ async function gemCall(parts, schema, temp) {
         busy++; setRest(m, 45e3, "붐빔"); why.push(`${short(m)}: 붐빔(${r.status})`); break;
       }
       if (r.status === 404) { setRest(m, 24 * 3600e3, "없음"); why.push(short(m) + ": 없는 모델"); break; }
-      if (r.status === 400 && schema && /schema|responseSchema/i.test(msg)) return gemCall(parts, null, temp); // 스키마를 못 받는 모델이면 없이
+      if (r.status === 400 && schema && /schema|responseSchema/i.test(msg)) return gemCall(parts, null, temp, purpose); // 스키마를 못 받는 모델이면 없이
       throw new Error(`${short(m)}: ${msg} (${r.status})`);
     }
   }
@@ -1759,7 +1769,7 @@ $("tidyBtn").onclick = async () => {
 덩어리: ${JSON.stringify(items)}
 JSON 만 출력: {"title":"...","sections":[{"title":"...","items":[1,2]}]}` }];
     us.forEach((u, i) => { if (u.b.type !== "text") { parts.push({ text: `그림 id ${i + 1}` }); parts.push({ inline_data: { mime_type: "image/png", data: blockPng(u.b, 384) } }); } });
-    const data = await gemCall(parts, SCHEMA_TIDY);
+    const data = await gemCall(parts, SCHEMA_TIDY, 0, "tidy");
     const used = new Set(), sections = [];
     for (const sc of data.sections || []) {
       const its = (sc.items || []).map((n) => us[(n | 0) - 1]).filter((u) => u && !used.has(u) && used.add(u));
