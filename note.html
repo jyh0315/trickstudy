@@ -118,6 +118,7 @@ body.zen .paper { height: 100vh !important; border: 0; border-radius: 0; box-sha
 .selBar button { font: 15px var(--font-title); width: 34px; height: 30px; border: 2px solid var(--ink); border-radius: 9px; background: #fff; cursor: pointer; color: var(--ink); }
 .selBar button[data-a="del"] { background: #ffe1dc; }
 .selBar button[data-a="redraw"] { background: #efe4ff; }
+.selBar button[data-a="okuns"] { background: #fff3a6; }
 .selBar button[hidden] { display: none; }
 .selBar button.wide { width: auto; min-width: 34px; padding: 0 6px; }
 .selBar button.busy { animation: sbBusy 1s linear infinite; }
@@ -274,7 +275,7 @@ mark.uns { background: #ffe08a; border-bottom: 2px dotted #d8483b; color: inheri
 </div>
 
 <div class="wrap">
-  <div class="paper" id="paper"><svg id="board" xmlns="http://www.w3.org/2000/svg"><g id="world"><g id="gPages"></g><g id="gBack"></g><g id="gBoxes"></g><g id="gHeads"></g><g id="gInk"></g><g id="gClean"></g><g id="gLive"></g></g></svg><div class="selBar" id="selBar" hidden><button data-a="del" title="지우기 (Delete 키)">🗑</button><button data-a="out" title="작게">－</button><button data-a="in" title="크게">＋</button><button data-a="merge" class="wide" title="겹치거나 맞닿은 그림과 하나로 합치기">🧩</button><button data-a="redraw" class="wide" title="AI 가 이 그림을 깔끔한 도식으로 다시 그려요 (정리본·완성본에서 보여요)">🪄</button><button data-a="orig" class="wide" title="AI 가 다시 그린 그림 ↔ 내 손그림">↩</button></div></div>
+  <div class="paper" id="paper"><svg id="board" xmlns="http://www.w3.org/2000/svg"><g id="world"><g id="gPages"></g><g id="gBack"></g><g id="gBoxes"></g><g id="gHeads"></g><g id="gInk"></g><g id="gClean"></g><g id="gLive"></g></g></svg><div class="selBar" id="selBar" hidden><button data-a="del" title="지우기 (Delete 키)">🗑</button><button data-a="out" title="작게">－</button><button data-a="in" title="크게">＋</button><button data-a="okuns" class="wide" title="노란 표시(자신 없는 글자)가 다 맞아요 → 표시 지우기">✓</button><button data-a="merge" class="wide" title="겹치거나 맞닿은 그림과 하나로 합치기">🧩</button><button data-a="redraw" class="wide" title="AI 가 이 그림을 깔끔한 도식으로 다시 그려요 (정리본·완성본에서 보여요)">🪄</button><button data-a="orig" class="wide" title="AI 가 다시 그린 그림 ↔ 내 손그림">↩</button></div></div>
   <div class="side" id="side"><div class="card empty">아직 덩어리가 없어요. 써 보세요!</div></div>
 </div>
 <div id="toast"></div>
@@ -606,21 +607,39 @@ function straightenHl(st) {
   }
 }
 // 그림 덩어리 여러 개를 하나로 (원래 세트·이름표 관계는 합친 그림으로 옮김)
-function mergeDraws(ds) {
+function mergeDraws(ds) { return mergeBlocks(ds, "draw"); }
+function mergeBlocks(ds, type) {
   const key = "G" + ds[0].strokes[0].id + "_" + nextId, old = new Set(ds.map((d) => d.key));
   for (const d of ds) d.strokes.forEach((st) => { st.lock = key; st.lockAt = nextId; });
-  meta[key] = { type: "draw" };
+  meta[key] = { type };
   for (const b of blocks) if (b.parent && old.has(b.parent) && !old.has(b.key)) { const k = lockBlock(b, "L"); meta[k].parent = key; if (b.m.setp) meta[k].setp = true; }
   return key;
 }
-function mergeNear() { // 🧩 고른 그림과 겹치거나 맞닿은 그림을 하나로
-  const u = selUnit(); const b = u && u.b; if (!b || b.type !== "draw") return;
-  const others = nearDraws(b);
-  if (!others.length) return toast("붙어 있는 다른 그림이 없어요 (올가미로 여러 그림을 감싸도 합쳐져요)");
-  snapshot(); sel = mergeDraws([b, ...others]); regroup(); fitBoard(); save();
-  toast(`🧩 그림 ${others.length + 1}개를 하나로 합쳤어요 (↶ 되돌리기 가능)`);
+// 🧩 합칠 대상: 세트면 세트 안의 같은 종류 전부, 아니면 맞닿거나 겹친 같은 종류 덩어리
+// 노란 표시(자신 없음) 지우기 = "이대로 맞아요"
+function clearUnsure(b) { (b.m.lines || []).forEach((l) => { l.unsure = []; }); render(); save(); toast("✓ 노란 표시를 지웠어요"); }
+function mergeTargets(u) {
+  if (!u || u.b.hl) return [];
+  const t = u.b.type;
+  if (u.group.length > 1) return u.group.filter((x) => x !== u.b && x.type === t && !x.hl);
+  return blocks.filter((x) => x !== u.b && x.type === t && !x.hl && !x.strokes.some((st) => st.img) === !u.b.strokes.some((st) => st.img) && near(u.b.box, x.box, t === "text" ? +$("gap").value * 1.5 : 14) && (!x.parent || x.parent === u.b.key));
 }
-function nearDraws(b) { return blocks.filter((x) => x !== b && x.type === "draw" && !x.hl && !x.parent && near(b.box, x.box, 14)); }
+function mergeNear() {
+  const u = selUnit(); if (!u) return;
+  const others = mergeTargets(u), t = u.b.type;
+  if (!others.length) return toast("합칠 덩어리가 없어요 (맞닿게 옮기거나, 올가미로 감싸 보세요)");
+  snapshot();
+  const all = [u.b, ...others].sort((a, c) => a.box.y - c.box.y || a.box.x - c.box.x);
+  const rest = u.group.length > 1 ? u.group.filter((x) => !all.includes(x)) : []; // 세트의 다른 종류(그림↔설명)는 세트로 남김
+  const k = mergeBlocks(all, t);
+  for (const x of rest) { const kk = lockBlock(x, "L"); meta[kk].setp = true; meta[kk].parent = k; }
+  const treeish = t === "text" && all.some((x) => x.m.tree || x.strokes.some((st) => st.tree));
+  sel = k; regroup();
+  const nb = blocks.find((x) => x.key === k);
+  if (nb && treeish) { nb.m.stale = true; nb.m.hint = all.map((x) => (x.m.lines || []).map((l) => l.text).join(" ")).join(" / "); } // 가지 구조는 합친 모양으로 다시 읽음
+  fitBoard(); save(); scheduleRecognize();
+  toast(`🧩 ${t === "text" ? "글" : "그림"} ${all.length}개를 한 덩어리로 합쳤어요 (↶ 되돌리기 가능)`);
+}
 function lockBlock(b, pre) {
   const key = b.key[0] === "S" ? pre + b.strokes[0].id : b.key;
   b.strokes.forEach((s) => { s.lock = key; s.lockAt = nextId; });
@@ -1661,7 +1680,7 @@ function renderSide() {
         b.m.edited = true; show(); render(); save();
       };
       c.appendChild(t);
-      if (b.m.lines && b.m.lines.some((l) => l.unsure && l.unsure.length)) { const u = document.createElement("div"); u.className = "meta"; u.innerHTML = '<mark class="uns">노란 글자</mark> = 자신 없거나 문맥으로 고른 글자예요. 맞으면 그냥 두고, 틀리면 눌러서 고쳐요.'; c.appendChild(u); }
+      if (b.m.lines && b.m.lines.some((l) => l.unsure && l.unsure.length)) { const u = document.createElement("div"); u.className = "meta"; u.innerHTML = '<mark class="uns">노란 글자</mark> = 자신 없거나 문맥으로 고른 글자예요. 틀리면 눌러서 고치고, 맞으면 <button class="okUns" style="font:12px var(--font-title);border:1.5px solid var(--ink);border-radius:8px;background:#fff7c2;cursor:pointer;padding:1px 6px">✓ 다 맞아요</button>'; u.querySelector(".okUns").onclick = () => clearUnsure(b); c.appendChild(u); }
       if (realCheck(b.m.check)) { const k2 = document.createElement("div"); k2.className = "chk"; k2.textContent = "💡 확인해 보세요: " + b.m.check; c.appendChild(k2); }
       if (b.m.lines) b.m.lines.forEach((l, k) => {
         if (!l.alts.length) return;
@@ -1923,7 +1942,9 @@ function placeSelBar() {
   bar.hidden = false;
   const db = u.b.type === "draw" && !u.b.hl ? u.b : null;
   bar.querySelector('[data-a="redraw"]').hidden = !db;
-  bar.querySelector('[data-a="merge"]').hidden = !(db && nearDraws(db).length);
+  bar.querySelector('[data-a="okuns"]').hidden = ![u.b, ...u.group].some((x) => (x.m.lines || []).some((l) => l.unsure && l.unsure.length));
+  const mt = mergeTargets(u).length; bar.querySelector('[data-a="merge"]').hidden = !mt;
+  bar.querySelector('[data-a="merge"]').title = u.group.length > 1 ? "세트를 한 덩어리로 합치기" : "맞닿은 덩어리와 하나로 합치기";
   bar.querySelector('[data-a="orig"]').hidden = !(db && db.m.redraw && db.m.redrawSig === db.m.sig);
   if (db) bar.querySelector('[data-a="orig"]').textContent = db.m.useRedraw ? "↩" : "🪄✓";
   bar.querySelector('[data-a="orig"]').title = db && db.m.useRedraw ? "내 손그림으로 되돌리기" : "AI 가 다시 그린 그림 보기";
@@ -1951,7 +1972,7 @@ function zoomSel(k) {
 }
 $("boxT").onclick = () => { boxesOn = !boxesOn; render(true); save(); toast(boxesOn ? "▢ 글/그림 영역을 보여요" : "▢ 영역 표시를 숨겼어요 (✋ 선택으로 누른 것만 보여요)"); };
 $("selBar").addEventListener("pointerdown", (e) => e.stopPropagation());
-$("selBar").onclick = (e) => { const a = e.target.closest("button") && e.target.closest("button").dataset.a; if (a === "del") deleteSel(); if (a === "in") zoomSel(1.15); if (a === "out") zoomSel(1 / 1.15); if (a === "redraw") aiRedraw(); if (a === "merge") mergeNear(); if (a === "orig") toggleRedraw(); };
+$("selBar").onclick = (e) => { const a = e.target.closest("button") && e.target.closest("button").dataset.a; if (a === "del") deleteSel(); if (a === "in") zoomSel(1.15); if (a === "out") zoomSel(1 / 1.15); if (a === "redraw") aiRedraw(); if (a === "merge") mergeNear(); if (a === "okuns") { const u = selUnit(); if (u) [u.b, ...u.group].forEach((x) => x.m.lines && clearUnsure(x)); } if (a === "orig") toggleRedraw(); };
 document.addEventListener("keydown", (e) => { if ((e.key === "Delete" || e.key === "Backspace") && selUnit() && !e.target.closest("input,textarea,[contenteditable]")) { e.preventDefault(); deleteSel(); } });
 paper.addEventListener("scroll", placeSelBar, { passive: true });
 function scaleBlocks(gs, k, ax, ay) {
