@@ -1390,12 +1390,26 @@ function setView(v) { const bt = $("view").querySelector(`[data-v="${v}"]`); if 
 function units() {
   // 이름표인데 그림에서 멀리 떨어져 있으면(예전에 붙은 관계) 따로 배치되도록 떼어 냄 (세트는 유지)
   for (const b of blocks) if (b.parent && !b.m.setp) { const pb = blocks.find((x) => x.key === b.parent); if (!pb || !near(b.box, pb.box, 90)) { b.parent = null; b.m.parent = null; } }
-  return blocks.filter((b) => !b.parent).map((b) => {
+  const list = blocks.filter((b) => !b.parent).map((b) => {
     const group = [b, ...blocks.filter((x) => x.parent === b.key)];
     const box = bbox(group.flatMap((g) => g.strokes.flatMap((s) => s.pts)));
     if (isClean() && group.length === 1 && b.type === "text" && b.m.lines && !b.m.stale && b.m._ch) { box.h = b.m._ch; box.w = Math.max((b.m._cw || box.w) + 6, 60); } // 정리본으로 볼 땐 정리 글씨 크기로 배치
     return { b, group, box: { x: box.x - 6, y: box.y - 6, w: box.w + 12, h: box.h + 12 } };
   });
+  // 꾸미기(사도 스티커·화살표·표시처럼 글이 없는 스티커/도형)는 가장 가까운 내용에 딸려서 같이 움직임
+  //  → 배치·AI 정리 때 엉뚱한 곳으로 떨어지지 않고, 자리도 같이 차지해서 겹치지 않음
+  const isDeco = (u) => u.group.length === 1 && u.b.strokes.every((st) => st.img && st.sticker);
+  const gap = (a, c) => Math.hypot(Math.max(0, a.x - (c.x + c.w), c.x - (a.x + a.w)), Math.max(0, a.y - (c.y + c.h), c.y - (a.y + a.h)));
+  const content = list.filter((u) => !isDeco(u));
+  for (const d of list.filter(isDeco)) {
+    let best = null, bd = 260;
+    for (const c of content) { const g = gap(d.box, c.box); if (g < bd) { bd = g; best = c; } }
+    if (!best) { content.push(d); continue; } // 근처에 내용이 없으면 혼자
+    best.group.push(...d.group); (best.decos = best.decos || []).push(d.b);
+    const B = best.box, D = d.box, x0 = Math.min(B.x, D.x), y0 = Math.min(B.y, D.y);
+    best.box = { x: x0, y: y0, w: Math.max(B.x + B.w, D.x + D.w) - x0, h: Math.max(B.y + B.h, D.y + D.h) - y0 };
+  }
+  return content;
 }
 function readingOrder(us) {
   const rows = [];
@@ -1508,8 +1522,9 @@ $("tidyBtn").onclick = async () => {
   try {
     const items = us.map((u, i) => {
       const txt = (bl) => (bl.m.lines || []).map((l) => l.text).join(" ");
-      const labels = u.group.slice(1).map(txt).filter(Boolean); // 이름표·세트 설명 글
-      return { id: i + 1, kind: (u.group.length > 1 && u.group.some((g) => g.m.setp) ? "세트:" : "") + (u.b.type === "text" ? "글" : "그림"), text: u.b.type === "text" ? txt(u.b) || "(아직 안 읽음)" : "", labels, size: [Math.round(u.box.w), Math.round(u.box.h)] };
+      const labels = u.group.slice(1).filter((g) => !(u.decos || []).includes(g)).map(txt).filter(Boolean); // 이름표·세트 설명 글 (꾸미기 스티커 빼고)
+      const photo = u.b.strokes.some((st) => st.img && !st.sticker);
+      return { id: i + 1, kind: (u.group.length > 1 && u.group.some((g) => g.m.setp) ? "세트:" : "") + (u.b.type === "text" ? "글" : photo ? "사진" : "그림"), text: u.b.type === "text" ? txt(u.b) || "(아직 안 읽음)" : "", labels, size: [Math.round(u.box.w), Math.round(u.box.h)] };
     });
     const topic = topicFor(null), sums = (note.pages || []).map((p2, i) => p2 && p2.summary ? `${i + 1}쪽: ${p2.summary}` : "").filter(Boolean).join(" / ");
     const parts = [{ text: `학생의 필기 노트 덩어리 목록이에요 (노트 제목: ${$("title").value || "없음"}${sums ? ` · 페이지 요약: ${sums}` : ""}). 공부하기 좋게 다시 배치하려고 해요.
