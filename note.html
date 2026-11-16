@@ -266,7 +266,7 @@ mark.uns { background: #ffe08a; border-bottom: 2px dotted #d8483b; color: inheri
   <button class="btn" id="hlClear" hidden title="이 노트에 그은 형광펜을 모두 지워요 (↶ 로 되돌릴 수 있어요)">🧹 형광 다 지우기</button>
   <button class="btn" id="boxT" title="글/그림 영역 표시 켜기·끄기 (꺼도 ✋ 선택으로 누른 것은 보여요)">▢ 영역</button>
   <span class="seg" id="color"><button data-v="#3b2a20" class="on">⚫</button><button data-v="#d8483b">🔴</button><button data-v="#2f7fd0">🔵</button><button data-v="#2e9e6a">🟢</button></span>
-  <button class="btn" id="undo" title="되돌리기 (Ctrl+Z)">↶</button><button class="btn" id="redo" title="다시 하기 (Ctrl+Shift+Z / Ctrl+Y)">↷</button>
+  <button class="btn" id="undo" title="되돌리기 (Ctrl+Z)">↶</button><button class="btn" id="redo" title="다시 하기 (Ctrl+Shift+Z / Ctrl+Y)">↷</button><button class="btn" id="paste" title="복사한 것 붙여넣기 (Ctrl+V)" hidden>📋 붙여넣기</button>
   <button class="btn" id="gNow" title="지금 읽기 — 자동 읽기를 껐을 때 이 버튼으로 한 번에 읽어요">📖 읽기</button>
   <button class="btn" id="shapeBtn" title="필기 도우미: 말풍선·화살표·흰 사각형·메모지·표시 (형광은 🖍 형광펜 도구로)">📐 도형</button>
   <button class="btn" id="stickerBtn" title="사도 스티커 붙이기 (꼬마 그림·표정·움직이는 모습 찰칵)">🧸 사도</button>
@@ -283,7 +283,7 @@ mark.uns { background: #ffe08a; border-bottom: 2px dotted #d8483b; color: inheri
 </div>
 
 <div class="wrap">
-  <div class="paper" id="paper"><svg id="board" xmlns="http://www.w3.org/2000/svg"><g id="world"><g id="gPages"></g><g id="gBack"></g><g id="gBoxes"></g><g id="gHeads"></g><g id="gInk"></g><g id="gClean"></g><g id="gLive"></g></g></svg><div class="selBar" id="selBar" hidden><button data-a="del" title="지우기 (Delete 키)">🗑</button><button data-a="out" title="작게">－</button><button data-a="in" title="크게">＋</button><button data-a="edit" class="wide" title="이 글 바로 고치기">✏️</button><button data-a="okuns" class="wide" title="노란 표시(자신 없는 글자)가 다 맞아요 → 표시 지우기">✓</button><button data-a="merge" class="wide" title="겹치거나 맞닿은 그림과 하나로 합치기">🧩</button><button data-a="redraw" class="wide" title="AI 가 이 그림을 깔끔한 도식으로 다시 그려요 (정리본·완성본에서 보여요)">🪄</button><button data-a="orig" class="wide" title="AI 가 다시 그린 그림 ↔ 내 손그림">↩</button></div></div>
+  <div class="paper" id="paper"><svg id="board" xmlns="http://www.w3.org/2000/svg"><g id="world"><g id="gPages"></g><g id="gBack"></g><g id="gBoxes"></g><g id="gHeads"></g><g id="gInk"></g><g id="gClean"></g><g id="gLive"></g></g></svg><div class="selBar" id="selBar" hidden><button data-a="del" title="지우기 (Delete 키)">🗑</button><button data-a="out" title="작게">－</button><button data-a="in" title="크게">＋</button><button data-a="copy" class="wide" title="복사 (Ctrl+C) — 붙여넣기는 위쪽 📋">📋</button><button data-a="edit" class="wide" title="이 글 바로 고치기">✏️</button><button data-a="okuns" class="wide" title="노란 표시(자신 없는 글자)가 다 맞아요 → 표시 지우기">✓</button><button data-a="merge" class="wide" title="겹치거나 맞닿은 그림과 하나로 합치기">🧩</button><button data-a="redraw" class="wide" title="AI 가 이 그림을 깔끔한 도식으로 다시 그려요 (정리본·완성본에서 보여요)">🪄</button><button data-a="orig" class="wide" title="AI 가 다시 그린 그림 ↔ 내 손그림">↩</button></div></div>
   <div class="side" id="side"><div class="card empty">아직 덩어리가 없어요. 써 보세요!</div></div>
 </div>
 <div id="toast"></div>
@@ -293,7 +293,7 @@ mark.uns { background: #ffe08a; border-bottom: 2px dotted #d8483b; color: inheri
   <span class="zsep"></span>
   <button data-c="#3b2a20" title="검정">⚫</button><button data-c="#d8483b" title="빨강">🔴</button><button data-c="#2f7fd0" title="파랑">🔵</button><button data-c="#2e9e6a" title="초록">🟢</button>
   <span class="zsep"></span>
-  <button data-a="undo" title="되돌리기">↶</button><button data-a="redo" title="다시 하기">↷</button><button data-a="out" title="축소">－</button><button data-a="fit" title="폭 맞춤">↔</button><button data-a="in" title="확대">＋</button>
+  <button data-a="undo" title="되돌리기">↶</button><button data-a="redo" title="다시 하기">↷</button><button data-a="paste" id="zenPaste" title="붙여넣기" hidden>📋</button><button data-a="out" title="축소">－</button><button data-a="fit" title="폭 맞춤">↔</button><button data-a="in" title="확대">＋</button>
   <span class="zpg" id="zenPg"><button data-a="prev" title="앞 장">◀</button><button data-a="next" title="다음 장">▶</button></span>
   <span class="zsep"></span>
   <button data-a="exit" title="집중 끝내기 (Esc)" class="zx">⛶ 나가기</button>
@@ -649,6 +649,65 @@ function editInline() {
   ta.addEventListener("pointerdown", (e) => e.stopPropagation());
   ta.onkeydown = (e) => { e.stopPropagation(); if (e.key === "Escape") fin(false); if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) fin(true); };
   ta.onblur = () => fin(true);
+}
+/* 📋 복사·붙여넣기: 고른 덩어리(세트면 세트 전체)를 읽은 결과까지 그대로. 다른 노트에도 붙일 수 있게 브라우저에 기억 */
+const CLIPKEY = "trickstudy-note-clip";
+const STROKE_KEEP = ["pts", "w", "c", "img", "sticker", "back", "hl", "fin"];
+function getClip() { try { return JSON.parse(localStorage.getItem(CLIPKEY) || "null"); } catch (e) { return null; } }
+function showPaste() { const has = !!getClip(); $("paste").hidden = !has; const zp = $("zenPaste"); if (zp) zp.hidden = !has; }
+function copySel() {
+  const u = selUnit(); if (!u) return toast("✋ 선택으로 복사할 덩어리를 눌러 주세요");
+  const group = [...new Set(u.group)];
+  const idx = new Map(group.map((g, i) => [g.key, i]));
+  const items = group.map((g) => {
+    const m = g.m, keep = {};
+    for (const k of ["type", "lines", "tree", "check", "edited", "merged", "labels", "redraw", "useRedraw", "setp"]) if (m[k] != null) keep[k] = m[k];
+    keep.labOk = m.labSig === m.sig; keep.redrawOk = m.redrawSig === m.sig;
+    keep.parentIdx = g.parent != null && idx.has(g.parent) ? idx.get(g.parent) : null;
+    keep.forced = m.type != null; // 직접 글/그림으로 정했던 것
+    return { m: JSON.parse(JSON.stringify(keep)), strokes: g.strokes.map((st) => { const o = {}; for (const k of STROKE_KEEP) if (st[k] != null) o[k] = st[k]; return JSON.parse(JSON.stringify(o)); }) };
+  });
+  try { localStorage.setItem(CLIPKEY, JSON.stringify({ at: Date.now(), from: note.id, items })); }
+  catch (e) { return toast("복사할 게 너무 커요 (AI 그림·사진이 많으면 나눠서 복사해 주세요)"); }
+  const text = group.filter((g) => g.type === "text" && g.m.lines).map((g) => g.m.lines.map((l) => l.text).join("\n")).join("\n");
+  if (text && navigator.clipboard) navigator.clipboard.writeText(text).catch(() => {});
+  showPaste();
+  toast(`📋 복사했어요 (${group.length > 1 ? `덩어리 ${group.length}개` : group[0].type === "text" ? "글" : "그림"}) — 위쪽 📋 붙여넣기 / Ctrl+V`);
+}
+async function pasteClip() {
+  const clip = getClip(); if (!clip || !clip.items || !clip.items.length) return toast("복사한 게 없어요");
+  // 사진·스티커는 새 번호로 복제 (원래 노트를 지워도 안전)
+  const imgMap = new Map();
+  for (const it of clip.items) for (const st of it.strokes) if (st.img && !imgMap.has(st.img)) {
+    try { const blob = await imgGet(st.img); if (!blob) continue; const id = "img" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); await imgPut(id, blob); await loadImg(id); imgMap.set(st.img, id); } catch (e) { /* 없으면 빈 칸 */ }
+  }
+  const all = clip.items.flatMap((it) => it.strokes.flatMap((st) => st.pts)); const B = bbox(all);
+  const top = mode === "page" ? page * PAGE_H : paper.scrollTop / Z, viewH = mode === "page" ? PAGE_H : paper.clientHeight / Z;
+  const tx = Math.max(10, Math.min(PAGE_W - B.w - 10, (paper.scrollLeft + paper.clientWidth / 2) / Z - B.w / 2)), ty = top + Math.max(20, viewH / 2 - B.h / 2);
+  const dx = tx - B.x, dy = ty - B.y;
+  snapshotAdd(nextId);
+  const keys = [];
+  for (const it of clip.items) {
+    const first = nextId, ids = [];
+    const ns = it.strokes.map((st) => { const id = nextId++; ids.push(id); const o = JSON.parse(JSON.stringify(st)); o.id = id; o.pts = o.pts.map((q) => ({ ...q, x: +(q.x + dx).toFixed(1), y: +(q.y + dy).toFixed(1) })); if (o.img) o.img = imgMap.get(o.img) || o.img; return o; });
+    keys.push({ key: "L" + first, ns, it, sig: ids.join(",") });
+  }
+  const lockAt = nextId;
+  for (const k of keys) {
+    k.ns.forEach((o) => { o.lock = k.key; o.lockAt = lockAt; strokes.push(o); });
+    const m = k.it.m, nm = {};
+    for (const f of ["lines", "tree", "check", "edited", "merged", "labels", "redraw", "useRedraw", "setp"]) if (m[f] != null) nm[f] = m[f];
+    if (m.forced && m.type) nm.type = m.type;
+    nm.sig = k.sig; nm.stale = k.it.m.type === "text" ? !m.lines : false;
+    if (m.labOk && m.labels) nm.labSig = k.sig; if (m.redrawOk && m.redraw) nm.redrawSig = k.sig;
+    if (m.parentIdx != null && keys[m.parentIdx]) nm.parent = keys[m.parentIdx].key;
+    meta[k.key] = nm;
+  }
+  // 원래 글/그림 종류 유지 (자동으로 정해졌던 것도)
+  for (const k of keys) if (k.it.m.type && !meta[k.key].type) meta[k.key].type = k.it.m.type;
+  const main = keys[clip.items.findIndex((it) => it.m.parentIdx == null)] || keys[0];
+  regroup(); setTool("move"); sel = main.key; render(); fitBoard(); save(); scheduleRecognize();
+  toast("📋 붙여넣었어요 — 끌어서 원하는 자리로 옮겨요 (↶ 취소)");
 }
 // 노란 표시(자신 없음) 지우기 = "이대로 맞아요"
 function clearUnsure(b) { (b.m.lines || []).forEach((l) => { l.unsure = []; }); render(); save(); toast("✓ 노란 표시를 지웠어요"); }
@@ -1939,7 +1998,7 @@ $("zenBar").onclick = (e) => {
   if (b.dataset.t) setTool(b.dataset.t);
   if (b.dataset.c) { const cb = $("color").querySelector(`[data-v="${b.dataset.c}"]`); if (cb) cb.click(); }
   const a = b.dataset.a;
-  if (a === "undo") $("undo").click(); if (a === "redo") $("redo").click();
+  if (a === "undo") $("undo").click(); if (a === "redo") $("redo").click(); if (a === "paste") pasteClip();
   if (a === "hlclear") clearHighlights();
   if (a === "in") setZoom(Z * 1.2); if (a === "out") setZoom(Z / 1.2); if (a === "fit") $("zFit").click();
   if (a === "prev") goPage(page - 1); if (a === "next") goPage(page + 1);
@@ -2022,7 +2081,7 @@ function zoomSel(k) {
 }
 $("boxT").onclick = () => { boxesOn = !boxesOn; render(true); save(); toast(boxesOn ? "▢ 글/그림 영역을 보여요" : "▢ 영역 표시를 숨겼어요 (✋ 선택으로 누른 것만 보여요)"); };
 $("selBar").addEventListener("pointerdown", (e) => e.stopPropagation());
-$("selBar").onclick = (e) => { const a = e.target.closest("button") && e.target.closest("button").dataset.a; if (a === "del") deleteSel(); if (a === "in") zoomSel(1.15); if (a === "out") zoomSel(1 / 1.15); if (a === "redraw") aiRedraw(); if (a === "merge") mergeNear(); if (a === "edit") editInline(); if (a === "okuns") { const u = selUnit(); if (u) [u.b, ...u.group].forEach((x) => x.m.lines && clearUnsure(x)); } if (a === "orig") toggleRedraw(); };
+$("selBar").onclick = (e) => { const a = e.target.closest("button") && e.target.closest("button").dataset.a; if (a === "del") deleteSel(); if (a === "in") zoomSel(1.15); if (a === "out") zoomSel(1 / 1.15); if (a === "redraw") aiRedraw(); if (a === "merge") mergeNear(); if (a === "edit") editInline(); if (a === "copy") copySel(); if (a === "okuns") { const u = selUnit(); if (u) [u.b, ...u.group].forEach((x) => x.m.lines && clearUnsure(x)); } if (a === "orig") toggleRedraw(); };
 document.addEventListener("keydown", (e) => { if ((e.key === "Delete" || e.key === "Backspace") && selUnit() && !e.target.closest("input,textarea,[contenteditable]")) { e.preventDefault(); deleteSel(); } });
 paper.addEventListener("scroll", placeSelBar, { passive: true });
 function scaleBlocks(gs, k, ax, ay) {
@@ -2305,6 +2364,8 @@ $("undo").onclick = () => {
   else { const d = JSON.parse(u.full); strokes = d.strokes; meta = d.meta; heads = d.heads || []; }
   regroup(); fitBoard(); save(); scheduleRecognize();
 };
+$("paste").onclick = () => pasteClip();
+window.addEventListener("storage", (e) => { if (e.key === CLIPKEY) showPaste(); }); // 다른 탭에서 복사해도 버튼이 보이게
 $("redo").onclick = () => {
   const r = redoStack.pop(); if (!r) return toast("다시 할 게 없어요");
   const cur = JSON.stringify({ strokes, meta, heads }); undoStack.push({ full: cur, size: cur.length }); undoBytes += cur.length;
@@ -2316,6 +2377,8 @@ document.addEventListener("keydown", (e) => {
   if (e.target.closest && e.target.closest("input,textarea,[contenteditable]")) { /* 글 고치는 중엔 그 칸의 되돌리기 */ }
   else if ((e.ctrlKey || e.metaKey) && (e.key === "y" || (e.shiftKey && (e.key === "z" || e.key === "Z")))) { e.preventDefault(); $("redo").click(); }
   else if ((e.ctrlKey || e.metaKey) && e.key === "z") { e.preventDefault(); $("undo").click(); }
+  else if ((e.ctrlKey || e.metaKey) && e.key === "c" && selUnit()) { e.preventDefault(); copySel(); }
+  else if ((e.ctrlKey || e.metaKey) && e.key === "v" && getClip()) { e.preventDefault(); pasteClip(); }
   if (mode === "page" && !e.target.closest("input,textarea,[contenteditable]")) { if (e.key === "PageDown" || e.key === "ArrowRight") goPage(page + 1); if (e.key === "PageUp" || e.key === "ArrowLeft") goPage(page - 1); }
 });
 
@@ -2758,7 +2821,7 @@ $("pdfBtn").onclick = async () => {
 
 /* ───────── 시작 ───────── */
 (async () => {
-  renderAi(); saveFixes(); showUse();
+  renderAi(); saveFixes(); showUse(); showPaste();
   try { await loadNote(); } catch (e) { toast("노트를 불러오지 못했어요: " + (e.message || e)); return; }
   Object.values(meta).forEach((m) => { if (m.lines && m.lines.some((l) => !l.rel)) { m.lines = null; m.stale = true; } if (m.lines) m.lines.forEach((l) => { l.text = fixArrow(fixTex(l.text)); }); });
   $("mode").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x.dataset.v === mode));
