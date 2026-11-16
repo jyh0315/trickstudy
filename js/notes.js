@@ -30,13 +30,15 @@
     const j = await r.json();
     return (j.models || []).filter((m) => (m.supportedGenerationMethods || []).includes("generateContent")).map((m) => m.name.replace(/^models\//, ""));
   }
-  function rankModels(list) { // 빠르고 싼 flash 계열: 정식 > 미리보기, flash > lite, 높은 버전
+  function rankModels(list) { // 빠른 것부터: flash-lite > flash, 정식 > 미리보기, 높은 버전 (손글씨 옮기기엔 lite 로 충분하고 훨씬 빠름)
     const ok = list.filter((n) => /^gemini-(\d+(\.\d+)?)-flash(-lite)?(-\d{3}|-latest|-preview[\w-]*)?$/.test(n) || /^gemini-flash(-lite)?-latest$/.test(n));
     const ver = (n) => { const m = n.match(/gemini-(\d+(?:\.\d+)?)/); return m ? parseFloat(m[1]) : 0; };
-    const sc = (n) => (/preview|exp/.test(n) ? 0 : 100) + (/lite/.test(n) ? 0 : 50) + ver(n) * 10 - (/latest/.test(n) ? 5 : 0);
+    const sc = (n) => (/lite/.test(n) ? 200 : 0) + (/preview|exp/.test(n) ? 0 : 100) + ver(n) * 10 - (/latest/.test(n) ? 5 : 0);
     return ok.sort((a, b) => sc(b) - sc(a));
   }
   function aiHTML() {
+    const g0 = getJ(GKEY, {});
+    if (g0.models && g0.models.length && !g0.picked) { const ms = rankModels(g0.models); if (ms.length && (ms[0] !== g0.model || ms.join() !== g0.models.join())) { g0.models = ms; g0.model = ms[0]; setJ(GKEY, g0); } } // 기본 = 가장 빠른 flash-lite
     const g = getJ(GKEY, {}), fx = getJ(FKEY, []), u = getJ(UKEY, {}), today = new Date().toLocaleDateString("sv");
     const used = u.date === today ? u.n || 0 : 0;
     const st = g.key && g.model ? `<span class="nt-chip ok">✅ 사용 중 · ${esc(g.model)}</span>` : g.key ? `<span class="nt-chip warn">키 확인 필요</span>` : `<span class="nt-chip">키 없음</span>`;
@@ -66,7 +68,7 @@
       card.innerHTML = aiHTML(); bindAI(card);
     };
     const sel = $("nt-model");
-    if (sel) sel.onchange = () => { const g = getJ(GKEY, {}); g.model = sel.value; setJ(GKEY, g); card.innerHTML = aiHTML(); bindAI(card); };
+    if (sel) sel.onchange = () => { const g = getJ(GKEY, {}); g.model = sel.value; g.picked = true; /* 직접 고른 건 그대로 둠 */ setJ(GKEY, g); card.innerHTML = aiHTML(); bindAI(card); };
     const del = $("nt-key-del");
     if (del) del.onclick = () => { try { localStorage.removeItem(GKEY); } catch (e) { /* 무시 */ } TS.toast("키를 지웠어요"); card.innerHTML = aiHTML(); bindAI(card); };
     const fc = $("nt-fix-clear");

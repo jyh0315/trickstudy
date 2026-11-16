@@ -832,9 +832,11 @@ async function gemModels(key) {
 function rankModels(list) {
   const ok = list.filter((n) => /^gemini-(\d+(\.\d+)?)-flash(-lite)?(-\d{3}|-latest|-preview[\w-]*)?$/.test(n) || /^gemini-flash(-lite)?-latest$/.test(n));
   const ver = (n) => { const m = n.match(/gemini-(\d+(?:\.\d+)?)/); return m ? parseFloat(m[1]) : 0; };
-  const sc = (n) => (/preview|exp/.test(n) ? 0 : 100) + (/lite/.test(n) ? 0 : 50) + ver(n) * 10 - (/latest/.test(n) ? 5 : 0);
+  const sc = (n) => (/lite/.test(n) ? 200 : 0) + (/preview|exp/.test(n) ? 0 : 100) + ver(n) * 10 - (/latest/.test(n) ? 5 : 0); // flash-lite 먼저 (빠름)
   return ok.sort((a, b) => sc(b) - sc(a));
 }
+// 기본 모델 = 가장 빠른 flash-lite (노트 탭에서 직접 고른 적이 있으면 그대로)
+if (gem.models && gem.models.length && !gem.picked) { const ms = rankModels(gem.models); if (ms.length) { gem.models = ms; gem.model = ms[0]; gemSave(); } }
 function renderAi() { /* 키 설정은 트릭스터디 → 노트 탭에서 */ }
 // 오늘 보낸 횟수 (이 브라우저 기준)
 const UKEY = "trickstudy-gemini-usage";
