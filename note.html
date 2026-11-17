@@ -862,10 +862,34 @@ function wrapAsk(req, body) {
   req = String(req || "").trim() || "빠진 내용을 필요한 자리에 끼워 넣어 줘.";
   return `[부탁]\n${req}\n\n${ADD_RULE}\n\n[노트]\n` + body;
 }
+// 🤖 Gemini 로 바로 끼워 넣기 (노트 탭의 키) — 결과는 보충 상자로
+const SCHEMA_ADD = { type: "OBJECT", properties: { adds: { type: "ARRAY", items: { type: "OBJECT", properties: { after: { type: "INTEGER" }, text: { type: "STRING" } }, required: ["after", "text"] } } }, required: ["adds"] };
+async function geminiAdds(req, body, btn) {
+  if (!(gem.key && gem.model)) return toast("트릭스터디 → 📝 노트 탭의 AI 설정에서 Gemini 키를 넣어 주세요");
+  if (btn.disabled) return;
+  btn.disabled = true; const old = btn.textContent;
+  const t0 = Date.now(); let stepM = "", stepAt = t0;
+  const show = () => { btn.textContent = `🤖 쓰는 중…${stepM ? " " + short(stepM) : ""} ${Math.round((Date.now() - stepAt) / 1000)}초`; };
+  const tick = setInterval(show, 1000); show();
+  try {
+    const rule = `[답 형식] JSON 으로만: {"adds":[{"after":번호,"text":"넣을 내용"}]}
+- after 는 노트 덩어리 앞의 [#번호] (그 덩어리 바로 뒤에 들어가요). 맨 앞은 0.
+- 노트 전체를 다시 쓰지 말고 덧붙일 내용만. 한 곳에 2~3줄 이내, 핵심만 짧게. 꼭 필요한 곳에만 (많아야 5~6곳).
+- text 안: 제목은 # , 목록은 - , 수식은 $...$ (JSON 이라 역슬래시 두 번), 문단 사이는 빈 줄. 한국어.`;
+    const data = await gemCall([{ text: wrapAsk(req, body).replace(ADD_RULE, rule) }], SCHEMA_ADD, 0.4, "tidy", (st) => { stepM = st.model; stepAt = Date.now(); show(); });
+    const adds = (data.adds || []).filter((a) => a && a.text && String(a.text).trim()).map((a) => ({ after: Math.max(0, a.after | 0), text: fixArrow(fixTex(String(a.text))) }));
+    if (!adds.length) return toast("AI 가 덧붙일 내용이 없대요");
+    document.querySelectorAll(".cvp.aiov").forEach((x) => x.remove());
+    applyAdds(adds, AI_ADD);
+    say(`🤖 Gemini 가 ${adds.length}곳에 보충했어요 (${short(gemCall.used || "")}에서 ${Math.round((Date.now() - t0) / 1000)}초). 읽어 보고 맞으면 ✓ 로 확인해요.`);
+  } catch (e) { toast("🤖 보충 실패: " + (e.message || e)); }
+  finally { clearInterval(tick); btn.disabled = false; btn.textContent = old; }
+}
 function aiPanel() {
-  const ov = document.createElement("div"); ov.className = "cvp aiov";
+  const ov = document.createElement("div"); ov.className = "cvp aiov"; const hasKey = !!(gem.key && gem.model);
   ov.innerHTML = `<div class="cvp-box" style="max-width:820px"><h3>🤖 AI 로 내용 끼워 넣기</h3>
     <div class="aiAsk"><input id="aiReq" placeholder="AI 에게 부탁할 말 (예: 빠진 개념을 필요한 자리에 채워 줘)"><div class="aiChips">${AI_ASKS.map((a) => `<button data-q="${esc(a)}">${esc(a.split(" — ")[0])}</button>`).join("")}</div></div>
+    ${hasKey ? `<div class="aiRow" style="margin:2px 0 12px"><button class="btn pink" id="aiGo">🤖 Gemini 로 바로 끼워 넣기</button><span class="meta">노트 탭의 Gemini 키 사용 · 20~60초 · 보충 상자로 들어가요</span></div>` : `<p class="meta" style="margin:2px 0 10px">노트 탭에서 Gemini 키를 넣으면 여기서 바로 끼워 넣기도 돼요.</p>`}
     <div class="aiio">
       <section><h4>① Claude·ChatGPT 등에 보내기</h4><textarea id="aiOut" readonly></textarea>
         <div class="aiRow"><button class="btn mint" id="aiCopy">📋 복사</button><button class="btn" id="aiSave">💾 .md 저장</button></div>
@@ -884,6 +908,7 @@ function aiPanel() {
   ov.addEventListener("keydown", (e) => e.stopPropagation());
   ov.querySelector("#aiClose").onclick = () => ov.remove();
   ov.onclick = (e) => { if (e.target === ov) ov.remove(); };
+  if (hasKey) ov.querySelector("#aiGo").onclick = (e) => geminiAdds(req.value, body, e.currentTarget);
   ov.querySelector("#aiCopy").onclick = async () => { try { await navigator.clipboard.writeText(md); toast("📋 복사했어요 — AI 채팅창에 붙여넣어요"); } catch (e) { const ta = ov.querySelector("#aiOut"); ta.focus(); ta.select(); toast("글을 골라 뒀어요 — 길게 눌러 복사해 주세요"); } };
   ov.querySelector("#aiSave").onclick = () => { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([md], { type: "text/markdown" })); a.download = NoteStore.fileName(note) + ".md"; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000); };
   ov.querySelector("#aiPut").onclick = () => { const v = ov.querySelector("#aiIn").value; if (!v.trim()) return toast("AI 답을 붙여넣어 주세요"); ov.remove(); applyAdds(parseAdds(v), AI_ADD); };
