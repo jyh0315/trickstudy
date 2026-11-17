@@ -181,6 +181,9 @@ body.zen .paper { height: 100vh !important; border: 0; border-radius: 0; box-sha
 .tbR { margin-left: auto; display: inline-flex; gap: 6px; }
 .btn.mint { background: var(--mint); } .btn.sky { background: var(--sky); }
 .btn.off { opacity: .55; }
+.pgOps { display: inline-flex; gap: 4px; margin-left: 4px; }
+.pgOps button { font: 13px var(--font-title); width: 30px; height: 28px; border: 2px solid var(--ink); border-radius: 9px; background: #fff; cursor: pointer; padding: 0; }
+.pgOps #pgDel { background: #ffe1dc; }
 .pnav { display: inline-flex; align-items: center; gap: 6px; font: 14px var(--font-title); }
 .pnav[hidden] { display: none; }
 body.focus #settings { display: none; }
@@ -249,7 +252,7 @@ mark.uns { background: #ffe08a; border-bottom: 2px dotted #d8483b; color: inheri
 <div class="nbar">
   <a class="btn" href="./#note" id="backBtn" title="노트 목록으로">←</a>
   <input id="title" class="ntitle" placeholder="노트 제목 (과목·단원 — AI가 참고해요)" autocomplete="off">
-  <label class="psum" title="이 페이지가 무슨 내용인지 짧게 — AI가 글을 읽을 때 참고해요"><b id="pLabel">1쪽</b><input id="pSum" placeholder="이 페이지 요약" autocomplete="off"></label>
+  <label class="psum" title="이 페이지가 무슨 내용인지 짧게 — AI가 글을 읽을 때 참고해요"><b id="pLabel">1쪽</b><input id="pSum" placeholder="이 페이지 요약" autocomplete="off"></label><span class="pgOps"><button id="pgAdd" title="이 쪽 다음에 빈 쪽 넣기 (아래 쪽들은 한 쪽씩 밀려요)">➕</button><button id="pgDel" title="이 쪽 지우기 (아래 쪽들이 당겨 올라와요)">🗑</button></span>
   <button class="aiStat" id="aiStat" title="AI 글씨 읽기 상태 — 누르면 지금 다시 읽어요">🤖 …</button>
   <span class="meta" id="saveState">저장됨</span>
   <button class="btn" id="zenBtn" title="노트만 보기 — 화면 가득 필기 (Esc 로 나가기)">⛶ 집중</button>
@@ -396,7 +399,7 @@ function pushUndo(entry) {
   undoStack.push(entry); undoBytes += entry.size; redoStack.length = 0; // 새로 한 일이 생기면 '다시 하기'는 사라짐
   while (undoStack.length > 80 || (undoBytes > 25e6 && undoStack.length > 1)) undoBytes -= undoStack.shift().size;
 }
-function snapshot() { pushUndo({ full: JSON.stringify({ strokes, meta, heads }) }); }
+function snapshot() { pushUndo({ full: JSON.stringify({ strokes, meta, heads, pages: note && note.pages }) }); }
 function snapshotAdd(firstId) { pushUndo({ addFrom: firstId, meta: JSON.stringify({ meta, heads }) }); }
 function toast(t) { const el = $("toast"); el.textContent = t; el.classList.add("on"); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove("on"), 1800); }
 function say(t) { $("say").textContent = t; if (focusUI) toast(t); }
@@ -2094,6 +2097,38 @@ function goPage(n) {
   page = Math.max(0, Math.min(n, pageCount())); // 마지막 다음 장 = 새 장
   fitBoard(); render(); save(); paper.scrollTop = 0;
 }
+/* 쪽 지우기·넣기: 덩어리 가운데가 그 쪽에 있으면 그 쪽 내용. 아래 쪽들은 한 쪽 높이만큼 당기거나 밂 */
+function shiftBelow(y0, dy) {
+  for (const b of blocks) if (b.box.y + b.box.h / 2 >= y0) for (const st of b.strokes) st.pts.forEach((q) => { q.y = +(q.y + dy).toFixed(1); });
+  for (const h of heads) if (h.y - 10 >= y0) h.y += dy;
+}
+function deletePage(pg) {
+  const top = pg * PAGE_H, bot = top + PAGE_H;
+  const on = blocks.filter((b) => { const c = b.box.y + b.box.h / 2; return c >= top && c < bot; });
+  const hs = heads.filter((h) => h.y - 10 >= top && h.y - 10 < bot);
+  const total = pageCount();
+  if (total <= 1 && !on.length && !hs.length) return toast("지울 쪽이 없어요");
+  if (!confirm(`${pg + 1}쪽을 지울까요?${on.length ? ` (내용 ${on.length}개도 같이 지워져요)` : " (빈 쪽)"}\n아래 쪽들이 한 쪽씩 당겨 올라와요. ↶ 로 되돌릴 수 있어요.`)) return;
+  snapshot();
+  const gone = new Set(on.flatMap((b) => b.strokes));
+  strokes = strokes.filter((st) => !gone.has(st)); heads = heads.filter((h) => !hs.includes(h));
+  regroup(); shiftBelow(bot, -PAGE_H);
+  if (note.pages.length > pg) note.pages.splice(pg, 1);
+  sel = null; regroup(); fitBoard(); save();
+  if (mode === "page") goPage(Math.min(pg, pageCount() - 1)); else render();
+  shownPage = -1; updatePageLabel(); toast(`🗑 ${pg + 1}쪽을 지웠어요 (↶ 되돌리기)`);
+}
+function insertPage(pg) { // pg 쪽 다음에 빈 쪽
+  snapshot();
+  shiftBelow((pg + 1) * PAGE_H, PAGE_H);
+  while (note.pages.length < pg + 1) note.pages.push({});
+  note.pages.splice(pg + 1, 0, {});
+  regroup(); fitBoard(); save();
+  if (mode === "page") goPage(pg + 1); else { render(); paper.scrollTop = ((pg + 1) * PAGE_H) * Z; }
+  shownPage = -1; updatePageLabel(); toast(`➕ ${pg + 2}쪽에 빈 쪽을 넣었어요 (↶ 되돌리기)`);
+}
+$("pgDel").onclick = () => deletePage(viewPage());
+$("pgAdd").onclick = () => insertPage(viewPage());
 $("pPrev").onclick = () => goPage(page - 1);
 $("pNext").onclick = () => goPage(page + 1);
 $("paperSel").onchange = $("bgSel").onchange = () => { fitBoard(true); save(); };
@@ -2586,17 +2621,17 @@ $("gap").onchange = () => { save(); scheduleRecognize(); };
 $("undo").onclick = () => {
   const u = undoStack.pop(); if (!u) return toast("더 되돌릴 게 없어요");
   undoBytes -= u.size || 0;
-  redoStack.push(JSON.stringify({ strokes, meta, heads })); if (redoStack.length > 40) redoStack.shift();
+  redoStack.push(JSON.stringify({ strokes, meta, heads, pages: note.pages })); if (redoStack.length > 40) redoStack.shift();
   if (u.addFrom != null) { const d = JSON.parse(u.meta); strokes = strokes.filter((st) => st.id < u.addFrom); meta = d.meta; heads = d.heads || []; }
-  else { const d = JSON.parse(u.full); strokes = d.strokes; meta = d.meta; heads = d.heads || []; }
-  regroup(); fitBoard(); save(); scheduleRecognize();
+  else { const d = JSON.parse(u.full); strokes = d.strokes; meta = d.meta; heads = d.heads || []; if (d.pages) note.pages = d.pages; }
+  regroup(); fitBoard(); save(); scheduleRecognize(); shownPage = -1; updatePageLabel();
 };
 $("paste").onclick = () => pasteClip();
 window.addEventListener("storage", (e) => { if (e.key === CLIPKEY) showPaste(); }); // 다른 탭에서 복사해도 버튼이 보이게
 $("redo").onclick = () => {
   const r = redoStack.pop(); if (!r) return toast("다시 할 게 없어요");
-  const cur = JSON.stringify({ strokes, meta, heads }); undoStack.push({ full: cur, size: cur.length }); undoBytes += cur.length;
-  const d = JSON.parse(r); strokes = d.strokes; meta = d.meta; heads = d.heads || [];
+  const cur = JSON.stringify({ strokes, meta, heads, pages: note.pages }); undoStack.push({ full: cur, size: cur.length }); undoBytes += cur.length;
+  const d = JSON.parse(r); strokes = d.strokes; meta = d.meta; heads = d.heads || []; if (d.pages) note.pages = d.pages; shownPage = -1;
   regroup(); fitBoard(); save(); scheduleRecognize();
 };
 $("clear").onclick = () => { if (!strokes.length && !heads.length) return; snapshot(); strokes = []; meta = {}; heads = []; sel = null; regroup(); fitBoard(); save(); toast("다 지웠어요 (되돌리기 가능)"); };
