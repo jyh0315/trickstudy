@@ -1386,6 +1386,12 @@ function thinkCfg(m) {
   if (/gemini-2\./.test(m)) return null;
   return { thinkingLevel: "low" }; // 3 세대 이후·latest: 낮게
 }
+function thinkCfgTidy(m) { // 정리: 순서만 정하면 돼서 생각은 낮게 (노트가 커져도 빨리)
+  if (noThinkList().includes(m)) return null;
+  if (/gemini-2\.5-flash/.test(m)) return { thinkingBudget: 512 };
+  if (/gemini-2\./.test(m)) return null;
+  return { thinkingLevel: "low" };
+}
 // 정리 모델: 직접 고른 게 없으면 lite 가 아닌 가장 좋은 flash (정식 > 미리보기, 높은 버전)
 function tidyModel() {
   if (gem.tidyModel) return gem.tidyModel;
@@ -1396,7 +1402,7 @@ function tidyModel() {
 async function gemCall(parts, schema, temp, purpose) {
   const cfg = { temperature: temp || 0, responseMimeType: "application/json" };
   if (schema) cfg.responseSchema = schema;
-  const bodyFor = (m) => { const c = Object.assign({}, cfg), th = purpose === "tidy" ? null : thinkCfg(m); if (th) c.thinkingConfig = th; /* 정리는 생각을 줄이지 않음 */ return JSON.stringify({ contents: [{ role: "user", parts }], generationConfig: c }); };
+  const bodyFor = (m) => { const c = Object.assign({}, cfg), th = purpose === "tidy" ? thinkCfgTidy(m) : thinkCfg(m); if (th) c.thinkingConfig = th; /* 정리는 '낮게' (끄지는 않음) */ return JSON.stringify({ contents: [{ role: "user", parts }], generationConfig: c }); };
   const rest = restMap();
   const first = purpose === "tidy" ? tidyModel() : gem.model; // 읽기 = 빠른 모델, 정리 = 조금 높은 모델
   const rest2 = (gem.models || []).filter((m) => m !== first);
@@ -2381,10 +2387,10 @@ function planLayout(sections) {
 }
 function animateTo(plan, newHeads, done) {
   const moves = plan.map((p) => ({ u: p.u, dx: p.x - p.u.box.x, dy: p.y - p.u.box.y, ax: 0, ay: 0 }));
-  const t0 = performance.now(), D = 420;
+  const t0 = performance.now(), D = moves.length > 40 ? 0 : 420; // 덩어리가 많으면 움직임 없이 바로 (버벅임 방지)
   heads = newHeads;
   const step = (now) => {
-    const k = Math.min(1, (now - t0) / D), e = 1 - Math.pow(1 - k, 3);
+    const k = D ? Math.min(1, (now - t0) / D) : 1, e = 1 - Math.pow(1 - k, 3);
     for (const m of moves) {
       const tx = m.dx * e, ty = m.dy * e, ddx = tx - m.ax, ddy = ty - m.ay; m.ax = tx; m.ay = ty;
       for (const g of m.u.group) { for (const s of g.strokes) for (const q of s.pts) { q.x += ddx; q.y += ddy; } g.box.x += ddx; g.box.y += ddy; }
@@ -2436,23 +2442,32 @@ $("tidyBtn").onclick = async () => {
   const us = readingOrder(units());
   if (us.length < 2) return toast("덩어리가 2개 이상일 때 정리할 수 있어요");
   const btn = $("tidyBtn"); btn.disabled = true; btn.textContent = "🤖 정리 중…";
+  const tStart = Date.now(), tick = setInterval(() => { btn.textContent = `🤖 정리 중… ${Math.round((Date.now() - tStart) / 1000)}초`; }, 1000);
   say("에르핀이 Gemini 랑 노트 순서를 고민하는 중… 🤔");
   try {
+    // 보내는 양 줄이기: 순서·소단원만 정하면 되니까 글은 앞부분만, 그림은 글(이름표)로. 글 없는 그림만 작은 이미지 (최대 6장)
+    const cut = (t, n) => (t.length > n ? t.slice(0, n) + "…" : t);
+    const txt = (bl) => (bl.m.lines || []).map((l) => l.text).join(" ").replace(/\s+/g, " ").trim();
+    const imgFor = [];
     const items = us.map((u, i) => {
-      const txt = (bl) => (bl.m.lines || []).map((l) => l.text).join(" ");
-      const labels = u.group.slice(1).filter((g) => !(u.decos || []).includes(g)).map(txt).filter(Boolean); // 이름표·세트 설명 글 (꾸미기 스티커 빼고)
+      const labels = u.group.slice(1).filter((g) => !(u.decos || []).includes(g)).map((g) => cut(txt(g), 40)).filter(Boolean); // 이름표·세트 설명 글 (꾸미기 스티커 빼고)
+      if (u.b.type !== "text" && u.b.m.labSig === u.b.m.sig) for (const l of u.b.m.labels || []) labels.push(cut(String(l.text), 40)); // 그림 속 글씨
       const photo = u.b.strokes.some((st) => st.img && !st.sticker);
-      return { id: i + 1, kind: (u.group.length > 1 && u.group.some((g) => g.m.setp) ? "세트:" : "") + (u.b.type === "text" ? "글" : photo ? "사진" : "그림"), text: u.b.type === "text" ? txt(u.b) || "(아직 안 읽음)" : "", labels, size: [Math.round(u.box.w), Math.round(u.box.h)] };
+      if (u.b.type !== "text" && !photo && !labels.length && imgFor.length < 6) imgFor.push(i);
+      const it = { id: i + 1, kind: (u.group.length > 1 && u.group.some((g) => g.m.setp) ? "세트:" : "") + (u.b.type === "text" ? "글" : photo ? "사진" : "그림") };
+      if (u.b.type === "text") it.text = cut(txt(u.b), 100) || "(아직 안 읽음)";
+      if (labels.length) it.labels = labels.slice(0, 6);
+      return it;
     });
     const topic = topicFor(null), sums = (note.pages || []).map((p2, i) => p2 && p2.summary ? `${i + 1}쪽: ${p2.summary}` : "").filter(Boolean).join(" / ");
     const parts = [{ text: `학생의 필기 노트 덩어리 목록이에요 (노트 제목: ${$("title").value || "없음"}${sums ? ` · 페이지 요약: ${sums}` : ""}). 공부하기 좋게 다시 배치하려고 해요.
 - 내용 흐름에 맞게 순서를 정하고, 2~6개의 소단원으로 묶어 짧은 소제목(한국어, 15자 이내)을 붙여 주세요. 덩어리가 적으면 소단원 1~2개도 괜찮아요.
-- 그림은 그 그림을 설명하는 글 바로 뒤에 두세요. 그림 이미지는 아래에 id 순서대로 붙였어요.
+- 그림은 그 그림을 설명하는 글 바로 뒤에 두세요. 글은 앞부분만 보냈어요(… 로 끝남). 글이 없는 그림만 이미지를 아래에 붙였어요.
 - 필기 내용은 바꾸거나 빼지 말고, 모든 id 를 정확히 한 번씩 쓰세요.
 - 노트 전체 제목도 지어 주세요.
 덩어리: ${JSON.stringify(items)}
 JSON 만 출력: {"title":"...","sections":[{"title":"...","items":[1,2]}]}` }];
-    us.forEach((u, i) => { if (u.b.type !== "text") { parts.push({ text: `그림 id ${i + 1}` }); parts.push({ inline_data: { mime_type: "image/png", data: blockPng(u.b, 384) } }); } });
+    for (const i of imgFor) { parts.push({ text: `그림 id ${i + 1}` }); parts.push({ inline_data: { mime_type: "image/png", data: blockPng(us[i].b, 256) } }); }
     const data = await gemCall(parts, SCHEMA_TIDY, 0, "tidy");
     const used = new Set(), sections = [];
     for (const sc of data.sections || []) {
@@ -2471,7 +2486,7 @@ JSON 만 출력: {"title":"...","sections":[{"title":"...","items":[1,2]}]}` }];
     say(`🤖 「${noteTitle || "노트"}」 — 소단원 ${sections.length}개로 정리했어요! 마음에 안 들면 ↶ 되돌리기, 소제목은 ✋ 옮기기로 끌거나 🧽 지우개로 지울 수 있어요.`);
     document.title = ($("title").value || "노트") + " · 트릭스터디";
   } catch (e) { say("AI 정리 실패: " + e.message); toast("AI 정리 실패: " + e.message); aiStat("bad", "⚠️ 정리 실패: " + e.message, "AI 정리 실패: " + e.message); }
-  finally { btn.disabled = false; btn.textContent = "🤖 AI 정리"; }
+  finally { clearInterval(tick); btn.disabled = false; btn.textContent = "🤖 AI 정리"; }
 };
 
 /* ───────── 🖼 사진: 브라우저 저장소(IndexedDB)에 넣고, 노트엔 "사진 획"으로 ─────────
