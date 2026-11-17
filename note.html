@@ -1404,7 +1404,8 @@ function tidyModel() {
   const sc = (n) => (/lite/.test(n) ? 0 : 200) + (/preview|exp/.test(n) ? 0 : 100) + ver(n) * 10 - (/latest/.test(n) ? 5 : 0);
   return [...(gem.models || [])].sort((a, b) => sc(b) - sc(a))[0] || gem.model;
 }
-async function gemCall(parts, schema, temp, purpose) {
+let GEM_TIMEOUT = { tidy: 40000, read: 30000 }; // 모델 하나를 기다리는 최대 시간 (넘으면 다음 모델로)
+async function gemCall(parts, schema, temp, purpose, onStep) {
   const cfg = { temperature: temp || 0, responseMimeType: "application/json" };
   if (schema) cfg.responseSchema = schema;
   const bodyFor = (m) => { const c = Object.assign({}, cfg), th = purpose === "tidy" ? thinkCfgTidy(m) : thinkCfg(m); if (th) c.thinkingConfig = th; /* 정리는 '낮게' (끄지는 않음) */ return JSON.stringify({ contents: [{ role: "user", parts }], generationConfig: c }); };
@@ -1419,7 +1420,15 @@ async function gemCall(parts, schema, temp, purpose) {
     const m = order[k];
     for (let attempt = 0; attempt < 2; attempt++) {
       countUse(m);
-      const r = await fetch(GAPI + "models/" + encodeURIComponent(m) + ":generateContent", { method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": gem.key }, body: bodyFor(m) });
+      if (onStep) try { onStep({ model: m, n: k + 1, total: order.length, retry: attempt > 0 }); } catch (e) { /* 무시 */ }
+      const lim = purpose === "tidy" ? GEM_TIMEOUT.tidy : GEM_TIMEOUT.read, ac = new AbortController(), tm = setTimeout(() => ac.abort(), lim);
+      let r;
+      try { r = await fetch(GAPI + "models/" + encodeURIComponent(m) + ":generateContent", { method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": gem.key }, body: bodyFor(m), signal: ac.signal }); }
+      catch (e) {
+        if (e.name !== "AbortError") throw e;
+        busy++; setRest(m, 3 * 60e3, "느림"); why.push(`${short(m)}: ${Math.round(lim / 1000)}초 넘게 답 없음`); // 느린 모델은 잠깐 쉬게 하고 바로 다음 모델로
+        break;
+      } finally { clearTimeout(tm); }
       if (r.ok) {
         const j = await r.json();
         const txt = (((j.candidates || [])[0] || {}).content || { parts: [] }).parts.map((p) => p.text || "").join("");
@@ -2446,11 +2455,14 @@ function autoSummaries() {
 $("tidyBtn").onclick = async () => {
   if (!(gem.key && gem.model)) { toast("🔑 트릭스터디 → 📝 노트 탭의 AI 설정에서 Gemini 키를 먼저 넣어 주세요"); return; }
   if (busy) return toast("지금 글을 읽는 중이에요. 잠시 뒤에 눌러 주세요");
-  if (blocks.some((b) => b.type === "text" && b.m.stale)) { clearTimeout(recT); toast("아직 안 읽은 글부터 읽을게요 📮"); await recognizeAll(true); } // 정리 전에 글을 다 읽어 둠
+  if (blocks.some((b) => b.type === "text" && b.m.stale)) { clearTimeout(recT); toast("아직 안 읽은 글부터 읽을게요 📮"); $("tidyBtn").textContent = "📮 먼저 읽는 중…"; await recognizeAll(true); $("tidyBtn").textContent = "🤖 AI 정리"; } // 정리 전에 글을 다 읽어 둠
   const us = readingOrder(units());
   if (us.length < 2) return toast("덩어리가 2개 이상일 때 정리할 수 있어요");
   const btn = $("tidyBtn"); btn.disabled = true; btn.textContent = "🤖 정리 중…";
-  const tStart = Date.now(), tick = setInterval(() => { btn.textContent = `🤖 정리 중… ${Math.round((Date.now() - tStart) / 1000)}초`; }, 1000);
+  const tStart = Date.now(); let stepM = "", stepAt = tStart, prevM = "";
+  const show = () => { btn.textContent = `🤖 정리 중…${stepM ? " " + (prevM ? "→ " : "") + short(stepM) : ""} ${Math.round((Date.now() - stepAt) / 1000)}초`; };
+  const onStep = (st) => { if (stepM && st.model !== stepM) prevM = stepM; stepM = st.model; stepAt = Date.now(); show(); }; // 어느 모델을 기다리는지
+  const tick = setInterval(show, 1000);
   say("에르핀이 Gemini 랑 노트 순서를 고민하는 중… 🤔");
   try {
     // 보내는 양 줄이기: 순서·소단원만 정하면 되니까 글은 앞부분만, 그림은 글(이름표)로. 글 없는 그림만 작은 이미지 (최대 6장)
@@ -2476,7 +2488,8 @@ $("tidyBtn").onclick = async () => {
 덩어리: ${JSON.stringify(items)}
 JSON 만 출력: {"title":"...","sections":[{"title":"...","items":[1,2]}]}` }];
     for (const i of imgFor) { parts.push({ text: `그림 id ${i + 1}` }); parts.push({ inline_data: { mime_type: "image/png", data: blockPng(us[i].b, 256) } }); }
-    const data = await gemCall(parts, SCHEMA_TIDY, 0, "tidy");
+    const data = await gemCall(parts, SCHEMA_TIDY, 0, "tidy", onStep);
+    const took = Math.round((Date.now() - tStart) / 1000);
     const used = new Set(), sections = [];
     for (const sc of data.sections || []) {
       const its = (sc.items || []).map((n) => us[(n | 0) - 1]).filter((u) => u && !used.has(u) && used.add(u));
@@ -2491,7 +2504,7 @@ JSON 만 출력: {"title":"...","sections":[{"title":"...","items":[1,2]}]}` }];
     if (noteTitle && (!$("title").value.trim() || $("title").value.trim() === "새 노트")) { $("title").value = noteTitle; }
     const { plan, newHeads } = planLayout(sections);
     animateTo(plan, newHeads, () => { autoSummaries(); if (mode === "page") goPage(0); else paper.scrollTo({ top: 0, behavior: "smooth" }); });
-    say(`🤖 「${noteTitle || "노트"}」 — 소단원 ${sections.length}개로 정리했어요! 마음에 안 들면 ↶ 되돌리기, 소제목은 ✋ 옮기기로 끌거나 🧽 지우개로 지울 수 있어요.`);
+    say(`🤖 「${noteTitle || "노트"}」 — 소단원 ${sections.length}개로 정리했어요! (${short(gemCall.used || "")}에서 ${took}초) 마음에 안 들면 ↶ 되돌리기, 소제목은 ✋ 옮기기로 끌거나 🧽 지우개로 지울 수 있어요.`);
     document.title = ($("title").value || "노트") + " · 트릭스터디";
   } catch (e) { say("AI 정리 실패: " + e.message); toast("AI 정리 실패: " + e.message); aiStat("bad", "⚠️ 정리 실패: " + e.message, "AI 정리 실패: " + e.message); }
   finally { clearInterval(tick); btn.disabled = false; btn.textContent = "🤖 AI 정리"; }
