@@ -464,7 +464,7 @@ svg.addEventListener("pointerdown", (e) => {
   if (tool === "move" || tool === "lasso") { // ✋ 선택: 덩어리 위 = 옮기기, 빈 곳 = 올가미 묶기
     const b = blockAt(p);
     if (b) { snapshot(); sel = b.key; const group = [b, ...blocks.filter((x) => x.parent === b.key)];
-      if (!b.strokes[0].hl) for (const h of blocks) if (h.strokes[0].hl && !group.includes(h) && near(h.box, b.box, -4)) group.push(h); // 그 위에 그은 형광펜도 같이
+      if (!b.strokes[0].hl) for (const g of [...group]) for (const h of hlOf(g)) if (!group.includes(h)) group.push(h); // 그 위에 그은 형광펜도 같이
       dragging = { b, group, x: p.x, y: p.y, moved: false }; svg.style.cursor = "grabbing"; render(); return; }
     if (sel) { sel = null; render(); }
     dragging = { lasso: [p] }; $("gLive").innerHTML = ""; dragging.el = el("path", { fill: "rgba(183,124,255,.12)", stroke: "#b77cff", "stroke-width": 2, "stroke-dasharray": "5 4" }, $("gLive"));
@@ -657,7 +657,8 @@ function getClip() { try { return JSON.parse(localStorage.getItem(CLIPKEY) || "n
 function showPaste() { const has = !!getClip(); $("paste").hidden = !has; const zp = $("zenPaste"); if (zp) zp.hidden = !has; }
 function copySel() {
   const u = selUnit(); if (!u) return toast("✋ 선택으로 복사할 덩어리를 눌러 주세요");
-  const group = [...new Set(u.group)];
+  const base = u.b.hl ? [u.b] : [...new Set(u.group)].filter((g) => !g.hl); // 세트에 들어간 다른 형광펜은 빼고
+  const group = [...base]; for (const g of base) for (const h of hlOf(g)) if (!group.includes(h)) group.push(h); // 그 글에 그은 형광펜만
   const idx = new Map(group.map((g, i) => [g.key, i]));
   const items = group.map((g) => {
     const m = g.m, keep = {};
@@ -683,7 +684,14 @@ async function pasteClip() {
   }
   const all = clip.items.flatMap((it) => it.strokes.flatMap((st) => st.pts)); const B = bbox(all);
   const top = mode === "page" ? page * PAGE_H : paper.scrollTop / Z, viewH = mode === "page" ? PAGE_H : paper.clientHeight / Z;
-  const tx = Math.max(10, Math.min(PAGE_W - B.w - 10, (paper.scrollLeft + paper.clientWidth / 2) / Z - B.w / 2)), ty = top + Math.max(20, viewH / 2 - B.h / 2);
+  const tx = Math.max(10, Math.min(PAGE_W - B.w - 10, (paper.scrollLeft + paper.clientWidth / 2) / Z - B.w / 2));
+  let ty = top + Math.max(20, viewH / 2 - B.h / 2);
+  { // 다른 덩어리(형광펜 포함)와 겹치면 한 줄씩 아래로 빈 자리 찾기
+    const hit = (y) => blocks.some((b) => near(b.box, { x: tx, y, w: B.w, h: B.h }, 6));
+    const y0 = ty; let k = 0;
+    while (hit(ty) && k < 60) { k++; ty = y0 + k * LINE; }
+    if (hit(ty)) ty = y0;
+  }
   const dx = tx - B.x, dy = ty - B.y;
   snapshotAdd(nextId);
   const keys = [];
@@ -758,6 +766,7 @@ function finishLasso(d) {
   if (!pick.length) return toast("감싼 획이 없어요");
   snapshot();
   const ps = new Set(pick);
+  if (pick.some((st) => !st.hl)) { pick = pick.filter((st) => !st.hl); ps.clear(); pick.forEach((st) => ps.add(st)); } // 형광펜은 묶음에 안 넣음 (글을 옮기면 알아서 따라감)
   const touched = blocks.filter((b) => b.strokes.some((st) => ps.has(st)));
   const whole = touched.filter((b) => b.strokes.filter((st) => ps.has(st)).length >= b.strokes.length * 0.8);
   const draws = whole.filter((b) => b.type === "draw");
@@ -774,7 +783,7 @@ function finishLasso(d) {
       : [...whole].sort((a, c) => a.box.y - c.box.y || a.box.x - c.box.x)[0]; // 글끼리면 맨 위(왼쪽) 글이 대표
     // 이미 세트였던 것들도 새 대표 아래로 모음
     const members = new Set(whole);
-    for (const b of blocks) if (b.parent && members.has(blocks.find((x) => x.key === b.parent))) members.add(b);
+    for (const b of blocks) if (b.parent && !b.hl && members.has(blocks.find((x) => x.key === b.parent))) members.add(b);
     const mainKey = lockBlock(main, "L");
     for (const b of members) { if (b === main) continue; const k = lockBlock(b, "L"); meta[k].setp = true; meta[k].parent = mainKey; }
     meta[mainKey].setp = false; meta[mainKey].parent = null;
@@ -994,6 +1003,7 @@ function regroup() {
   const resolve = (k) => (k && (byKey.get(k) || byKey.get("L" + k.slice(1)))) || null;
   for (const b of blocks) { // 세트(직접 묶은 그림+설명): 글이든 그림이든 대표 그림에 붙음
     b.parent = null;
+    if (b.hl && b.m.setp) { b.m.setp = false; b.m.parent = null; } // 형광펜은 세트에 안 들어감 (예전에 들어간 것도 풀기)
     if (!b.m.setp) continue;
     const pb = resolve(b.m.parent);
     if (pb && pb !== b && !pb.m.setp) { b.parent = pb.key; b.m.parent = pb.key; } else { b.m.setp = false; b.m.parent = null; }
@@ -1023,6 +1033,12 @@ function regroup() {
 function dispBox(b) {
   if (isClean() && b.type === "text" && !b.m.stale && b.m._ch && b.m.lines && b.m.lines.some((l) => l.text)) return { x: b.box.x, y: b.box.y, w: (b.m._cw || b.box.w) + 6, h: Math.max(b.m._ch - 4, 20) };
   return b.box;
+}
+// 이 덩어리에 그은 형광펜: 겹치고, 글을 쓴 뒤에 그은 것만 (나중에 붙여넣은 글이 원래 있던 형광펜을 가져가지 않게)
+function hlOf(b) {
+  if (b.hl || b.strokes[0].hl) return [];
+  const first = Math.min(...b.strokes.map((st) => st.id));
+  return blocks.filter((h) => h.hl && near(h.box, b.box, -4) && Math.min(...h.strokes.map((st) => st.id)) > first);
 }
 function blockAt(p) { // 겹치면 가장 작은 덩어리 (배경 도형 위에 쓴 글씨를 누르면 글씨가 골라짐)
   let best = null, ba = Infinity;
