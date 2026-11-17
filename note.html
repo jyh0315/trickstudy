@@ -119,6 +119,12 @@ body.zen .paper { height: 100vh !important; border: 0; border-radius: 0; box-sha
 .selBar button[data-a="del"] { background: #ffe1dc; }
 .selBar button[data-a="redraw"] { background: #efe4ff; }
 .selBar button[data-a="okuns"] { background: #fff3a6; }
+.aiio { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.aiio h4 { margin: 0 0 6px; font: 15px var(--font-title); }
+.aiio textarea { width: 100%; height: 230px; box-sizing: border-box; font: 13px/1.5 var(--font-body); border: 2px solid var(--ink); border-radius: 10px; padding: 8px; background: #fff; resize: vertical; }
+.aiRow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 6px; font: 13px var(--font-title); }
+.aiRow .btn:last-child { margin-left: auto; }
+@media (max-width: 640px) { .aiio { grid-template-columns: 1fr; } .aiio textarea { height: 150px; } }
 .inEdit { position: absolute; z-index: 6; font-family: var(--font-body); line-height: 1.6; padding: 6px 8px; border: 2.5px solid var(--pink-d); border-radius: 10px; background: #fffdf6; box-shadow: 0 4px 0 var(--ink); resize: both; outline: none; color: var(--ink); }
 .selBar button[hidden] { display: none; }
 .selBar button.wide { width: auto; min-width: 34px; padding: 0 6px; }
@@ -202,6 +208,8 @@ body.noside .side { display: none; }
 .cleanF .katex { font-size: 1em; }
 .cleanB { display: inline-block; font-family: var(--font-body); color: var(--ink); line-height: 1.55; white-space: nowrap; }
 .cleanB > div { white-space: nowrap; width: max-content; }
+.cleanB.typed { display: block; white-space: normal; }
+.cleanB.typed > div { white-space: pre-wrap; width: auto; overflow-wrap: anywhere; min-height: 1em; }
 .cleanB .katex { font-size: 1.05em; }
 /* 나무 모양 가지선 */
 .cleanB .tc { display: inline-block; width: 1.5em; height: 40px; vertical-align: top; position: relative; }
@@ -271,6 +279,7 @@ mark.uns { background: #ffe08a; border-bottom: 2px dotted #d8483b; color: inheri
   <button class="btn" id="shapeBtn" title="필기 도우미: 말풍선·화살표·흰 사각형·메모지·표시 (형광은 🖍 형광펜 도구로)">📐 도형</button>
   <button class="btn" id="stickerBtn" title="사도 스티커 붙이기 (꼬마 그림·표정·움직이는 모습 찰칵)">🧸 사도</button>
   <button class="btn" id="photoBtn" title="사진 올리기 (붙여넣기 Ctrl+V, 끌어다 놓기도 돼요)">🖼 사진</button><input type="file" id="photoIn" accept="image/*" multiple hidden>
+  <button class="btn" id="aiBtn" title="Claude·ChatGPT 같은 AI 와 주고받기: 노트를 글로 내보내기 / AI 가 쓴 글 넣기">🤖 AI 연결</button>
   <button class="btn mint" id="layoutBtn" title="덩어리들을 읽는 순서대로 가지런히 (AI 안 씀)">✨ 배치</button>
   <button class="btn sky" id="tidyBtn" title="Gemini 가 내용 흐름을 보고 순서·소제목을 정해서 배치">🤖 AI 정리</button>
   <span class="seg" id="mode"><button data-v="inf" class="on" title="아래로 계속 늘어나는 노트">📜 무한</button><button data-v="page" title="한 장씩 넘기는 노트">📄 페이지</button></span>
@@ -626,6 +635,7 @@ function mergeBlocks(ds, type) {
 // 🧩 합칠 대상: 세트면 세트 안의 같은 종류 전부, 아니면 맞닿거나 겹친 같은 종류 덩어리
 // 글 고치기 (오른쪽 목록과 같은 방식) — 줄 수가 바뀌어도 됨
 function applyEdit(b, v) {
+  if (b.m.typed) { b.strokes[0].txt = v.join("\n"); b.m.lines = typedLines(b.strokes[0]); b.m.edited = true; return; }
   if (!b.m.lines) return;
   const ls = b.m.lines;
   v.forEach((t, k) => {
@@ -652,7 +662,7 @@ function editInline() {
 }
 /* 📋 복사·붙여넣기: 고른 덩어리(세트면 세트 전체)를 읽은 결과까지 그대로. 다른 노트에도 붙일 수 있게 브라우저에 기억 */
 const CLIPKEY = "trickstudy-note-clip";
-const STROKE_KEEP = ["pts", "w", "c", "img", "sticker", "back", "hl", "fin"];
+const STROKE_KEEP = ["pts", "w", "c", "img", "sticker", "back", "hl", "fin", "txt", "fz", "w0"];
 function getClip() { try { return JSON.parse(localStorage.getItem(CLIPKEY) || "null"); } catch (e) { return null; } }
 function showPaste() { const has = !!getClip(); $("paste").hidden = !has; const zp = $("zenPaste"); if (zp) zp.hidden = !has; }
 function copySel() {
@@ -717,13 +727,110 @@ async function pasteClip() {
   regroup(); setTool("move"); sel = main.key; render(); fitBoard(); save(); scheduleRecognize();
   toast("📋 붙여넣었어요 — 끌어서 원하는 자리로 옮겨요 (↶ 취소)");
 }
+/* ───────── 🤖 AI 연결: 노트 → 글(.md) 내보내기, AI 가 쓴 글 → 타자 글 덩어리 ─────────
+   타자 글 = 특수 획 { pts:[왼쪽위, 오른쪽아래], txt, fz(글씨 크기), w0(처음 폭) } → 옮기기·세트·복사·배치·PDF 가 손글씨와 똑같이 */
+function typedLines(st) {
+  const B = bbox(st.pts);
+  return String(st.txt || "").split("\n").map((t, k) => ({ text: t, orig: t, c: st.c || INK, alts: [], unsure: [], lv: 0, rel: true, box: { x: 0, y: k * LINE, w: B.w, h: LINE } }));
+}
+function mdHTML(l) { // 아주 간단한 마크다운: # 제목, - 목록, **굵게**
+  let t = String(l.text), pre = "", head = false;
+  const h = t.match(/^\s*#{1,6}\s+(.*)$/); if (h) { t = h[1]; head = true; }
+  const li = t.match(/^(\s*)(?:[-*•]|\d+[.)])\s+(.*)$/); if (li && !head) { const num = t.trim().match(/^\d+[.)]/); pre = "\u3000".repeat(Math.min(3, li[1].length >> 1)) + (num ? num[0] + " " : "• "); t = li[2]; }
+  let html = richHTML({ text: t, unsure: [] }).replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>");
+  return esc(pre) + (head ? `<b style="font-size:1.12em">${html}</b>` : html);
+}
+function exportForAI() {
+  const title = $("title").value.trim() || "노트";
+  const out = [`# ${title}`, "", `> ${new Date().toLocaleDateString("ko-KR")} · 트릭스터디 손글씨 노트를 글자로 옮긴 것이에요. $…$ 는 LaTeX 수식, [그림: …] 은 손그림(안의 글씨)이에요.`];
+  const items = [];
+  for (const h of heads) items.push({ y: h.y - 20, x: h.x, t: "### " + h.text });
+  const kidsOf = (b) => blocks.filter((x) => x.parent === b.key && !x.m.setp);
+  for (const b of blocks) {
+    if (b.hl) continue;
+    const pb = b.parent && blocks.find((x) => x.key === b.parent);
+    if (pb && pb.type === "draw" && !b.m.setp) continue; // 이름표는 그림 줄에 같이
+    let t = "";
+    if (b.type === "text") {
+      if (!b.m.lines || b.m.stale) t = "[읽지 못한 손글씨]";
+      else t = b.m.lines.filter((l) => l.text).map((l) => (b.m.tree && l.lv ? "  ".repeat(l.lv - 1) + "- " : "") + l.text).join("\n");
+    } else {
+      const imgs = b.strokes.filter((st) => st.img);
+      if (imgs.length && imgs.length === b.strokes.length) { if (imgs.some((st) => !st.sticker && !st.back)) t = "[사진]"; else continue; } // 스티커·도형은 생략
+      else {
+        const words = [...(b.m.labSig === b.m.sig ? (b.m.labels || []).map((l) => l.text) : []), ...kidsOf(b).flatMap((k) => (k.m.lines || []).map((l) => l.text))].filter(Boolean);
+        t = `[그림${words.length ? ": " + words.join(", ") : ""}]`;
+      }
+    }
+    if (t) items.push({ y: b.box.y, x: b.box.x, t });
+  }
+  const pg = (y) => Math.max(0, Math.floor(y / PAGE_H));
+  items.sort((a, c) => pg(a.y) - pg(c.y) || a.y - c.y || a.x - c.x);
+  let cur = -1;
+  for (const it of items) {
+    const p = pg(it.y);
+    if (p !== cur) { cur = p; const sm = pageSum(p); out.push("", `## ${p + 1}쪽${sm ? " — " + sm : ""}`); }
+    out.push("", it.t);
+  }
+  return out.join("\n") + "\n";
+}
+function importText(text, where) {
+  const paras = String(text || "").replace(/\r/g, "").split(/\n\s*\n/).map((x) => x.replace(/\s+$/, "")).filter((x) => x.trim());
+  if (!paras.length) return toast("넣을 글이 없어요");
+  snapshotAdd(nextId);
+  const W = PAGE_W - M * 2, fz = cleanFS();
+  const snapY = (y) => { // 노트 줄에 맞추고, 쪽 끝에 걸리면 다음 쪽 첫 줄로
+    const p = Math.max(0, Math.floor(y / PAGE_H)), top = p * PAGE_H;
+    const k = Math.max(0, Math.ceil((y - (top + 74)) / LINE)); let yy = top + 74 + k * LINE;
+    if (yy > top + PAGE_H - 80) yy = (p + 1) * PAGE_H + 74;
+    return yy;
+  };
+  const free = (y, h) => { // 다른 덩어리와 겹치면 한 줄씩 아래로
+    let k = 0; while (k < 200 && blocks.some((b) => near(b.box, { x: M, y, w: W, h }, 4))) { y = snapY(y + LINE); k++; }
+    return y;
+  };
+  let y = where === "here" ? snapY((mode === "page" ? page * PAGE_H : paper.scrollTop / Z) + 20) : (strokes.length || heads.length ? snapY(contentBottom() + LINE) : snapY(0));
+  let last = null;
+  for (const para of paras) {
+    const n = para.split("\n").length;
+    y = free(y, n * LINE);
+    const st = { id: nextId++, pts: [{ x: M, y, t: 0, p: 0.5 }, { x: M + W, y: y + n * LINE, t: 0, p: 0.5 }], w: 0, c: INK, txt: para, fz, w0: W };
+    strokes.push(st); last = st;
+    regroup(); render(true, true); // 실제 높이를 재서
+    y = snapY(st.pts[1].y + LINE * 0.6);
+  }
+  fitBoard(); save();
+  if (last) { if (mode === "page") goPage(Math.floor(last.pts[0].y / PAGE_H)); else paper.scrollTop = Math.max(0, last.pts[0].y * Z - paper.clientHeight / 2); }
+  toast(`📥 글 ${paras.length}덩어리를 넣었어요 (↶ 취소, ✋ 선택으로 옮기기·✏️ 고치기)`);
+}
+function aiPanel() {
+  const ov = document.createElement("div"); ov.className = "cvp";
+  ov.innerHTML = `<div class="cvp-box" style="max-width:820px"><h3>🤖 AI 연결 <small style="font-size:13px;opacity:.7">Claude · ChatGPT · Gemini 등</small></h3>
+    <div class="aiio">
+      <section><h4>① 내보내기 — 노트를 글로</h4><textarea id="aiOut" readonly></textarea>
+        <div class="aiRow"><button class="btn mint" id="aiCopy">📋 복사</button><button class="btn" id="aiSave">💾 .md 저장</button></div>
+        <p class="meta">AI 에 붙여넣고 “이어서 정리해 줘”, “빠진 내용 채워 줘”, “문제 5개 만들어 줘” 처럼 부탁해 보세요.</p></section>
+      <section><h4>② 가져오기 — AI 가 쓴 글을 노트에</h4><textarea id="aiIn" placeholder="AI 답을 여기에 붙여넣어요"></textarea>
+        <div class="aiRow"><label><input type="radio" name="aiw" value="end" checked> 노트 맨 끝</label><label><input type="radio" name="aiw" value="here"> 지금 보는 곳</label><button class="btn pink" id="aiPut">📥 넣기</button></div>
+        <p class="meta">빈 줄로 나뉜 문단마다 한 덩어리가 돼요. 옮기기·✏️고치기·배치·PDF 다 되고, AI 가 다시 읽지 않아요.</p></section>
+    </div><div class="cvp-foot"><button class="btn" id="aiClose">닫기</button></div></div>`;
+  document.body.appendChild(ov);
+  const md = exportForAI(); ov.querySelector("#aiOut").value = md;
+  ov.addEventListener("keydown", (e) => e.stopPropagation());
+  ov.querySelector("#aiClose").onclick = () => ov.remove();
+  ov.onclick = (e) => { if (e.target === ov) ov.remove(); };
+  ov.querySelector("#aiCopy").onclick = async () => { try { await navigator.clipboard.writeText(md); toast("📋 복사했어요 — AI 채팅창에 붙여넣어요"); } catch (e) { const ta = ov.querySelector("#aiOut"); ta.focus(); ta.select(); toast("글을 골라 뒀어요 — 길게 눌러 복사해 주세요"); } };
+  ov.querySelector("#aiSave").onclick = () => { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([md], { type: "text/markdown" })); a.download = NoteStore.fileName ? NoteStore.fileName(note) + ".md" : "노트.md"; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000); };
+  ov.querySelector("#aiPut").onclick = () => { const v = ov.querySelector("#aiIn").value; if (!v.trim()) return toast("AI 답을 붙여넣어 주세요"); const w = ov.querySelector('input[name="aiw"]:checked').value; ov.remove(); importText(v, w); };
+}
+$("aiBtn").onclick = aiPanel;
 // 노란 표시(자신 없음) 지우기 = "이대로 맞아요"
 function clearUnsure(b) { (b.m.lines || []).forEach((l) => { l.unsure = []; }); render(); save(); toast("✓ 노란 표시를 지웠어요"); }
 function mergeTargets(u) {
-  if (!u || u.b.hl) return [];
+  if (!u || u.b.hl || u.b.m.typed) return [];
   const t = u.b.type;
-  if (u.group.length > 1) return u.group.filter((x) => x !== u.b && x.type === t && !x.hl);
-  return blocks.filter((x) => x !== u.b && x.type === t && !x.hl && !x.strokes.some((st) => st.img) === !u.b.strokes.some((st) => st.img) && near(u.b.box, x.box, t === "text" ? +$("gap").value * 1.5 : 14) && (!x.parent || x.parent === u.b.key));
+  if (u.group.length > 1) return u.group.filter((x) => x !== u.b && x.type === t && !x.hl && !x.m.typed);
+  return blocks.filter((x) => x !== u.b && x.type === t && !x.hl && !x.m.typed && !x.strokes.some((st) => st.img) === !u.b.strokes.some((st) => st.img) && near(u.b.box, x.box, t === "text" ? +$("gap").value * 1.5 : 14) && (!x.parent || x.parent === u.b.key));
 }
 function mergeNear() {
   const u = selUnit(); if (!u) return;
@@ -790,6 +897,7 @@ function finishLasso(d) {
     sel = mainKey; regroup(); save(); scheduleRecognize();
     return toast(`🔗 ${draws.length ? "그림+설명" : "글"} ${members.size}개를 세트로 묶었어요 (같이 움직이고, 글은 따로 읽어요)`);
   }
+  pick = pick.filter((st) => !st.txt); if (!pick.length) return toast("타자 글은 🧩 합치기 대신 세트로 묶어요 (덩어리째 감싸기)");
   const key = "G" + pick[0].id + "_" + nextId;
   pick.forEach((s) => { s.lock = key; s.lockAt = nextId; });
   // 합친 덩어리의 종류 = 원래 덩어리들 중 더 많은 쪽 (글끼리 합치면 글 → 읽은 결과도 그대로 이어 붙임)
@@ -810,11 +918,11 @@ function eraseAt(p) {
   const r = 12, before = strokes.length;
   // 획을 먼저 지우고, 지운 획이 없을 때만 그 자리의 그림·도형을 (맨 위 하나만, 배경 도형은 맨 나중)
   const hitS = (s) => s.pts.length === 2 ? segDist(p, s.pts[0], s.pts[1]) < r + s.w / 2 : s.pts.some((q) => Math.hypot(q.x - p.x, q.y - p.y) < r + (s.hl ? s.w / 2 : s.w));
-  strokes = strokes.filter((s) => s.img || s.hl || !hitS(s)); // 글씨 먼저
+  strokes = strokes.filter((s) => s.img || s.txt || s.hl || !hitS(s)); // 글씨 먼저
   if (strokes.length === before) strokes = strokes.filter((s) => !s.hl || !hitS(s)); // 그다음 형광펜
   if (strokes.length === before) {
     const inside = (s) => { const B = bbox(s.pts); return p.x >= B.x && p.x <= B.x + B.w && p.y >= B.y && p.y <= B.y + B.h; };
-    const hit = [...strokes].reverse().find((s) => s.img && !s.back && inside(s)) || [...strokes].reverse().find((s) => s.img && s.back && inside(s));
+    const hit = [...strokes].reverse().find((s) => (s.img || s.txt) && !s.back && inside(s)) || [...strokes].reverse().find((s) => s.img && s.back && inside(s));
     if (hit) strokes = strokes.filter((s) => s !== hit);
   }
   if (strokes.length !== before) { regroup(); render(); }
@@ -826,6 +934,7 @@ function near(a, b, g) { return a.x - g < b.x + b.w && b.x - g < a.x + a.w && a.
 // 획 하나의 모양: 크거나, 길고 곧은 비스듬한 선(화살표)이면 그림 획
 function kindOf(s) {
   if (s.img) return "big"; // 사진은 늘 그림
+  if (s.txt) return "small"; // 타자 글
   if (s.k) return s.k;
   const b = bbox(s.pts), diag = Math.hypot(b.w, b.h), f = s.pts[0], l = s.pts[s.pts.length - 1];
   let len = 0; for (let i = 1; i < s.pts.length; i++) len += Math.hypot(s.pts[i].x - s.pts[i - 1].x, s.pts[i].y - s.pts[i - 1].y);
@@ -912,7 +1021,7 @@ function regroup() {
   const dc = new Array(n).fill(false), dAng = new Array(n).fill(null), ctr = bb.map((B) => ({ x: B.x + B.w / 2, y: B.y + B.h / 2 }));
   for (let i = 0; i < n; i++) {
     const s0 = strokes[i]; delete s0.dash;
-    if (role[i] !== "T" || s0.hl || s0.img) continue;
+    if (role[i] !== "T" || s0.hl || s0.img || s0.txt) continue;
     const B = bb[i], d = Math.hypot(B.w, B.h); if (d > 42) continue;
     if (d < 6) { dc[i] = true; continue; } // 점
     const P = s0.pts, a = P[0], z = P[P.length - 1]; let len = 0; for (let k = 1; k < P.length; k++) len += Math.hypot(P[k].x - P[k - 1].x, P[k].y - P[k - 1].y);
@@ -936,7 +1045,7 @@ function regroup() {
   const dcnt = new Map(); for (let i = 0; i < n; i++) if (dc[i] === true) dcnt.set(dfind(i), (dcnt.get(dfind(i)) || 0) + 1);
   for (let i = 0; i < n; i++) if (dc[i] === true && dcnt.get(dfind(i)) >= 3) { role[i] = "D"; strokes[i].dash = 1; }
   for (let i = 0; i < n; i++) {
-    if (role[i] !== "T") continue;
+    if (role[i] !== "T" || strokes[i].txt) continue;
     for (const j of cand(i, 12)) {
       if (role[j] !== "D" || kindOf(strokes[j]) !== "big") continue;
       if (strokes[j].img || strokes[j].hl || strokes[i].hl) continue; // 사진·도형·스티커·형광펜 위에 쓴 글씨는 글 그대로
@@ -967,6 +1076,7 @@ function regroup() {
     if (a.lock && a.lock === b.lock) continue; // (위에서 이미 묶음)
     if (!!a.fin !== !!b.fin) continue; // 완성본에서 덧쓴 필기와 원래 필기는 섞지 않음
     if (a.hl || b.hl) continue; // 형광펜은 획마다 따로 (글씨와 안 섞임)
+    if (a.txt || b.txt) continue; // 타자 글은 늘 혼자
     if (a.lock && b.lock) continue; // 서로 다른 고정 덩어리는 안 섞음
     // 옮기거나 직접 묶은 덩어리는 원래 있던 획과 섞이지 않고, 그 뒤에 옆에 새로 쓴 획만 붙음
     const L = a.lock ? a : b.lock ? b : null, o = L === a ? b : a;
@@ -994,7 +1104,8 @@ function regroup() {
     const allHl = ss.every((st) => st.hl);
     const nb = { key, strokes: ss, box, m, type: allHl ? "draw" : m.type || (d * 3 >= ss.length && d > 0 ? "draw" : "text") };
     if (allHl) { nb.hl = true; m.stale = false; } // 형광펜 덩어리는 AI 가 읽지 않음
-    if (changed && nb.type === "text") reuseOld(nb, ss, prevOf);
+    if (ss[0].txt) { nb.type = "text"; m.typed = true; m.stale = false; m.lines = typedLines(ss[0]); m.merged = false; } // 타자 글: 읽을 필요 없음
+    else if (changed && nb.type === "text") reuseOld(nb, ss, prevOf);
     return nb;
   });
   // 3) 이름표: 그림 바로 옆 글 덩어리는 그 그림의 이름표 (그림을 옮기면 같이 따라감)
@@ -1133,6 +1244,7 @@ function blockPng(b, max, color) {
   g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height);
   g.lineCap = "round"; g.lineJoin = "round"; g.strokeStyle = "#000";
   for (const s of b.strokes) {
+    if (s.txt) continue;
     if (s.img) { const B = bbox(s.pts), im = imgCache.get(s.img); if (im && im.el.complete) g.drawImage(im.el, (B.x - bx.x + pad) * k, (B.y - bx.y + pad) * k, B.w * k, B.h * k); continue; }
     g.lineWidth = Math.max(2, widthOf(s) * k); g.strokeStyle = color ? s.c || INK : "#000"; g.globalAlpha = s.hl ? 0.35 : 1;
     g.beginPath();
@@ -1714,6 +1826,7 @@ function render(fast, all) {
     const T = isClean() && b.type === "draw" && !b.hl ? drawTidy(b) : null; // 정리본·완성본: 다듬은 그림
     if (T && T.redraw) { el("image", { href: T.redraw, x: b.box.x, y: b.box.y, width: b.box.w, height: b.box.h, preserveAspectRatio: "none" }, gInk); }
     if (inkOp > 0) for (const s of b.strokes) {
+      if (s.txt) continue;
       if (T && !s.img && !s.hl && (T.redraw || T.hide.has(s))) continue;
       const fit = T && !s.img && !s.hl && T.fit.get(s);
       if (fit) { el("path", { class: "stroke tidy", d: fit, stroke: s.c, "stroke-width": T.w.get(s), fill: "none" }, gInk); continue; }
@@ -1737,18 +1850,20 @@ function render(fast, all) {
       const tag = el("text", { class: "tag", x: bx.x - pad + 2, y: bx.y - pad - 4, fill: b.type === "text" ? "#2f7fd0" : "#c23f68" }, gBox);
       tag.textContent = b.parent ? (b.m.setp ? (b.type === "text" ? "설명" : "그림") : "이름표") : b.type === "text" ? "글" : "그림";
     }
-    if (view !== "ink" && cleanText) {
+    if ((view !== "ink" || b.m.typed) && cleanText) {
       // 정리 글씨: 노트 전체가 같은 크기로, 덩어리 왼쪽 위부터 줄줄이. 쓴 줄은 꺾지 않고 한 줄 그대로
       //  (종이 오른쪽 끝을 넘을 때만 그 줄을 줄임) → 덩어리가 넓어지면 배치가 그 크기로 자리를 잡음
-      const fsz = cleanFS(), W = Math.max(bx0.w, PAGE_W - bx0.x - 16);
+      const ty = b.m.typed ? b.strokes[0] : null;
+      const fsz = ty ? Math.round((ty.fz || cleanFS()) * (ty.w0 ? bx0.w / ty.w0 : 1)) : cleanFS(), W = ty ? Math.max(60, bx0.w) : Math.max(bx0.w, PAGE_W - bx0.x - 16);
       const fo = el("foreignObject", { x: bx.x, y: bx.y + 3, width: W + 30, height: 10 }, gClean); // 노트 줄 칸 안에 앉게 살짝 아래로
-      const dv = document.createElement("div"); dv.className = "cleanB"; dv.style.cssText = `font-size:${fsz}px;max-width:${W}px;line-height:${LINE}px`; // 줄 간격 = 노트 줄 간격
+      const dv = document.createElement("div"); dv.className = "cleanB" + (ty ? " typed" : ""); dv.style.cssText = `font-size:${fsz}px;max-width:${W}px;line-height:${LINE}px` + (ty ? `;width:${W}px` : ""); // 줄 간격 = 노트 줄 간격
       const bc = mainColor(b.strokes);
       const rows = b.m.lines.filter((l) => l.text), pre = b.m.tree ? treeCells(rows) : null;
-      dv.innerHTML = rows.map((l, k) => { const c = l.c || bc; return `<div${c !== INK ? ` style="color:${c}"` : ""}>${pre ? pre[k] : ""}${richHTML(l)}</div>`; }).join("");
+      dv.innerHTML = rows.map((l, k) => { const c = l.c || bc; return `<div${c !== INK ? ` style="color:${c}"` : ""}>${pre ? pre[k] : ""}${ty ? mdHTML(l) : richHTML(l)}</div>`; }).join("");
       fo.appendChild(dv);
-      for (const row of dv.children) if (row.scrollWidth > W + 2) row.style.fontSize = Math.max(0.55, W / row.scrollWidth).toFixed(3) + "em"; // 줄바꿈 안 되는 긴 수식만 그 줄만 줄임
+      if (!ty) for (const row of dv.children) if (row.scrollWidth > W + 2) row.style.fontSize = Math.max(0.55, W / row.scrollWidth).toFixed(3) + "em"; // 줄바꿈 안 되는 긴 수식만 그 줄만 줄임
       const h = dv.scrollHeight; fo.setAttribute("height", h + 8); b.m._ch = h; b.m._cw = Math.min(W, Math.max(...[...dv.children].map((r) => r.scrollWidth), 40));
+      if (ty && h > 0 && Math.abs(ty.pts[1].y - ty.pts[0].y - h) > 3) { ty.pts[1].y = +(ty.pts[0].y + h).toFixed(1); b.box = bbox(ty.pts); } // 타자 글: 실제 높이로 상자 맞춤
     }
   }
   placeSelBar();
@@ -1796,6 +1911,7 @@ function renderSide() {
       else t.textContent = gem.key ? (busy ? "(읽는 중…)" : "(아직 못 읽음 — 위 🤖 칩을 누르면 다시 읽어요)") : env.api === "yes" ? "(읽는 중…)" : "(이 기기에선 인식 불가 — 🔑 Gemini 키를 넣어 주세요)";
       t.onblur = () => {
         const v = t.textContent.split("\n");
+        if (b.m.typed) { if (b.strokes[0].txt !== v.join("\n")) { snapshot(); b.strokes[0].txt = v.join("\n"); regroup(); save(); } return; }
         if (!b.m.lines) return;
         b.m.lines.forEach((l, k) => {
           if (v[k] == null || v[k] === l.text) return;
