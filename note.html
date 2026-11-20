@@ -109,6 +109,10 @@ body.zen .paper { height: 100vh !important; border: 0; border-radius: 0; box-sha
 .stk-it:hover, .stk-op:hover { background: var(--cream-2); }
 .stk-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-family: var(--font-title); }
 .stk-opts { display: flex; flex-wrap: wrap; gap: 10px; }
+.stk-grid[hidden], .stk-detail[hidden] { display: none !important; }
+.stk-opts { max-height: 62vh; overflow: auto; padding: 2px; }
+.stk-opts.kakao .stk-op { width: 86px; padding: 4px; }
+.stk-opts.kakao .stk-op img { width: 74px; height: 74px; }
 .stk-op { width: 120px; border: 2px solid var(--ink); border-radius: 14px; background: #fff; padding: 6px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; font: 13px var(--font-title); color: var(--ink); }
 .stk-op img { width: 104px; height: 104px; object-fit: contain; }
 .stk-op.live { background: linear-gradient(#fff, #ffe9b8); justify-content: center; }
@@ -2600,7 +2604,7 @@ async function addPhoto(file, at, opt) {
     const k = Math.min(1, 1600 / Math.max(bmp.width, bmp.height)); // 긴 변 1600px 로 줄여서 저장 공간 아끼기
     const c = document.createElement("canvas"); c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
     c.getContext("2d").drawImage(bmp, 0, 0, c.width, c.height);
-    const blob = await new Promise((ok) => (opt.sticker ? c.toBlob(ok, "image/webp", 0.97) : c.toBlob(ok, "image/jpeg", 0.85))); // 스티커는 투명 배경 그대로
+    const blob = opt.raw ? file : await new Promise((ok) => (opt.sticker ? c.toBlob(ok, "image/webp", 0.97) : c.toBlob(ok, "image/jpeg", 0.85))); // 스티커는 투명 배경 그대로 (raw = 움직이는 그림 그대로)
     const id = "img" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     await imgPut(id, blob); await loadImg(id);
     const W = PAGE_W, w = opt.w || Math.min(opt.sticker ? 200 : 420, W * 0.45, c.width), h = opt.h || (w * c.height) / c.width;
@@ -2787,12 +2791,22 @@ function stickerPick() {
   ov.addEventListener("click", (e) => { if (e.target === ov) close(); });
   const grid = ov.querySelector("#stk-grid"), det = ov.querySelector("#stk-detail");
   const draw = (q) => {
-    grid.innerHTML = list.filter((c) => !q || c.name.includes(q) || (c.en || "").toLowerCase().includes(q.toLowerCase())).map((c) =>
+    grid.innerHTML = (!q || "볼따구콘 이모티콘 카톡".includes(q) ? `<button class="stk-it" data-kakao="1" title="트릭컬 볼따구콘 (움직이는 이모티콘)"><img src="assets/kakao/bolddagu1-13.webp" alt="" loading="lazy"><span>💬 볼따구콘</span></button>` : "") + list.filter((c) => !q || c.name.includes(q) || (c.en || "").toLowerCase().includes(q.toLowerCase())).map((c) =>
       `<button class="stk-it${owned[c.id] ? "" : " no"}" data-id="${c.id}" title="${esc(c.name)}"><img src="assets/chibi/${c.id}.webp" alt="" loading="lazy"><span>${c.id === partner ? "⭐ " : ""}${esc(c.name)}</span></button>`).join("");
-    grid.querySelectorAll(".stk-it").forEach((b) => (b.onclick = () => openSado(b.dataset.id)));
+    grid.querySelectorAll(".stk-it").forEach((b) => (b.onclick = () => (b.dataset.kakao ? openKakao() : openSado(b.dataset.id))));
   };
   ov.querySelector("#stk-q").oninput = (e) => draw(e.target.value.trim());
   draw("");
+  function openKakao() { // 💬 트릭컬 볼따구콘 1·2 (움직이는 이모티콘 그대로 붙임)
+    grid.hidden = true; det.hidden = false;
+    const names = [1, 2].flatMap((k) => Array.from({ length: 24 }, (_, i) => `bolddagu${k}-${String(i + 1).padStart(2, "0")}`));
+    det.innerHTML = `<div class="stk-head"><button class="btn small" id="stk-back">← 사도 목록</button><b>💬 트릭컬 볼따구콘</b> <span class="meta">눌러서 붙이기 (움직여요)</span></div><div class="stk-opts kakao">${names.map((n) => `<button class="stk-op" data-src="assets/kakao/${n}.webp"><img src="assets/kakao/${n}.webp" alt="" loading="lazy"></button>`).join("")}</div>`;
+    det.querySelector("#stk-back").onclick = () => { det.hidden = true; grid.hidden = false; };
+    det.querySelectorAll(".stk-op[data-src]").forEach((b) => (b.onclick = async () => {
+      close();
+      try { const blob = await (await fetch(b.dataset.src)).blob(); await addPhoto(new File([blob], "bolddagu.webp", { type: "image/webp" }), null, { sticker: "kakao", raw: true, w: 140 }); } catch (e) { toast("이모티콘을 못 붙였어요"); }
+    }));
+  }
   async function openSado(id) {
     const c = SADO.find((x) => x.id === id) || { name: id };
     grid.hidden = true; det.hidden = false;
