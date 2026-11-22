@@ -9,10 +9,12 @@
 const $ = (id) => document.getElementById(id);
 const NAMES = [1, 2].flatMap((k) => Array.from({ length: 24 }, (_, i) => `bolddagu${k}-${String(i + 1).padStart(2, "0")}`));
 // 크기: 소(108px) · 중(1.5배) · 대(2배) — 끌어다 놓으면 GIF 원래 크기로 들어가서 크기별 파일을 따로 둠
-const SIZES = { s: { dir: "", px: 106, label: "소" }, m: { dir: "m/", px: 159, label: "중" }, l: { dir: "l/", px: 212, label: "대" } };
+// 중·대는 용량이 커서 움직이는 사도 데이터와 같은 저장소(trickstudy-assets)에 둠
+const ASSETS = "https://jyh0315.github.io/trickstudy-assets/kakao/";
+const SIZES = { s: { base: null, px: 106, label: "소" }, m: { base: ASSETS + "m/", px: 159, label: "중" }, l: { base: ASSETS + "l/", px: 212, label: "대" } };
 const SKEY = "trickstudy-emo-size";
 let size = (() => { try { return SIZES[localStorage.getItem(SKEY)] ? localStorage.getItem(SKEY) : "s"; } catch (e) { return "s"; } })();
-const gifURL = (n) => new URL(`assets/kakao/gif/${SIZES[size].dir}${n}.gif`, location.href).href;
+const gifURL = (n) => (SIZES[size].base ? SIZES[size].base + n + ".gif" : new URL(`assets/kakao/gif/${n}.gif`, location.href).href);
 const RKEY = "trickstudy-emo-recent";
 const recent = () => { try { return (JSON.parse(localStorage.getItem(RKEY) || "[]") || []).filter((n) => NAMES.includes(n)); } catch (e) { return []; } };
 const pushRecent = (n) => { try { localStorage.setItem(RKEY, JSON.stringify([n, ...recent().filter((x) => x !== n)].slice(0, 12))); } catch (e) { /* 무시 */ } };
@@ -48,7 +50,7 @@ function build(win) {
     d.querySelectorAll("[data-t]").forEach((b) => b.classList.toggle("on", b.dataset.t === tab));
     d.querySelectorAll("[data-s]").forEach((b) => b.classList.toggle("on", b.dataset.s === size));
     const list = tab === "recent" ? recent() : NAMES.filter((n) => n.startsWith("bolddagu" + tab));
-    g.innerHTML = list.length ? list.map((n) => `<button data-n="${n}" title="눌러서 복사"><img src="${gifURL(n)}" alt="이모티콘" draggable="true"></button>`).join("") : `<div class="ep-empty">아직 쓴 이모티콘이 없어요</div>`;
+    g.innerHTML = list.length ? list.map((n) => `<button data-n="${n}" title="눌러서 복사"><img src="${gifURL(n)}" alt="이모티콘" draggable="true" crossorigin="anonymous"></button>`).join("") : `<div class="ep-empty">아직 쓴 이모티콘이 없어요</div>`;
   };
   d.querySelector(".ep-top").onclick = (e) => {
     const b = e.target.closest("[data-t]"); if (b) { tab = b.dataset.t; draw(); }
