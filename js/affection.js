@@ -49,6 +49,7 @@ function gain(id, n) {
     const c = TS.SADO_MAP[id];
     const reward = 50 * after;
     TS.addElif(reward);
+    const ks = TS.keepsakeGrant ? TS.keepsakeGrant(id, after) : null; // 💝 애장품 하나
     // 「트릭컬 사도 정리」 친밀도 대사가 있으면 그걸로 (Lv1~7), 없으면 성격별 대사
     const doc = affDoc(id);
     const lines = doc && after <= doc.length && doc[after - 1].length ? doc[after - 1] : AFF_LINES[c.pers][after];
@@ -60,12 +61,14 @@ function gain(id, n) {
       <p><b>${TS.esc(c.name)}</b>: “${TS.esc(TS.fmt(lines ? lines[0] : TS.rand(TS.linesOf(c, "done")), c))}”</p>
       <div class="reward-row"><span class="reward-chip"><i class="ic-elif"></i>+${reward}</span>
       <span class="reward-chip">👹 보스 데미지 +${bonusPct(id)}%</span></div>
+      ${ks && TS.keepsakeHTML ? TS.keepsakeHTML(ks) : ""}
       ${lines ? '<p class="hint">새로운 대사가 해금됐어요!</p>' : ""}
       <div class="modal-actions"><button class="btn yellow" data-close>헤헤</button></div>`);
     }, 0);
   }
 }
 const bonusPct = (id) => (level(id) - 1) * 3;
+TS.affLevel = level;
 
 /* ───── 이벤트 연결 ───── */
 TS.on("focus", ({ min, partner, extras }) => {

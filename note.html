@@ -2791,12 +2791,20 @@ function stickerPick() {
   ov.addEventListener("click", (e) => { if (e.target === ov) close(); });
   const grid = ov.querySelector("#stk-grid"), det = ov.querySelector("#stk-detail");
   const draw = (q) => {
-    grid.innerHTML = (!q || "볼따구콘 이모티콘 카톡".includes(q) ? `<button class="stk-it" data-kakao="1" title="트릭컬 볼따구콘 (움직이는 이모티콘)"><img src="assets/kakao/bolddagu1-13.webp?v=2" alt="" loading="lazy"><span>💬 볼따구콘</span></button>` : "") + list.filter((c) => !q || c.name.includes(q) || (c.en || "").toLowerCase().includes(q.toLowerCase())).map((c) =>
+    const keeps = Array.isArray(gs.keeps) ? gs.keeps : [];
+    grid.innerHTML = (keeps.length && (!q || "애장품".includes(q)) ? `<button class="stk-it" data-keeps="1" title="호감도로 모은 애장품"><img src="assets/keepsakes/${keeps[0]}.webp" alt="" loading="lazy"><span>💝 애장품 ${keeps.length}</span></button>` : "") + (!q || "볼따구콘 이모티콘 카톡".includes(q) ? `<button class="stk-it" data-kakao="1" title="트릭컬 볼따구콘 (움직이는 이모티콘)"><img src="assets/kakao/bolddagu1-13.webp?v=2" alt="" loading="lazy"><span>💬 볼따구콘</span></button>` : "") + list.filter((c) => !q || c.name.includes(q) || (c.en || "").toLowerCase().includes(q.toLowerCase())).map((c) =>
       `<button class="stk-it${owned[c.id] ? "" : " no"}" data-id="${c.id}" title="${esc(c.name)}"><img src="assets/chibi/${c.id}.webp" alt="" loading="lazy"><span>${c.id === partner ? "⭐ " : ""}${esc(c.name)}</span></button>`).join("");
-    grid.querySelectorAll(".stk-it").forEach((b) => (b.onclick = () => (b.dataset.kakao ? openKakao() : openSado(b.dataset.id))));
+    grid.querySelectorAll(".stk-it").forEach((b) => (b.onclick = () => (b.dataset.kakao ? openKakao() : b.dataset.keeps ? openKeeps() : openSado(b.dataset.id))));
   };
   ov.querySelector("#stk-q").oninput = (e) => draw(e.target.value.trim());
   draw("");
+  function openKeeps() { // 💝 호감도로 모은 애장품 (트릭스터디에서 받은 것만)
+    grid.hidden = true; det.hidden = false;
+    const ks = [...(gs.keeps || [])].sort();
+    det.innerHTML = `<div class="stk-head"><button class="btn small" id="stk-back">← 사도 목록</button><b>💝 애장품</b> <span class="meta">호감도 레벨이 오를 때마다 하나씩 모여요</span></div><div class="stk-opts kakao">${ks.map((n) => `<button class="stk-op" data-src="assets/keepsakes/${n}.webp"><img src="assets/keepsakes/${n}.webp" alt="" loading="lazy"></button>`).join("")}</div>`;
+    det.querySelector("#stk-back").onclick = () => { det.hidden = true; grid.hidden = false; };
+    det.querySelectorAll(".stk-op[data-src]").forEach((b) => (b.onclick = async () => { close(); await stickerFromSrc(b.dataset.src, "keepsake"); }));
+  }
   function openKakao() { // 💬 트릭컬 볼따구콘 1·2 (움직이는 이모티콘 그대로 붙임)
     grid.hidden = true; det.hidden = false;
     const names = [1, 2].flatMap((k) => Array.from({ length: 24 }, (_, i) => `bolddagu${k}-${String(i + 1).padStart(2, "0")}`));
