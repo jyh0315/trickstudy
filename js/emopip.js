@@ -14,7 +14,8 @@ const ASSETS = "https://jyh0315.github.io/trickstudy-assets/kakao/";
 const SIZES = { s: { base: null, px: 106, label: "소" }, m: { base: ASSETS + "m/", px: 159, label: "중" }, l: { base: ASSETS + "l/", px: 212, label: "대" } };
 const SKEY = "trickstudy-emo-size";
 let size = (() => { try { return SIZES[localStorage.getItem(SKEY)] ? localStorage.getItem(SKEY) : "s"; } catch (e) { return "s"; } })();
-const gifURL = (n) => (SIZES[size].base ? SIZES[size].base + n + ".gif" : new URL(`assets/kakao/gif/${n}.gif`, location.href).href);
+const GV = "?v=2"; // 다시 녹화해서 더 선명하게 바꾼 판 (브라우저에 남은 예전 그림 무시)
+const gifURL = (n) => (SIZES[size].base ? SIZES[size].base + n + ".gif" : new URL(`assets/kakao/gif/${n}.gif`, location.href).href) + GV;
 const RKEY = "trickstudy-emo-recent";
 const recent = () => { try { return (JSON.parse(localStorage.getItem(RKEY) || "[]") || []).filter((n) => NAMES.includes(n)); } catch (e) { return []; } };
 const pushRecent = (n) => { try { localStorage.setItem(RKEY, JSON.stringify([n, ...recent().filter((x) => x !== n)].slice(0, 12))); } catch (e) { /* 무시 */ } };

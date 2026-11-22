@@ -2791,7 +2791,7 @@ function stickerPick() {
   ov.addEventListener("click", (e) => { if (e.target === ov) close(); });
   const grid = ov.querySelector("#stk-grid"), det = ov.querySelector("#stk-detail");
   const draw = (q) => {
-    grid.innerHTML = (!q || "볼따구콘 이모티콘 카톡".includes(q) ? `<button class="stk-it" data-kakao="1" title="트릭컬 볼따구콘 (움직이는 이모티콘)"><img src="assets/kakao/bolddagu1-13.webp" alt="" loading="lazy"><span>💬 볼따구콘</span></button>` : "") + list.filter((c) => !q || c.name.includes(q) || (c.en || "").toLowerCase().includes(q.toLowerCase())).map((c) =>
+    grid.innerHTML = (!q || "볼따구콘 이모티콘 카톡".includes(q) ? `<button class="stk-it" data-kakao="1" title="트릭컬 볼따구콘 (움직이는 이모티콘)"><img src="assets/kakao/bolddagu1-13.webp?v=2" alt="" loading="lazy"><span>💬 볼따구콘</span></button>` : "") + list.filter((c) => !q || c.name.includes(q) || (c.en || "").toLowerCase().includes(q.toLowerCase())).map((c) =>
       `<button class="stk-it${owned[c.id] ? "" : " no"}" data-id="${c.id}" title="${esc(c.name)}"><img src="assets/chibi/${c.id}.webp" alt="" loading="lazy"><span>${c.id === partner ? "⭐ " : ""}${esc(c.name)}</span></button>`).join("");
     grid.querySelectorAll(".stk-it").forEach((b) => (b.onclick = () => (b.dataset.kakao ? openKakao() : openSado(b.dataset.id))));
   };
@@ -2800,7 +2800,7 @@ function stickerPick() {
   function openKakao() { // 💬 트릭컬 볼따구콘 1·2 (움직이는 이모티콘 그대로 붙임)
     grid.hidden = true; det.hidden = false;
     const names = [1, 2].flatMap((k) => Array.from({ length: 24 }, (_, i) => `bolddagu${k}-${String(i + 1).padStart(2, "0")}`));
-    det.innerHTML = `<div class="stk-head"><button class="btn small" id="stk-back">← 사도 목록</button><b>💬 트릭컬 볼따구콘</b> <span class="meta">눌러서 붙이기 (움직여요)</span></div><div class="stk-opts kakao">${names.map((n) => `<button class="stk-op" data-src="assets/kakao/${n}.webp"><img src="assets/kakao/${n}.webp" alt="" loading="lazy"></button>`).join("")}</div>`;
+    det.innerHTML = `<div class="stk-head"><button class="btn small" id="stk-back">← 사도 목록</button><b>💬 트릭컬 볼따구콘</b> <span class="meta">눌러서 붙이기 (움직여요)</span></div><div class="stk-opts kakao">${names.map((n) => `<button class="stk-op" data-src="assets/kakao/${n}.webp?v=2"><img src="assets/kakao/${n}.webp?v=2" alt="" loading="lazy"></button>`).join("")}</div>`;
     det.querySelector("#stk-back").onclick = () => { det.hidden = true; grid.hidden = false; };
     det.querySelectorAll(".stk-op[data-src]").forEach((b) => (b.onclick = async () => {
       close();
