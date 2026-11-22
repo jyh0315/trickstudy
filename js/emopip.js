@@ -35,7 +35,7 @@ function build(win) {
   d.body.innerHTML = `<div class="ep">
     <div class="ep-top"><button data-t="recent">⭐ 최근</button><button data-t="1">볼따구콘 1</button><button data-t="2">볼따구콘 2</button><span class="sp"></span></div>
     <div class="ep-grid" id="g"></div>
-    <div class="ep-tip" id="tip">누르면 복사 → 메일 쓰기 창에서 <b>Ctrl+V</b> · 끌어다 놓아도 돼요</div></div>`;
+    <div class="ep-tip" id="tip" title="오른쪽 클릭 → '이미지 복사' 해도 돼요">누르면 복사 → 메일에서 <b>Ctrl+V</b> · 끌어다 놓으면 움직여요</div></div>`;
   const g = d.getElementById("g"), tip = d.getElementById("tip");
   let tab = recent().length ? "recent" : "1";
   const draw = () => {
@@ -45,15 +45,23 @@ function build(win) {
   };
   d.querySelector(".ep-top").onclick = (e) => { const b = e.target.closest("[data-t]"); if (b) { tab = b.dataset.t; draw(); } };
   let tT = 0;
-  const say = (t, ok) => { tip.innerHTML = t; tip.classList.toggle("ok", !!ok); clearTimeout(tT); tT = win.setTimeout(() => { tip.innerHTML = "누르면 복사 → 메일 쓰기 창에서 <b>Ctrl+V</b> · 끌어다 놓아도 돼요"; tip.classList.remove("ok"); }, 2600); };
+  const say = (t, ok) => { tip.innerHTML = t; tip.classList.toggle("ok", !!ok); clearTimeout(tT); tT = win.setTimeout(() => { tip.innerHTML = "누르면 복사 → 메일에서 <b>Ctrl+V</b> · 끌어다 놓으면 움직여요"; tip.classList.remove("ok"); }, 2600); };
   g.onclick = async (e) => {
     const b = e.target.closest("[data-n]"); if (!b) return;
     const url = gifURL(b.dataset.n), html = `<img src="${url}" alt="이모티콘" width="108" height="108">`;
+    // 그림 데이터(PNG) + html(움직이는 GIF 주소) + 주소 를 같이 — "이미지 복사" 와 같은 모양이라 Gmail 이 붙여넣기를 받아 줌
+    const png = () => new Promise((ok, no) => {
+      const im = b.querySelector("img"), c = d.createElement("canvas");
+      c.width = im.naturalWidth || 108; c.height = im.naturalHeight || 108;
+      try { c.getContext("2d").drawImage(im, 0, 0); c.toBlob((bl) => (bl ? ok(bl) : no(new Error("png"))), "image/png"); } catch (e) { no(e); }
+    });
+    const T = (t, type) => new Blob([t], { type });
     try {
-      await win.navigator.clipboard.write([new win.ClipboardItem({ "text/html": new Blob([html], { type: "text/html" }), "text/plain": new Blob([url], { type: "text/plain" }) })]);
-      say("📋 복사했어요! 메일 쓰기 창에서 <b>Ctrl+V</b>", true);
+      await win.navigator.clipboard.write([new win.ClipboardItem({ "image/png": png(), "text/html": T(html, "text/html"), "text/plain": T(url, "text/plain") })]);
+      say("📋 복사했어요! 메일에서 <b>Ctrl+V</b> (멈춘 그림으로 들어가면 끌어다 놓기가 움직여요)", true);
     } catch (er) {
-      try { await win.navigator.clipboard.writeText(url); say("주소를 복사했어요 — 이 창에서 메일로 끌어다 놓아 주세요"); } catch (er2) { say("복사가 막혔어요 — 이모티콘을 메일로 끌어다 놓아 주세요"); }
+      try { await win.navigator.clipboard.write([new win.ClipboardItem({ "image/png": png() })]); say("📋 그림으로 복사했어요 (멈춘 그림) — 움직이게 하려면 끌어다 놓아요", true); }
+      catch (er2) { try { await win.navigator.clipboard.writeText(url); say("주소만 복사됐어요 — 이모티콘을 메일로 끌어다 놓아 주세요"); } catch (er3) { say("복사가 막혔어요 — 이모티콘을 메일로 끌어다 놓아 주세요"); } }
     }
     pushRecent(b.dataset.n);
   };
