@@ -20,7 +20,7 @@ const CSS = `
 .ep-top button{font:12px inherit;font-weight:700;border:2px solid #3b2a20;border-radius:9px;background:#fff;padding:3px 8px;cursor:pointer;color:#3b2a20}
 .ep-top button.on{background:#ffd24d}
 .ep-top .sp{flex:1}
-.ep-grid{flex:1;overflow:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:4px;padding:6px;align-content:start}
+.ep-grid{flex:1;overflow:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(76px,1fr));gap:4px;padding:6px;align-content:start}
 .ep-grid button{border:2px solid transparent;border-radius:10px;background:#fff;padding:2px;cursor:pointer;aspect-ratio:1}
 .ep-grid button:hover{border-color:#ff8fb1}
 .ep-grid img{width:100%;height:100%;object-fit:contain;display:block;pointer-events:auto}
@@ -35,7 +35,7 @@ function build(win) {
   d.body.innerHTML = `<div class="ep">
     <div class="ep-top"><button data-t="recent">⭐ 최근</button><button data-t="1">볼따구콘 1</button><button data-t="2">볼따구콘 2</button><span class="sp"></span></div>
     <div class="ep-grid" id="g"></div>
-    <div class="ep-tip" id="tip" title="오른쪽 클릭 → '이미지 복사' 해도 돼요">누르면 복사 → 메일에서 <b>Ctrl+V</b> · 끌어다 놓으면 움직여요</div></div>`;
+    <div class="ep-tip" id="tip" title="오른쪽 클릭 → '이미지 복사' 해도 돼요"><b>끌어다 놓기 = 움직이는 그림</b> · 누르면 복사 (Ctrl+V 는 멈춘 그림)</div></div>`;
   const g = d.getElementById("g"), tip = d.getElementById("tip");
   let tab = recent().length ? "recent" : "1";
   const draw = () => {
@@ -45,7 +45,7 @@ function build(win) {
   };
   d.querySelector(".ep-top").onclick = (e) => { const b = e.target.closest("[data-t]"); if (b) { tab = b.dataset.t; draw(); } };
   let tT = 0;
-  const say = (t, ok) => { tip.innerHTML = t; tip.classList.toggle("ok", !!ok); clearTimeout(tT); tT = win.setTimeout(() => { tip.innerHTML = "누르면 복사 → 메일에서 <b>Ctrl+V</b> · 끌어다 놓으면 움직여요"; tip.classList.remove("ok"); }, 2600); };
+  const say = (t, ok) => { tip.innerHTML = t; tip.classList.toggle("ok", !!ok); clearTimeout(tT); tT = win.setTimeout(() => { tip.innerHTML = "<b>끌어다 놓기 = 움직이는 그림</b> · 누르면 복사 (Ctrl+V 는 멈춘 그림)"; tip.classList.remove("ok"); }, 2600); };
   g.onclick = async (e) => {
     const b = e.target.closest("[data-n]"); if (!b) return;
     const url = gifURL(b.dataset.n), html = `<img src="${url}" alt="이모티콘" width="108" height="108">`;
@@ -58,7 +58,7 @@ function build(win) {
     const T = (t, type) => new Blob([t], { type });
     try {
       await win.navigator.clipboard.write([new win.ClipboardItem({ "image/png": png(), "text/html": T(html, "text/html"), "text/plain": T(url, "text/plain") })]);
-      say("📋 복사했어요! 메일에서 <b>Ctrl+V</b> (멈춘 그림으로 들어가면 끌어다 놓기가 움직여요)", true);
+      say("📋 복사했어요 — Ctrl+V 는 멈춘 그림이에요. 움직이게 하려면 <b>끌어다 놓아요</b>", true);
     } catch (er) {
       try { await win.navigator.clipboard.write([new win.ClipboardItem({ "image/png": png() })]); say("📋 그림으로 복사했어요 (멈춘 그림) — 움직이게 하려면 끌어다 놓아요", true); }
       catch (er2) { try { await win.navigator.clipboard.writeText(url); say("주소만 복사됐어요 — 이모티콘을 메일로 끌어다 놓아 주세요"); } catch (er3) { say("복사가 막혔어요 — 이모티콘을 메일로 끌어다 놓아 주세요"); } }
