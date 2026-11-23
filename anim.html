@@ -100,11 +100,27 @@ $("bgColor").oninput = paintBg; $("bgGame").onchange = paintBg;
 function bgSpec() { const v = $("bg").value; return v === "none" ? null : v === "color" ? $("bgColor").value : v === "game" ? { img: `assets/ssbg/${$("bgGame").value}.webp` } : v; }
 function paintBg() { const b = bgSpec(), st = $("stage").style; st.background = !b ? "" : typeof b === "string" ? b : `url(${b.img}) center/cover`; }
 
-function pick(id) {
+// 주소로 바로 만들기 (Claude Code·자동화용): ?id=butter&skin=1&anim=Happy_1&size=360&bg=none|white|#rrggbb|game:017&fps=20&loops=1&auto=gif|webm
+const P = new URLSearchParams(location.search);
+function applyParams() {
+  const sz = P.get("size"); if (sz && [...$("size").options].some((o) => o.value === sz)) $("size").value = sz;
+  const fps = P.get("fps"); if (fps && [...$("fps").options].some((o) => o.value === fps)) $("fps").value = fps;
+  const lp = P.get("loops"); if (lp && [...$("loops").options].some((o) => o.value === lp)) $("loops").value = lp;
+  const bg = P.get("bg");
+  if (bg) {
+    if (bg === "none" || bg === "transparent") $("bg").value = "none";
+    else if (bg === "white") $("bg").value = "#ffffff";
+    else if (/^game:\d+$/.test(bg)) { $("bg").value = "game"; $("bgGame").value = bg.slice(5).padStart(3, "0"); }
+    else if (/^#?[0-9a-f]{6}$/i.test(bg)) { $("bg").value = "color"; $("bgColor").value = bg[0] === "#" ? bg : "#" + bg; }
+    $("bg").onchange();
+  }
+}
+function pick(id, skin) {
   cur = SADO.find((c) => c.id === id); skinIdx = 0; draw($("q").value.trim());
+  if (skin != null) { const sk = SPINE_DATA[id].skins; const i = /^\d+$/.test(skin) ? +skin : sk.findIndex((x) => x[0] === skin || x[1] === skin); if (i >= 0 && i < sk.length) skinIdx = i; }
   const d = SPINE_DATA[id];
   $("who").textContent = cur.name;
-  $("skin").innerHTML = d.skins.map((s, i) => `<option value="${i}">${esc(s[1])}</option>`).join("");
+  $("skin").innerHTML = d.skins.map((s, i) => `<option value="${i}">${esc(s[1])}</option>`).join(""); $("skin").value = String(skinIdx);
   history.replaceState(null, "", "?id=" + id);
   load();
 }
@@ -135,7 +151,10 @@ function load() {
         const showGroup = (i) => { $("moods").querySelectorAll("[data-g]").forEach((b) => b.classList.toggle("on", +b.dataset.g === i)); $("anims").innerHTML = groups[i][1].map((n) => `<button data-a="${n}">${n}</button>`).join(""); };
         $("moods").onclick = (e) => { const b = e.target.closest("[data-g]"); if (b) { showGroup(+b.dataset.g); setAnim(groups[+b.dataset.g][1][0]); } };
         $("anims").onclick = (e) => { const b = e.target.closest("[data-a]"); if (b && !busy) setAnim(b.dataset.a); };
-        showGroup(0); setAnim(groups[0][1][0]);
+        const want = P.get("anim"), wi = want ? groups.findIndex(([, l]) => l.includes(want)) : -1;
+        if (wi >= 0) { showGroup(wi); setAnim(want); } else { showGroup(0); setAnim(groups[0][1][0]); }
+        document.body.dataset.ready = "1"; // 자동화가 기다리는 표시
+        const auto = P.get("auto"); if (auto && !autoDone) { autoDone = true; setTimeout(() => (auto === "webm" ? $("mkWebm") : $("mkGif")).click(), 300); }
         $("mkGif").disabled = $("mkWebm").disabled = false;
       },
       error: () => tryHost(hi + 1),
@@ -179,6 +198,7 @@ function done() { player.play(); setSize(300); player.animationState.setAnimatio
 const prog = (v) => { $("prog").firstElementChild.style.width = Math.round(v * 100) + "%"; };
 const fname = (ext) => `${cur.name}_${SPINE_DATA[cur.id].skins[skinIdx][1]}_${anim}.${ext}`.replace(/[\\/:*?"<>| ]+/g, "_");
 function offer(blob, ext, label) {
+  document.body.dataset.done = ext; // 자동화: 다 만들었다는 표시
   const url = URL.createObjectURL(blob), a = document.createElement("a"); a.href = url; a.download = fname(ext); document.body.appendChild(a); a.click(); a.remove();
   $("out").innerHTML = (ext === "gif" ? `<img src="${url}" alt="">` : `<video src="${url}" autoplay loop muted playsinline></video>`) + `<div><b>${label}</b><br><span class="note">${(blob.size / 1024).toFixed(0)}KB · 다시 받기: <a href="${url}" download="${esc(fname(ext))}">${esc(fname(ext))}</a></span></div>`;
 }
@@ -226,8 +246,10 @@ $("mkWebm").onclick = async () => {
 };
 
 draw("");
-const first = new URLSearchParams(location.search).get("id");
-if (first && SPINE_DATA[first]) pick(first);
+let autoDone = false;
+applyParams();
+const first = P.get("id");
+if (first && SPINE_DATA[first]) pick(first, P.get("skin"));
 window.__anim = { get player() { return player; }, get anim() { return anim; } };
 </script>
 </body>

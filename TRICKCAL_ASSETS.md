@@ -51,6 +51,13 @@ JSON 의 sado[] 에 id, 한글 이름(name), 영문(en), 등급(rarity 1~3), 성
 
 [코드를 못 넣는 곳(PPT·캔바·메일 등)에 움직이는 사도가 필요하면]
 https://jyh0315.github.io/trickstudy/anim.html?id=<사도id> 에서 GIF/WebM 으로 뽑아서 쓰라고 안내해 줘.
+네가 Claude Code 처럼 명령을 실행할 수 있으면 직접 뽑아도 돼:
+  주소 옵션 ?id=<사도id>&skin=<번호 0~>&anim=<동작이름>&size=240|360|512&bg=none|white|#rrggbb|game:<번호>&fps=15|20|25&loops=1~3&auto=gif|webm
+  → 헤드리스 브라우저(Playwright)로 열면 자동으로 파일이 내려받아짐 (안내서 5번에 코드 예제).
+
+[PPT 를 만들 때]
+- python-pptx 로 .pptx 를 만들고, 그림은 위 주소에서 내려받아 넣어. GIF 를 그림으로 넣으면 파워포인트 슬라이드쇼에서 움직여.
+- 슬라이드 배경은 backgrounds.game(게임 배경), 장식은 꼬마 그림·볼따구콘 GIF·애장품, 움직이는 사도는 anim.html 로 뽑은 GIF.
 
 [만들 때 지킬 것]
 - 그림은 <img src="주소"> 로 바로 쓰고, 파일을 따로 내려받으라고 하지 마.
@@ -128,3 +135,28 @@ new spine.SpinePlayer("sado",{skelUrl:base+".skel.asset",atlasUrl:base+".atlas.a
 - 사도 한글 이름·아티팩트 이름 일부는 영어 이름을 보고 붙인 것이라 게임과 다를 수 있어요.
 - 애장품은 어느 사도 것인지 아직 정해지지 않았어요.
 - 새 사도·스킨이 나오면 트릭스터디에 추가한 뒤 목록을 다시 만들면 같은 주소에서 바로 반영돼요.
+
+---
+
+## 5. Claude Code 로 PPT 만들기 (그림·움직이는 사도 자동으로)
+
+Claude Code 에 위 1번 프롬프트를 붙이고 "트릭컬 테마로 ○○ 발표 PPT 만들어 줘" 하면 돼요. 그 AI 가 할 일은 이 순서예요.
+
+1. 목록 받기: `curl -sO https://jyh0315.github.io/trickstudy/trickcal-assets.json`
+2. 쓸 그림 내려받기: `curl -o erpin.webp https://jyh0315.github.io/trickstudy/assets/chibi/erpin.webp`
+   (파워포인트는 webp 를 못 읽는 버전이 있어서 PNG 로 바꾸기: `python -c "from PIL import Image;Image.open('erpin.webp').save('erpin.png')"`)
+3. 움직이는 사도 GIF 뽑기 (Playwright, Node):
+```js
+const { chromium } = require("playwright");
+(async () => {
+  const b = await chromium.launch(), ctx = await b.newContext({ acceptDownloads: true }), p = await ctx.newPage();
+  const url = "https://jyh0315.github.io/trickstudy/anim.html?id=butter&anim=Happy_1&size=360&bg=none&auto=gif";
+  const [dl] = await Promise.all([p.waitForEvent("download", { timeout: 120000 }), p.goto(url)]);
+  await dl.saveAs("butter_happy.gif"); await b.close();
+})();
+```
+   - 동작 이름을 모르면 `anim` 을 빼고 열면 대기 동작(Idle)으로 만들어져요. 동작 목록은 페이지 화면이나 콘솔에서 확인.
+4. python-pptx 로 슬라이드 만들기: `slide.shapes.add_picture("butter_happy.gif", left, top, width=Inches(3))` — GIF 는 슬라이드쇼에서 움직여요.
+5. 배경: `slide.shapes.add_picture("bg.png", 0, 0, prs.slide_width, prs.slide_height)` 를 먼저 넣고 그 위에 글상자.
+
+> Claude Code 의 `/pptx` 같은 PPT 스킬이 있으면 그걸 써도 돼요. 그림 주소·GIF 만드는 방법만 위대로 따르면 돼요.
