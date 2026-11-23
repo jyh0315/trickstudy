@@ -4,6 +4,7 @@
 **다른 AI 대화나 다른 프로젝트에서 그대로 불러 쓰기** 위한 안내서예요.
 
 - 전체 목록(JSON): **https://jyh0315.github.io/trickstudy/trickcal-assets.json**
+- 사도별 말투·실제 대사(JSON): **https://jyh0315.github.io/trickstudy/trickcal-voice.json**
 - 이 안내서: https://jyh0315.github.io/trickstudy/TRICKCAL_ASSETS.md
 - 움직이는 사도 예제: https://jyh0315.github.io/trickstudy/examples/spine-sado.html
 - **🎬 움직이는 사도 GIF·영상 만들기 도구: https://jyh0315.github.io/trickstudy/anim.html** — 사도·스킨·동작·크기·배경을 골라 GIF/WebM 으로 내려받기 (PPT·캔바·메일·카톡용). `anim.html?id=butter` 처럼 사도를 바로 열 수 있어요.
@@ -59,6 +60,12 @@ https://jyh0315.github.io/trickstudy/anim.html?id=<사도id> 에서 GIF/WebM 으
 - python-pptx 로 .pptx 를 만들고, 그림은 위 주소에서 내려받아 넣어. GIF 를 그림으로 넣으면 파워포인트 슬라이드쇼에서 움직여.
 - 슬라이드 배경은 backgrounds.game(게임 배경), 장식은 꼬마 그림·볼따구콘 GIF·애장품, 움직이는 사도는 anim.html 로 뽑은 GIF.
 
+[사도 말투 — 대사·대화·자막을 쓸 때]
+- 목록 JSON 의 sado[].speech: style(존댓말/반말/하십시오체/옛말투/하오체), calls_player(교주를 부르는 말 — 예: 교주님, 교주, 교준니, 주인님), habit(말버릇), sample(실제 대사 예).
+- 더 많은 실제 대사: https://jyh0315.github.io/trickstudy/trickcal-voice.json — sado.<id>.lines 에 상황별(평소 idle, 응원 cheer, 해냈을 때 done, 실패 fail, 쓰다듬기 pat, 생일 bday, 친밀도 aff …).
+- 새 대사를 지을 땐 그 사도의 style·calls_player·말버릇·예시 대사의 어미와 감탄사(예: 두두 "~두!", "으헤헤헹~")를 그대로 따라. 실제 대사를 그대로 가져다 써도 좋아.
+- 플레이어는 늘 "교주"(사도마다 부르는 말이 다름). 사도끼리 관계·설정을 지어내지 말고, 모르면 대사 예시 안에서만.
+
 [만들 때 지킬 것]
 - 그림은 <img src="주소"> 로 바로 쓰고, 파일을 따로 내려받으라고 하지 마.
 - 배경 그림은 background: url(...) center/cover.
@@ -77,6 +84,7 @@ https://jyh0315.github.io/trickstudy/anim.html?id=<사도id> 에서 GIF/WebM 으
 | 표정 | 8명 × 4 | `sado[].emotes` | emotes/erpin/2.webp |
 | 움직이는 사도 스킨 | 449 | `sado[].spine` | l2d/Butter/ButterSkin1.skel.asset |
 | 사도 목소리 | 69명 | `sado[].voice` | voice/butter-pat.mp3 |
+| 사도 말투·실제 대사 | 137명 | `sado[].speech` + trickcal-voice.json | 존댓말/반말, 호칭, 상황별 대사 21가지 |
 | 배경 (게임 155 + 일러스트 14) | 169 | `backgrounds` | ssbg/017.webp |
 | 아티팩트 | 89 | `artifacts` | 이름·등급·주인 사도 |
 | 애장품 | 70 | `keepsakes` | 이름은 그림 보고 붙인 것 |
@@ -160,3 +168,15 @@ const { chromium } = require("playwright");
 5. 배경: `slide.shapes.add_picture("bg.png", 0, 0, prs.slide_width, prs.slide_height)` 를 먼저 넣고 그 위에 글상자.
 
 > Claude Code 의 `/pptx` 같은 PPT 스킬이 있으면 그걸 써도 돼요. 그림 주소·GIF 만드는 방법만 위대로 따르면 돼요.
+
+---
+
+## 6. 말투 쓰는 법 (예)
+
+```js
+const v = await (await fetch("https://jyh0315.github.io/trickstudy/trickcal-voice.json")).json();
+const d = v.sado.dudu;            // { name:"두두", style:"반말", calls_player:"교준니", lines:{ idle:[…], done:[…], pat:[…], … } }
+const say = d.lines.done[Math.floor(Math.random() * d.lines.done.length)]; // "쉬워써! 야광 스티커 부치기 만큼!"
+```
+- 상황 이름: idle 평소 · cheer 응원 · done 해냈을 때 · fail 실패 · poke 볼 찌르기 · pat 쓰다듬기 · partner 대표로 고를 때 · bday 생일 · sorry 미안 · win/lose 이김/짐 · lvup 레벨업 · call 부르기 · aff 친밀도(Lv1~7 묶음) 등.
+- AI 에게 새 대사를 부탁할 땐 "trickcal-voice.json 의 ○○ 말투·예시대로" 라고 하면 돼요.
