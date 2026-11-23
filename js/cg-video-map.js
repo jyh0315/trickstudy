@@ -69,5 +69,18 @@ const CG_VIDEO_FROM = {
  "edde82fb": "theme/30/012",
  "f3399236": "theme/20/020",
  "f53d3d98": "theme/75/025",
- "f9d5ccbc": "main/27/022"
+ "f9d5ccbc": "main/27/022",
+ "b00fb91c": "theme/34/011",
+ "b0387c4c": "theme/03/018",
+ "b1398a5b": "theme/43/014",
+ "b4bc49cc": "theme/04/017",
+ "bb82834b": "theme/53/013",
+ "c4f09b73": "theme/48/007",
+ "cf687268": "theme/12/016",
+ "d9ed4b47": "main/18/020",
+ "e5fb830c": "theme/39/014",
+ "efbdc0b8": "theme/02/020",
+ "f55905ab": "theme/26/008",
+ "f7829ef6": "theme/54/011",
+ "f902206c": "theme/37/012"
 };

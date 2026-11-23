@@ -80,6 +80,21 @@ const CG_VIDEOS = [
   { id: "f3399236", title: "인형을 안은 소녀", need: 8000 },
   { id: "f53d3d98", title: "들판의 두 소녀", need: 8100 },
   { id: "f9d5ccbc", title: "잠든 얼음 소녀", need: 8200 },
+  { id: "b00fb91c", title: "홀로 걷는 뱀", need: 8300 },
+  { id: "b0387c4c", title: "노을 바다의 두 소녀", need: 8400 },
+  { id: "b0f74fdb", title: "창살 너머 그림자", need: 8500 },
+  { id: "b1398a5b", title: "겁쟁이의 약진", need: 8600 },
+  { id: "b4bc49cc", title: "어둠 속 장난꾸러기", need: 8700 },
+  { id: "bb82834b", title: "언제나 그 자리", need: 8800 },
+  { id: "c4f09b73", title: "선악의 퍼센테이지", need: 8900 },
+  { id: "cf687268", title: "고속도로 추격전", need: 9000 },
+  { id: "d9ed4b47", title: "가짜들의 낙원", need: 9100 },
+  { id: "e5fb830c", title: "정말 멋진 요정", need: 9200 },
+  { id: "e6b941fc", title: "깨진 유리 속 소녀", need: 9300 },
+  { id: "efbdc0b8", title: "랜턴과 불꽃 검", need: 9400 },
+  { id: "f55905ab", title: "하얀 머리 장교", need: 9500 },
+  { id: "f7829ef6", title: "필름 속 추억", need: 9600 },
+  { id: "f902206c", title: "고고학자의 발굴", need: 9700 },
 ];
 const STORY = [
   {
