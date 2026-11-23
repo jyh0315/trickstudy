@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>움직이는 사도 예제</title>
+<style>body{margin:0;background:#fff8e6;font-family:sans-serif}#sado{width:360px;height:460px;margin:20px auto}</style>
+</head><body>
+<div id="sado"></div>
+<script src="https://jyh0315.github.io/trickstudy/js/vendor/spine-player.min.js"></script>
+<script>
+// 1) 이음새(얇은 선) 방지 — 텍스처를 미리 곱한 알파로 올림
+(function () {
+  const T = spine.GLTexture; if (!T || T.__pma) return;
+  T.__pma = true; T.DISABLE_UNPACK_PREMULTIPLIED_ALPHA_WEBGL = false;
+  const up = T.prototype.update;
+  T.prototype.update = function (mip) { const gl = this.context.gl; gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true); try { up.call(this, mip); } finally { gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false); } };
+})();
+// 2) 띄우기 — skel/atlas 주소는 trickcal-assets.json 의 sado[].spine[] 에서
+const base = "https://jyh0315.github.io/trickstudy-assets/l2d/Butter/Butter";
+new spine.SpinePlayer("sado", {
+  skelUrl: base + ".skel.asset", atlasUrl: base + ".atlas.asset",
+  showControls: false, alpha: true, backgroundColor: "#00000000", premultipliedAlpha: true,
+  viewport: { padLeft: "6%", padRight: "6%", padTop: "5%", padBottom: "4%" },
+  success: (p) => {
+    const d = p.skeleton.data, anims = d.animations.map((a) => a.name);
+    const sk = d.skins.find((x) => x.name === "Normal") || d.skins.find((x) => x.name !== "default");
+    if (sk) { p.skeleton.setSkin(sk); p.skeleton.setSlotsToSetupPose(); }
+    const idle = anims.find((n) => /^Idle_/.test(n)) || anims[0];
+    p.animationState.setAnimation(0, idle, true); // 기본 대기 동작
+    // 스킨을 바꾼 뒤 화면 틀을 그 동작에 맞게 다시 잡기 (안 하면 빈 화면)
+    const vp = p.config.viewport; delete vp.x; delete vp.y; delete vp.width; delete vp.height;
+    p.setViewport(idle);
+    console.log("동작 목록:", anims);
+  },
+  error: (p, msg) => console.warn("불러오기 실패", msg),
+});
+</script>
+</body></html>

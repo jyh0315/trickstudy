@@ -1,0 +1,58 @@
+/* 트릭컬 그림·소리 목록(trickcal-assets.json) 만들기
+   사용: node tools/make-asset-manifest.js   (사도·스킨·배경이 늘면 다시 돌리기) */
+const fs = require("fs"), path = require("path"), vm = require("vm");
+const ROOT = path.join(__dirname, ".."), A = (p) => path.join(ROOT, "assets", p);
+const SITE = "https://jyh0315.github.io/trickstudy/", L2D = "https://jyh0315.github.io/trickstudy-assets/";
+const ctx = { window: {} }; vm.createContext(ctx);
+const load = (f, names) => vm.runInContext(fs.readFileSync(path.join(ROOT, "js", f), "utf8") + ";" + names.map((n) => `this.${n}=${n};`).join(""), ctx);
+load("sado.js", ["SADO"]); load("spine-data.js", ["SPINE_DATA", "SPINE_HOSTS"]); load("data.js", ["RARITY", "PERS", "BACKGROUNDS"]);
+load("artifacts.js", ["ARTIFACTS"]); load("keepsakes.js", ["KEEPSAKES"]); load("cg-catalog.js", ["CG_CATALOG"]); load("ssbg-list.js", ["SS_BACKGROUNDS"]);
+const petSrc = fs.readFileSync(path.join(ROOT, "js/pet.js"), "utf8"); vm.runInContext(petSrc.slice(0, petSrc.indexOf("(() =>")) + ";this.PETS=PETS;this.PET_GRADES=PET_GRADES;", ctx);
+const ls = (d) => (fs.existsSync(A(d)) ? fs.readdirSync(A(d)).sort() : []);
+const u = (p) => SITE + "assets/" + p.split("/").map(encodeURIComponent).join("/");
+const dirOf = (d) => d.replace(/[^A-Za-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+const voices = new Set(ls("voice"));
+
+const sado = ctx.SADO.map((c) => {
+  const sp = ctx.SPINE_DATA[c.id];
+  const v = ["pull", "pat"].map((k) => `${c.id}-${k}.mp3`).filter((f) => voices.has(f));
+  return {
+    id: c.id, name: c.name, en: c.en, rarity: c.rarity, rarity_name: (ctx.RARITY[c.rarity] || {}).name, personality: (ctx.PERS[c.pers] || {}).label || c.pers,
+    chibi: u(`chibi/${c.id}.webp`),
+    emotes: c.emote ? [1, 2, 3, 4].map((i) => u(`emotes/${c.id}/${i}.webp`)) : [],
+    voice: v.map((f) => u("voice/" + f)),
+    spine: sp ? sp.skins.map(([file, label]) => ({ skin: label, skel: `${L2D}l2d/${dirOf(sp.dir)}/${file}.skel.asset`, atlas: `${L2D}l2d/${dirOf(sp.dir)}/${file}.atlas.asset` })) : [],
+  };
+});
+const bgName = Object.fromEntries(ctx.BACKGROUNDS.map((b) => [b.id, b.name]));
+const out = {
+  about: "트릭컬 RE:VIVE 팬 제작 학습 사이트 '트릭스터디'에 모아 둔 그림·움직이는 사도·소리 목록. 원저작권은 에피드게임즈. 개인·팬 용도로만 (재배포·판매 금지).",
+  generated: new Date().toISOString().slice(0, 10),
+  base: { site: SITE + "assets/", spine: L2D + "l2d/", spine_player_js: SITE + "js/vendor/spine-player.min.js" },
+  notes: {
+    spine: "Spine 4.1 바이너리(.skel.asset) + 아틀라스(.atlas.asset, 텍스처 .webp). spine_player_js 로 띄움. premultipliedAlpha:true + 이음새 고침(안내서 참고). 애니메이션 이름은 Idle_* 가 기본 대기 동작.",
+    cors: "두 주소 모두 access-control-allow-origin: * — 다른 사이트에서 불러오기·캔버스 그리기 가능.",
+  },
+  sado,
+  backgrounds: {
+    game: ctx.SS_BACKGROUNDS.map((n) => u(`ssbg/${n}.webp`)),
+    illustrations: ls("bg").map((f) => ({ name: bgName[f.replace(/\.\w+$/, "")] || f.replace(/\.\w+$/, ""), url: u("bg/" + f) })),
+    title: u("title-bg.webp"),
+  },
+  artifacts: ctx.ARTIFACTS.map((g) => ({ id: g.id, name: g.name, en: g.en, rarity: g.rarity, owner: g.char || null, url: u(`artifacts/${g.id}.webp`) })),
+  keepsakes: ctx.KEEPSAKES.map((k) => ({ n: k.n, name: k.name, url: u(`keepsakes/${k.n}.webp`) })),
+  pets: ctx.PETS.map((p) => ({ id: p.id, name: p.name, grade: (ctx.PET_GRADES[p.grade] || {}).label, url: SITE + p.img })),
+  emoticons_bolddagu: [1, 2].flatMap((k) => Array.from({ length: 24 }, (_, i) => {
+    const n = `bolddagu${k}-${String(i + 1).padStart(2, "0")}`;
+    return { name: n, gif_small_106: u(`kakao/gif/${n}.gif`), gif_medium_159: `${L2D}kakao/m/${n}.gif`, gif_large_212: `${L2D}kakao/l/${n}.gif`, webp_small: u(`kakao/${n}.webp`) };
+  })),
+  story_cg: Object.fromEntries(["main", "theme"].map((kind) => [kind, ctx.CG_CATALOG[kind].map((e) => ({ ep: e.ep, title: e.t, images: e.f.map((f) => u(`story/cg/${kind}/${String(e.ep).padStart(2, "0")}/${f}.webp`)) }))])),
+  videos: ls("video").filter((f) => f.endsWith(".webm")).map((f) => ({ video: u("video/" + f), poster: voices && fs.existsSync(A("video/" + f.replace(".webm", ".jpg"))) ? u("video/" + f.replace(".webm", ".jpg")) : null })),
+  bgm: ls("bgm").filter((f) => /\.mp3$/.test(f)).map((f) => ({ title: f.replace(/^\d+\.\s*/, "").replace(/\.mp3$/, ""), url: u("bgm/" + f) })),
+};
+const counts = Object.fromEntries(Object.entries(out).filter(([, v]) => Array.isArray(v)).map(([k, v]) => [k, v.length]));
+counts.spine_skins = sado.reduce((a, s) => a + s.spine.length, 0); counts.story_cg_images = ["main", "theme"].reduce((a, k) => a + out.story_cg[k].reduce((b, e) => b + e.images.length, 0), 0);
+counts.backgrounds = out.backgrounds.game.length + out.backgrounds.illustrations.length;
+out.counts = counts;
+fs.writeFileSync(path.join(ROOT, "trickcal-assets.json"), JSON.stringify(out, null, 1));
+console.log(counts);
