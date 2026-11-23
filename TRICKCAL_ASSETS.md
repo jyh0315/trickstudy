@@ -6,6 +6,7 @@
 - 전체 목록(JSON): **https://jyh0315.github.io/trickstudy/trickcal-assets.json**
 - 이 안내서: https://jyh0315.github.io/trickstudy/TRICKCAL_ASSETS.md
 - 움직이는 사도 예제: https://jyh0315.github.io/trickstudy/examples/spine-sado.html
+- **🎬 움직이는 사도 GIF·영상 만들기 도구: https://jyh0315.github.io/trickstudy/anim.html** — 사도·스킨·동작·크기·배경을 골라 GIF/WebM 으로 내려받기 (PPT·캔바·메일·카톡용). `anim.html?id=butter` 처럼 사도를 바로 열 수 있어요.
 
 > 원저작권은 에피드게임즈(트릭컬 RE:VIVE)에 있어요. 개인·팬 용도로만 쓰고, 재배포·판매·공식인 척하는 사용은 하지 마세요.
 
@@ -47,6 +48,9 @@ L = https://jyh0315.github.io/trickstudy-assets/
 [사도 정보]
 JSON 의 sado[] 에 id, 한글 이름(name), 영문(en), 등급(rarity 1~3), 성격(personality: 순수/냉정/광기/활발/우울/특별)이 있어.
 예) butter 버터, erpin 에르핀, kommy 코미, vivi 비비, ui 우이, yomi 요미, chloe 클로에, xxionx 시온 더 다크불릿 …
+
+[코드를 못 넣는 곳(PPT·캔바·메일 등)에 움직이는 사도가 필요하면]
+https://jyh0315.github.io/trickstudy/anim.html?id=<사도id> 에서 GIF/WebM 으로 뽑아서 쓰라고 안내해 줘.
 
 [만들 때 지킬 것]
 - 그림은 <img src="주소"> 로 바로 쓰고, 파일을 따로 내려받으라고 하지 마.

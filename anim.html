@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>🎬 움직이는 사도 GIF 만들기 · 트릭스터디</title>
+<link rel="icon" href="assets/chibi/erpin.webp">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&family=Gowun+Dodum&display=swap">
+<style>
+:root { --ink: #3b2a20; --ink-soft: #7a6555; --cream: #fff8e6; --paper: #fffdf6; --yellow: #ffd24d; --pink: #ff8fb1; --pink-d: #e5517e; --mint: #7fe0c0; --line: 3px solid var(--ink); --font-title: "Jua", "Gowun Dodum", system-ui, sans-serif; --font-body: "Gowun Dodum", system-ui, sans-serif; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--cream); color: var(--ink); font-family: var(--font-body); }
+h1 { font: 26px var(--font-title); margin: 14px 16px 6px; }
+.sub { margin: 0 16px 10px; color: var(--ink-soft); font-size: 14px; }
+.wrap { display: grid; grid-template-columns: 300px 1fr; gap: 14px; padding: 0 16px 24px; }
+@media (max-width: 760px) { .wrap { grid-template-columns: 1fr; } }
+.card { background: var(--paper); border: var(--line); border-radius: 18px; box-shadow: 0 4px 0 var(--ink); padding: 12px; }
+.btn { font: 15px var(--font-title); border: 2.5px solid var(--ink); border-radius: 12px; background: #fff; color: var(--ink); padding: 7px 12px; cursor: pointer; box-shadow: 0 3px 0 var(--ink); }
+.btn:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--ink); }
+.btn.pink { background: var(--pink); } .btn.yellow { background: var(--yellow); } .btn.mint { background: var(--mint); }
+.btn:disabled { opacity: .5; cursor: default; }
+input, select { font: 14px var(--font-body); border: 2px solid var(--ink); border-radius: 10px; padding: 6px 8px; background: #fff; color: var(--ink); }
+#q { width: 100%; margin-bottom: 8px; }
+#list { display: grid; grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); gap: 6px; max-height: 70vh; overflow: auto; }
+#list button { border: 2px solid var(--ink); border-radius: 12px; background: #fff; padding: 4px; cursor: pointer; font: 12px var(--font-title); color: var(--ink); display: flex; flex-direction: column; align-items: center; gap: 2px; }
+#list button.on { background: var(--yellow); }
+#list img { width: 60px; height: 60px; object-fit: contain; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 6px 0; }
+.row label { font: 14px var(--font-title); }
+#stageWrap { display: flex; justify-content: center; padding: 8px; border-radius: 14px; background: repeating-conic-gradient(#eee 0 25%, #fff 0 50%) 0 0/20px 20px; }
+#stage { position: relative; width: 300px; height: 375px; }
+#host { position: absolute; inset: 0; }
+#msg { position: absolute; inset: 0; display: grid; place-items: center; font: 15px var(--font-title); color: var(--ink-soft); text-align: center; }
+.moods { display: flex; flex-wrap: wrap; gap: 6px; }
+.moods .btn { padding: 4px 9px; font-size: 13px; box-shadow: 0 2px 0 var(--ink); }
+.moods .btn.on { background: var(--yellow); }
+.moods small { opacity: .6; }
+#anims { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+#anims button { font: 12px var(--font-body); border: 1.5px solid var(--ink); border-radius: 8px; background: #fff; padding: 2px 7px; cursor: pointer; }
+#anims button.on { background: var(--pink); }
+#prog { height: 10px; border: 2px solid var(--ink); border-radius: 99px; overflow: hidden; background: #fff; margin: 8px 0; }
+#prog i { display: block; height: 100%; width: 0; background: var(--pink); }
+#out { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+#out img, #out video { max-width: 220px; border: 2px dashed var(--ink-soft); border-radius: 10px; background: repeating-conic-gradient(#eee 0 25%, #fff 0 50%) 0 0/16px 16px; }
+.note { font-size: 12.5px; color: var(--ink-soft); }
+a { color: var(--pink-d); }
+</style>
+</head>
+<body>
+<h1>🎬 움직이는 사도 GIF 만들기</h1>
+<p class="sub">사도·스킨·동작을 골라 <b>GIF</b>(PPT·캔바·메일·카톡 어디든) 또는 <b>WebM 영상</b>으로 내려받아요. 팬 제작 · 개인 용도로만 · 원저작권 에피드게임즈 · <a href="index.html">← 트릭스터디</a></p>
+<div class="wrap">
+  <div class="card"><input id="q" placeholder="사도 이름 찾기" autocomplete="off"><div id="list"></div></div>
+  <div class="card">
+    <div class="row"><b id="who" style="font:20px var(--font-title)">사도를 골라 주세요</b><label>🎨 스킨 <select id="skin"></select></label></div>
+    <div id="stageWrap"><div id="stage"><div id="host"></div><div id="msg">왼쪽에서 사도를 골라요</div></div></div>
+    <div class="moods" id="moods" style="margin-top:8px"></div>
+    <div id="anims"></div>
+    <div class="row" style="margin-top:10px">
+      <label>크기 <select id="size"><option value="240">작게 240</option><option value="360" selected>보통 360</option><option value="512">크게 512</option></select></label>
+      <label>배경 <select id="bg"><option value="none">투명</option><option value="#ffffff">흰색</option><option value="#fff8e6">크림</option><option value="color">색 고르기</option><option value="game">게임 배경</option></select></label>
+      <input type="color" id="bgColor" value="#ffd9e6" hidden>
+      <select id="bgGame" hidden></select>
+      <label>초당 장수 <select id="fps"><option value="15">15</option><option value="20" selected>20</option><option value="25">25</option></select></label>
+      <label>반복 <select id="loops"><option value="1" selected>1번</option><option value="2">2번</option><option value="3">3번</option></select></label>
+    </div>
+    <div class="row">
+      <button class="btn pink" id="mkGif" disabled>⬇ GIF 만들기</button>
+      <button class="btn mint" id="mkWebm" disabled>⬇ WebM 영상</button>
+      <span class="note" id="info"></span>
+    </div>
+    <div id="prog"><i></i></div>
+    <div id="out"></div>
+    <p class="note">투명 GIF 는 가장자리가 흰색에 맞춰져 있어서, 어두운 배경에 붙일 땐 <b>배경</b>을 그 색으로 골라 만들면 더 깔끔해요. WebM 은 투명 배경을 그대로 담아요(크롬·엣지).</p>
+  </div>
+</div>
+<script src="js/sado.js"></script>
+<script src="js/spine-data.js"></script>
+<script src="js/ssbg-list.js"></script>
+<script src="js/vendor/spine-player.min.js"></script>
+<script type="module">
+import { GIFEncoder, quantize, applyPalette } from "./js/vendor/gifenc.esm.js";
+const $ = (id) => document.getElementById(id);
+const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+const MOODS = [["대기", /^Idle_/], ["기쁨", /^(Happy|Smile|Laugh)_/], ["뿌듯", /^(Proud|Pride)_/], ["부끄럼", /^Shy_/], ["춤", /^Dance_/], ["놀람", /^(Surprise|Panic)_/], ["삐짐", /^(Sulky|Angry|Mad)_/], ["슬픔", /^(Sad|Sorry|Tear)_/], ["졸림", /^(Sleep|Tired|Close)_/], ["냠냠", /^Eat_/], ["터치", /^Touch_/], ["쓰다듬", /^Pat_/], ["간지럼", /^Tickle_/]];
+const RATIO = 1.25; // 세로 = 가로 × 1.25 (전신)
+
+// 이음새(얇은 선) 방지 — 사이트와 같은 방식
+(() => { const T = spine.GLTexture; if (!T || T.__pma) return; T.__pma = true; T.DISABLE_UNPACK_PREMULTIPLIED_ALPHA_WEBGL = false;
+  const up = T.prototype.update; T.prototype.update = function (m) { const gl = this.context.gl; gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true); try { up.call(this, m); } finally { gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false); } }; })();
+
+const LIST = SADO.filter((c) => SPINE_DATA[c.id]).sort((a, b) => a.name.localeCompare(b.name, "ko"));
+let cur = null, player = null, anim = "", animList = [], skinIdx = 0, busy = false;
+const draw = (q) => { $("list").innerHTML = LIST.filter((c) => !q || c.name.includes(q) || (c.en || "").toLowerCase().includes(q.toLowerCase())).map((c) => `<button data-id="${c.id}" class="${cur && cur.id === c.id ? "on" : ""}"><img src="assets/chibi/${c.id}.webp" alt="" loading="lazy">${esc(c.name)}</button>`).join(""); };
+$("q").oninput = (e) => draw(e.target.value.trim());
+$("list").onclick = (e) => { const b = e.target.closest("[data-id]"); if (b && !busy) pick(b.dataset.id); };
+$("bgGame").innerHTML = SS_BACKGROUNDS.map((n) => `<option value="${n}">게임 배경 ${n}</option>`).join("");
+$("bg").onchange = () => { $("bgColor").hidden = $("bg").value !== "color"; $("bgGame").hidden = $("bg").value !== "game"; paintBg(); };
+$("bgColor").oninput = paintBg; $("bgGame").onchange = paintBg;
+function bgSpec() { const v = $("bg").value; return v === "none" ? null : v === "color" ? $("bgColor").value : v === "game" ? { img: `assets/ssbg/${$("bgGame").value}.webp` } : v; }
+function paintBg() { const b = bgSpec(), st = $("stage").style; st.background = !b ? "" : typeof b === "string" ? b : `url(${b.img}) center/cover`; }
+
+function pick(id) {
+  cur = SADO.find((c) => c.id === id); skinIdx = 0; draw($("q").value.trim());
+  const d = SPINE_DATA[id];
+  $("who").textContent = cur.name;
+  $("skin").innerHTML = d.skins.map((s, i) => `<option value="${i}">${esc(s[1])}</option>`).join("");
+  history.replaceState(null, "", "?id=" + id);
+  load();
+}
+$("skin").onchange = () => { skinIdx = +$("skin").value; load(); };
+
+function setSize(w) { const st = $("stage").style; st.width = w + "px"; st.height = Math.round(w * RATIO) + "px"; }
+function load() {
+  const d = SPINE_DATA[cur.id], file = d.skins[skinIdx][0];
+  const bases = SPINE_HOSTS.map((h) => encodeURI(h.url + h.dir(d.dir) + "/" + file));
+  $("mkGif").disabled = $("mkWebm").disabled = true; $("moods").innerHTML = ""; $("anims").innerHTML = ""; $("msg").hidden = false; $("msg").textContent = `${cur.name} 부르는 중…`;
+  setSize(300);
+  const tryHost = (hi) => {
+    if (hi >= bases.length) { $("msg").textContent = "불러오지 못했어요 😢"; return; }
+    if (player) { try { player.dispose(); } catch (e) { /* 무시 */ } player = null; }
+    $("host").innerHTML = "";
+    player = new spine.SpinePlayer($("host"), {
+      skelUrl: bases[hi] + ".skel.asset", atlasUrl: bases[hi] + ".atlas.asset", showControls: false, showLoading: false,
+      alpha: true, backgroundColor: "#00000000", premultipliedAlpha: true, preserveDrawingBuffer: true,
+      viewport: { padLeft: "6%", padRight: "6%", padTop: "5%", padBottom: "4%", transitionTime: 0, animations: {} },
+      success: (p) => {
+        $("msg").hidden = true;
+        const data = p.skeleton.data; animList = data.animations.map((a) => a.name);
+        const sk = data.skins.find((x) => x.name === "Normal") || data.skins.find((x) => x.name !== "default");
+        if (sk) { p.skeleton.setSkin(sk); p.skeleton.setSlotsToSetupPose(); }
+        const known = (n) => MOODS.some(([, re]) => re.test(n));
+        const groups = MOODS.map(([lb, re]) => [lb, animList.filter((n) => re.test(n))]).concat([["그 밖의 포즈", animList.filter((n) => !known(n))]]).filter(([, l]) => l.length);
+        $("moods").innerHTML = groups.map(([lb, l], i) => `<button class="btn" data-g="${i}">${lb} <small>${l.length}</small></button>`).join("");
+        const showGroup = (i) => { $("moods").querySelectorAll("[data-g]").forEach((b) => b.classList.toggle("on", +b.dataset.g === i)); $("anims").innerHTML = groups[i][1].map((n) => `<button data-a="${n}">${n}</button>`).join(""); };
+        $("moods").onclick = (e) => { const b = e.target.closest("[data-g]"); if (b) { showGroup(+b.dataset.g); setAnim(groups[+b.dataset.g][1][0]); } };
+        $("anims").onclick = (e) => { const b = e.target.closest("[data-a]"); if (b && !busy) setAnim(b.dataset.a); };
+        showGroup(0); setAnim(groups[0][1][0]);
+        $("mkGif").disabled = $("mkWebm").disabled = false;
+      },
+      error: () => tryHost(hi + 1),
+    });
+  };
+  tryHost(0);
+}
+function frameTo(a) { const vp = player.config.viewport; delete vp.x; delete vp.y; delete vp.width; delete vp.height; player.setViewport(a); }
+function setAnim(a) {
+  anim = a; $("anims").querySelectorAll("[data-a]").forEach((b) => b.classList.toggle("on", b.dataset.a === a));
+  player.play(); player.animationState.setAnimation(0, a, true); frameTo(a);
+  const dur = player.skeleton.data.findAnimation(a).duration;
+  $("info").textContent = `${a} · ${dur.toFixed(2)}초`;
+}
+
+// 한 장씩 그려서 [ImageData] 로 (재생 멈추고 시간을 직접 옮김 — 장면이 정확)
+async function captureFrames(onProg) {
+  const W = +$("size").value, H = Math.round(W * RATIO), fpsWant = +$("fps").value, loops = +$("loops").value;
+  const dur = player.skeleton.data.findAnimation(anim).duration * loops;
+  let fps = fpsWant; if (dur * fps > 200) fps = Math.max(5, Math.floor(200 / dur));
+  const n = Math.max(1, Math.round(dur * fps));
+  setSize(W); await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  player.pause();
+  const st = player.animationState; st.clearTracks(); const entry = st.setAnimation(0, anim, true); frameTo(anim);
+  const out = document.createElement("canvas"); out.width = W; out.height = H; const g = out.getContext("2d", { willReadFrequently: true });
+  const bg = bgSpec(); let bgImg = null;
+  if (bg && bg.img) { bgImg = new Image(); bgImg.src = bg.img; await bgImg.decode().catch(() => {}); }
+  const src = $("host").querySelector("canvas"), frames = [];
+  for (let i = 0; i < n; i++) {
+    entry.trackTime = i / fps; st.apply(player.skeleton); player.skeleton.updateWorldTransform(); player.drawFrame(false);
+    g.clearRect(0, 0, W, H);
+    if (bg && !bg.img) { g.fillStyle = bg; g.fillRect(0, 0, W, H); }
+    if (bgImg) { const k = Math.max(W / bgImg.width, H / bgImg.height), bw = bgImg.width * k, bh = bgImg.height * k; g.drawImage(bgImg, (W - bw) / 2, (H - bh) / 2, bw, bh); }
+    g.drawImage(src, 0, 0, W, H);
+    frames.push(g.getImageData(0, 0, W, H)); onProg && onProg((i + 1) / n);
+    if (i % 6 === 5) await new Promise((r) => setTimeout(r, 0));
+  }
+  return { frames, W, H, fps, transparent: !bg };
+}
+function done() { player.play(); setSize(300); player.animationState.setAnimation(0, anim, true); frameTo(anim); }
+const prog = (v) => { $("prog").firstElementChild.style.width = Math.round(v * 100) + "%"; };
+const fname = (ext) => `${cur.name}_${SPINE_DATA[cur.id].skins[skinIdx][1]}_${anim}.${ext}`.replace(/[\\/:*?"<>| ]+/g, "_");
+function offer(blob, ext, label) {
+  const url = URL.createObjectURL(blob), a = document.createElement("a"); a.href = url; a.download = fname(ext); document.body.appendChild(a); a.click(); a.remove();
+  $("out").innerHTML = (ext === "gif" ? `<img src="${url}" alt="">` : `<video src="${url}" autoplay loop muted playsinline></video>`) + `<div><b>${label}</b><br><span class="note">${(blob.size / 1024).toFixed(0)}KB · 다시 받기: <a href="${url}" download="${esc(fname(ext))}">${esc(fname(ext))}</a></span></div>`;
+}
+
+$("mkGif").onclick = async () => {
+  if (busy || !player) return; busy = true; $("mkGif").disabled = $("mkWebm").disabled = true; prog(0);
+  try {
+    const { frames, W, H, fps, transparent } = await captureFrames((v) => prog(v * 0.6));
+    // 투명: 반투명 가장자리는 흰색과 섞고, 거의 투명한 곳만 투명으로
+    for (const f of frames) { const d = f.data; for (let i = 0; i < d.length; i += 4) { const a = d[i + 3]; if (a < 255 && a >= 96) { const k = a / 255; d[i] = d[i] * k + 255 * (1 - k); d[i + 1] = d[i + 1] * k + 255 * (1 - k); d[i + 2] = d[i + 2] * k + 255 * (1 - k); d[i + 3] = 255; } else if (a < 96) d[i + 3] = 0; } }
+    // 공통 팔레트 (여러 장에서 고르게 뽑아서)
+    const step = Math.max(1, Math.floor(frames.length / 12)), sample = [];
+    for (let i = 0; i < frames.length; i += step) sample.push(frames[i].data);
+    const all = new Uint8ClampedArray(sample.reduce((a, d) => a + d.length, 0)); let o = 0; for (const d of sample) { all.set(d, o); o += d.length; }
+    const palette = quantize(all, transparent ? 255 : 256, { format: transparent ? "rgba4444" : "rgb565", oneBitAlpha: transparent });
+    const tIdx = transparent ? palette.findIndex((c) => c[3] === 0) : -1;
+    const gif = GIFEncoder(), delay = Math.round(1000 / fps);
+    for (let i = 0; i < frames.length; i++) {
+      const idx = applyPalette(frames[i].data, palette, transparent ? "rgba4444" : "rgb565");
+      gif.writeFrame(idx, W, H, { palette: i === 0 ? palette : undefined, delay, repeat: 0, transparent: tIdx >= 0, transparentIndex: Math.max(0, tIdx), dispose: transparent ? 2 : -1 });
+      prog(0.6 + 0.4 * (i + 1) / frames.length);
+      if (i % 8 === 7) await new Promise((r) => setTimeout(r, 0));
+    }
+    gif.finish();
+    offer(new Blob([gif.bytes()], { type: "image/gif" }), "gif", `🎞 GIF 완성 (${frames.length}장, ${W}×${H})`);
+  } catch (e) { console.error(e); $("out").textContent = "만들지 못했어요: " + (e.message || e); }
+  finally { done(); busy = false; $("mkGif").disabled = $("mkWebm").disabled = false; }
+};
+
+$("mkWebm").onclick = async () => {
+  if (busy || !player) return; busy = true; $("mkGif").disabled = $("mkWebm").disabled = true; prog(0);
+  try {
+    const { frames, W, H, fps } = await captureFrames((v) => prog(v * 0.5));
+    const c = document.createElement("canvas"); c.width = W; c.height = H; const g = c.getContext("2d");
+    const mime = ["video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm"].find((m) => MediaRecorder.isTypeSupported(m));
+    const stream = c.captureStream(0), track = stream.getVideoTracks()[0], rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 4e6 }), chunks = [];
+    rec.ondataavailable = (e) => e.data.size && chunks.push(e.data);
+    const stop = new Promise((r) => (rec.onstop = r));
+    g.putImageData(frames[0], 0, 0); rec.start();
+    for (let i = 0; i < frames.length; i++) { g.clearRect(0, 0, W, H); g.putImageData(frames[i], 0, 0); track.requestFrame && track.requestFrame(); prog(0.5 + 0.5 * (i + 1) / frames.length); await new Promise((r) => setTimeout(r, 1000 / fps)); }
+    rec.stop(); await stop;
+    offer(new Blob(chunks, { type: "video/webm" }), "webm", `🎬 WebM 완성 (${W}×${H})`);
+  } catch (e) { console.error(e); $("out").textContent = "만들지 못했어요: " + (e.message || e); }
+  finally { done(); busy = false; $("mkGif").disabled = $("mkWebm").disabled = false; }
+};
+
+draw("");
+const first = new URLSearchParams(location.search).get("id");
+if (first && SPINE_DATA[first]) pick(first);
+window.__anim = { get player() { return player; }, get anim() { return anim; } };
+</script>
+</body>
+</html>

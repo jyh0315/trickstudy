@@ -919,6 +919,7 @@ function sadoDetail(id) {
     <div class="modal-actions">
       ${o && state.partner !== id ? '<button class="btn yellow" id="m-partner">💛 대표 사도로 설정</button>' : ""}
       ${o && state.partner === id ? '<span class="tag" style="background:var(--yellow);font-size:15px;padding:6px 14px">💛 지금 대표 사도</span>' : ""}
+      ${typeof SPINE_DATA !== "undefined" && SPINE_DATA[id] ? `<a class="btn white" href="anim.html?id=${id}" target="_blank" rel="noopener">🎬 GIF 만들기</a>` : ""}
       ${!o ? `<button class="btn pink" id="m-ex" ${state.candy < cost ? "disabled" : ""}><i class="ic-candy"></i> ${cost}개로 교환 영입</button>` : ""}
     </div>
     ${!o ? `<p class="hint">별사탕 ${state.candy} / ${cost}</p>` : ""}`,
