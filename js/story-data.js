@@ -63,6 +63,23 @@ const CG_VIDEOS = [
   { id: "4671be54", title: "보름달 꽃밭", need: 6300 },
   { id: "14052e86", title: "창문을 깨고 등장!", need: 6400 },
   { id: "37e927f5", title: "책을 든 탐정", need: 6500 },
+  { id: "a0a88cf9", title: "볼 빨간 클로즈업", need: 6600 },
+  { id: "a72401cc", title: "여왕님 나라의 단체 사진", need: 6700 },
+  { id: "a8147d06", title: "축복의 기도", need: 6800 },
+  { id: "a8ad9b9a", title: "기계 팔의 손길", need: 6900 },
+  { id: "aa558fe0", title: "소리 없는 기도자", need: 7000 },
+  { id: "b1a9dc8b", title: "오로라 빛 소녀", need: 7100 },
+  { id: "b631c65c", title: "그림자 속 영웅", need: 7200 },
+  { id: "bac5b6bb", title: "언더그라운드 디바", need: 7300 },
+  { id: "ca0ce154", title: "차원을 넘는 복도", need: 7400 },
+  { id: "cb12dd34", title: "마녀의 깃펜", need: 7500 },
+  { id: "d1e0b0bf", title: "해골 머리핀 두 소녀", need: 7600 },
+  { id: "e3c05ad8", title: "바람 속 붉은 머리", need: 7700 },
+  { id: "ec7c7bb6", title: "갱스터의 눈빛", need: 7800 },
+  { id: "edde82fb", title: "어둠 속 번개", need: 7900 },
+  { id: "f3399236", title: "인형을 안은 소녀", need: 8000 },
+  { id: "f53d3d98", title: "들판의 두 소녀", need: 8100 },
+  { id: "f9d5ccbc", title: "잠든 얼음 소녀", need: 8200 },
 ];
 const STORY = [
   {
