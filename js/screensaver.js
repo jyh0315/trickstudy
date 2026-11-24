@@ -58,12 +58,52 @@ function addChar(id, slot, total) {
     onFail: () => { body.innerHTML = `<img src="${TS.portrait(c, true)}" alt="">`; body.classList.add("static"); },
   }) : null;
   if (!item.live) { body.innerHTML = `<img src="${TS.portrait(c, true)}" alt="">`; body.classList.add("static"); }
-  el.onclick = () => {
-    if (item.live) item.live.play(rand(["touch", "happy", "shy", "surprise"]));
-    say(item, TS.fmt(rand(TS.linesOf(c, "poke")), c));
-  };
+  let downT = 0, petT = 0;
+  el.addEventListener("pointerdown", (e) => { e.stopPropagation(); downT = Date.now(); clearTimeout(petT); petT = setTimeout(() => { downT = 0; pat(item); }, 450); });
+  const up = () => { clearTimeout(petT); if (downT && Date.now() - downT < 450) { if (item.live) item.live.play(rand(["touch", "happy", "shy", "surprise"])); say(item, TS.fmt(rand(TS.linesOf(c, "poke")), c)); TS.sfx("poke"); } downT = 0; };
+  el.addEventListener("pointerup", up); el.addEventListener("pointerleave", () => { clearTimeout(petT); downT = 0; });
   requestAnimationFrame(() => el.classList.add("in"));
   return item;
+}
+/* 🧶 가볍게 놀아주기 — 길게 눌러 쓰다듬기 · 🍰 간식 · 💬 수다 · 🎵 춤 (호감도 하루 15번까지) */
+const AFF_DAILY = 15, SNACKS = ["🍰", "🧁", "🍩", "🥐", "🍪", "🍓", "🍮"];
+function play() { const s = S(); if (!s.playroom) s.playroom = { day: "", n: 0 }; if (s.playroom.day !== TS.today()) { s.playroom.day = TS.today(); s.playroom.n = 0; } return s.playroom; }
+function love(item) {
+  const p = play();
+  if (p.n < AFF_DAILY && window.Affection && window.Affection.gain) { p.n++; window.Affection.gain(item.id, 1); TS.save(); }
+  const a = root && root.querySelector(".ss-aff"); if (a) { a.textContent = p.n >= AFF_DAILY ? "💗 오늘 호감도 다 받았어요" : `💗 오늘 놀아주기 호감도 ${p.n} / ${AFF_DAILY}`; a.classList.remove("show"); void a.offsetWidth; a.classList.add("show"); }
+}
+function fx(item, emo) {
+  for (let i = 0; i < 5; i++) { const h = document.createElement("span"); h.className = "ss-heart"; h.textContent = rand(emo); h.style.left = 20 + Math.random() * 60 + "%"; h.style.animationDelay = i * 0.12 + "s"; item.el.appendChild(h); setTimeout(() => h.remove(), 1900); }
+}
+const lineOf = (id, kinds, fb) => { const c = TS.SADO_MAP[id]; for (const k of kinds) { const L = TS.linesOf(c, k); if (L && L.length) return TS.fmt(rand(L), c); } return fb; };
+function pat(item) {
+  if (item.live) item.live.play(rand(["shy", "happy"]));
+  say(item, lineOf(item.id, ["pat", "poke"], "에헤헤…")); fx(item, ["💗", "💕", "💖"]); love(item); TS.sfx("coin");
+}
+let busy = false;
+function snack() {
+  if (busy || !chars.length) return; busy = true;
+  chars.forEach((it, i) => setTimeout(() => {
+    if (!root) return;
+    const sn = document.createElement("span"); sn.className = "ss-snack"; sn.textContent = rand(SNACKS); it.el.appendChild(sn); setTimeout(() => sn.remove(), 2600);
+    if (it.live) it.live.play("eat"); say(it, rand(["잘 먹을게요!", "냠냠… 맛있다!", "쉬는 시간엔 역시 단 거지~", "이거 나 주는 거야?"])); fx(it, ["✨", "😋", "💗"]); love(it);
+  }, i * 700));
+  TS.sfx("coin"); setTimeout(() => (busy = false), chars.length * 700 + 1500);
+}
+function chat() {
+  if (busy || !chars.length) return; busy = true;
+  const ids = chars.map((c) => c.id), talks = typeof SADO_TALKS !== "undefined" ? SADO_TALKS : [];
+  const pool = talks.filter((t) => t.every((x) => ids.includes(x[0])) && new Set(t.map((x) => x[0])).size === Math.min(2, ids.length));
+  const lines = pool.length ? rand(pool) : chars.map((c) => [c.id, lineOf(c.id, ["idle"], "…")]);
+  let t = 0;
+  lines.forEach(([id, text], k) => { setTimeout(() => { const it = chars.find((x) => x.id === id); if (!it || !root) return; if (it.live) it.live.play("talk"); say(it, text); if (k === 0) love(it); TS.sfx("click"); }, t); t += Math.min(3200, 1300 + text.length * 60); });
+  setTimeout(() => (busy = false), t + 300);
+}
+function dance() {
+  if (!chars.length) return;
+  chars.forEach((it, i) => setTimeout(() => { if (!root) return; if (it.live) it.live.play("dance"); fx(it, ["🎵", "🎶", "✨"]); if (i === 0) say(it, lineOf(it.id, ["done", "cheer"], "신난다~!")); }, i * 200));
+  TS.sfx("level");
 }
 function say(item, text) {
   const b = item.el.querySelector(".ss-bubble");
@@ -71,6 +111,7 @@ function say(item, text) {
   b.classList.remove("show"); void b.offsetWidth; b.classList.add("show");
 }
 function swapChars() {
+  busy = false;
   const old = chars;
   old.forEach((it) => it.el.classList.add("out"));
   setTimeout(() => old.forEach((it) => { if (it.live) it.live.dispose(); it.el.remove(); }), 900);
@@ -147,7 +188,13 @@ async function open() {
     <div class="ss-chars"></div>
     <div class="ss-quote"></div>
     <div class="ss-info"></div>
+    <div class="ss-aff"></div>
     <div class="ss-ctrl">
+      <span class="ss-play" title="사도를 길게 누르면 쓰다듬기">
+        <button class="btn yellow small" id="ss-snack" title="사도들에게 간식 주기">🍰 간식</button>
+        <button class="btn yellow small" id="ss-chat" title="사도끼리 수다">💬 수다</button>
+        <button class="btn yellow small" id="ss-dance" title="같이 춤">🎵 춤</button>
+      </span>
       <button class="btn white small" id="ss-next" title="다음 배경·사도">⏭ 다음</button>
       <button class="btn white small" id="ss-set">⚙️ 설정</button>
       <button class="btn red small" id="ss-exit">✕ 나가기 (Esc)</button>
@@ -172,6 +219,7 @@ async function open() {
   root.addEventListener("pointerdown", wakeCursor);
   wakeCursor();
   $("ss-exit").onclick = close;
+  $("ss-snack").onclick = snack; $("ss-chat").onclick = chat; $("ss-dance").onclick = dance;
   $("ss-next").onclick = () => { swapBg(); swapChars(); };
   $("ss-set").onclick = () => { $("ss-panel").classList.toggle("hidden"); wakeCursor(); };
   root.addEventListener("keydown", wakeCursor);

@@ -144,8 +144,8 @@ if (talk) {
 document.addEventListener("study-timer", (e) => {
   if (e.detail.running && e.detail.mode !== "focus" && !ov) {
     const t = document.createElement("div");
-    t.className = "kg-toast"; t.innerHTML = "☕ 쉬는 시간! <button class='btn yellow small'>🧶 펫이랑 놀아 줄까?</button>";
-    t.querySelector("button").onclick = () => { t.remove(); if (window.Playroom) window.Playroom.open(); else open(); };
+    t.className = "kg-toast"; t.innerHTML = "☕ 쉬는 시간! <button class='btn yellow small'>🔨 꿀밤 타임 할까?</button>";
+    t.querySelector("button").onclick = () => { t.remove(); open(); };
     document.body.appendChild(t); setTimeout(() => t.remove(), 9000);
   }
 });
