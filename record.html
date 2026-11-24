@@ -1,0 +1,396 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>📋 생기부 마스터 · 트릭스터디</title>
+<link rel="icon" href="assets/chibi/erpin.webp">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&family=Gowun+Dodum&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/vis-network@9.1.9/standalone/umd/vis-network.min.js"></script>
+<style>
+:root { --ink: #3b2a20; --ink-soft: #7a6555; --cream: #fff8e6; --paper: #fffdf6; --yellow: #ffd24d; --pink: #ff8fb1; --pink-d: #e5517e; --mint: #7fe0c0; --sky: #9bd3ff; --line: 3px solid var(--ink); --title: "Jua", "Gowun Dodum", system-ui, sans-serif; --body: "Gowun Dodum", system-ui, sans-serif; }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; color: var(--ink); font-family: var(--body); background: var(--cream); }
+#bg { position: fixed; inset: 0; background: center/cover no-repeat; filter: saturate(.9); }
+#bg::after { content: ""; position: absolute; inset: 0; background: rgba(255, 248, 230, .45); }
+.btn { font: 15px var(--title); border: 2.5px solid var(--ink); border-radius: 12px; background: #fff; color: var(--ink); padding: 7px 13px; cursor: pointer; box-shadow: 0 3px 0 var(--ink); }
+.btn:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--ink); }
+.btn.pink { background: var(--pink); } .btn.yellow { background: var(--yellow); } .btn.mint { background: var(--mint); } .btn.sky { background: var(--sky); }
+.btn.small { padding: 4px 9px; font-size: 13px; }
+.btn:disabled { opacity: .5; }
+/* 상단 막대 */
+#top { position: fixed; top: 10px; left: 10px; right: 10px; z-index: 20; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+#top .title { font: 22px var(--title); background: var(--paper); border: var(--line); border-radius: 14px; padding: 5px 12px; box-shadow: 0 3px 0 var(--ink); max-width: 46vw; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#top .sp { flex: 1; }
+#aiChip { font: 13px var(--title); padding: 5px 10px; border: 2px solid var(--ink); border-radius: 99px; background: #fff; }
+/* 목록 화면 */
+#home { position: fixed; inset: 0; z-index: 30; display: flex; align-items: center; justify-content: center; padding: 16px; }
+#home .box { position: relative; background: var(--paper); border: var(--line); border-radius: 22px; box-shadow: 0 6px 0 var(--ink); padding: 20px; width: min(640px, 100%); max-height: 92vh; overflow: auto; }
+#home h1 { font: 30px var(--title); margin: 0 0 4px; }
+#home .hello { display: flex; gap: 12px; align-items: center; margin: 6px 0 14px; }
+#home .hello img { width: 84px; height: 84px; object-fit: contain; }
+#home .bubble { background: #fff; border: 2px solid var(--ink); border-radius: 14px; padding: 8px 12px; font-size: 14px; }
+.rlist { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; }
+.ritem { display: flex; gap: 8px; align-items: center; padding: 10px 12px; border: 2.5px solid var(--ink); border-radius: 14px; background: #fff; }
+.ritem b { font: 17px var(--title); flex: 1; cursor: pointer; }
+.ritem small { color: var(--ink-soft); }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.hint { font-size: 13px; color: var(--ink-soft); }
+/* 마인드맵 */
+#net { position: fixed; inset: 0; z-index: 1; }
+#empty { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 5; text-align: center; background: var(--paper); border: 3px dashed var(--pink-d); border-radius: 22px; padding: 22px 28px; pointer-events: none; }
+#empty h2 { font: 26px var(--title); margin: 0 0 6px; color: var(--pink-d); }
+#menu { position: fixed; z-index: 40; display: none; flex-direction: column; gap: 6px; background: var(--paper); border: var(--line); border-radius: 16px; box-shadow: 0 5px 0 var(--ink); padding: 8px; min-width: 170px; }
+#menu .btn { text-align: left; }
+#menu input { font: 15px var(--body); border: 2px solid var(--ink); border-radius: 10px; padding: 8px; width: 220px; }
+/* 옆 패널 */
+#panel { position: fixed; top: 64px; right: -620px; bottom: 10px; width: min(560px, 96vw); z-index: 25; background: var(--paper); border: var(--line); border-radius: 20px; box-shadow: 0 6px 0 var(--ink); transition: right .35s cubic-bezier(.34, 1.3, .64, 1); display: flex; flex-direction: column; }
+#panel.on { right: 10px; }
+#panel header { display: flex; align-items: center; gap: 8px; padding: 12px 14px; border-bottom: var(--line); background: var(--pink); border-radius: 17px 17px 0 0; }
+#panel header b { font: 21px var(--title); flex: 1; }
+#panel .body { flex: 1; overflow: auto; padding: 14px; display: flex; flex-direction: column; gap: 12px; }
+#panel h3 { font: 18px var(--title); margin: 0; }
+textarea { width: 100%; font: 15px/1.6 var(--body); border: 2.5px solid var(--ink); border-radius: 12px; padding: 10px; background: #fff; resize: vertical; color: var(--ink); }
+textarea[readonly] { background: #fbf7ee; }
+.aibox { background: #f2f6ff; border: 2.5px dashed #7aa6d8; border-radius: 16px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+.aihead { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.aihead h3 { flex: 1; }
+.teacher { display: flex; gap: 10px; align-items: center; }
+.teacher img { width: 54px; height: 54px; object-fit: contain; }
+.teacher .bubble { background: #fff; border: 2px solid var(--ink); border-radius: 12px; padding: 6px 10px; font-size: 13.5px; }
+#toast { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%); z-index: 60; background: var(--ink); color: var(--cream); padding: 10px 20px; border-radius: 99px; font: 15px var(--title); display: none; }
+#bgm { position: fixed; bottom: 12px; right: 12px; z-index: 22; display: flex; gap: 6px; align-items: center; }
+#bgm span { font: 12px var(--title); background: var(--paper); border: 2px solid var(--ink); border-radius: 99px; padding: 3px 9px; max-width: 180px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hidden { display: none !important; }
+@media (max-width: 640px) { #top .title { max-width: 40vw; font-size: 17px; } }
+</style>
+</head>
+<body>
+<div id="bg"></div>
+<div id="net"></div>
+<div id="empty" class="hidden"><h2>텅 비어 있어요!</h2><p>빈 곳을 눌러 <b>새 활동(주제)</b>을 추가해 보세요</p></div>
+
+<div id="top" class="hidden">
+  <button class="btn" id="back" title="생기부 목록">← 목록</button>
+  <span class="title" id="rTitle"></span>
+  <span class="sp"></span>
+  <span id="aiChip"></span>
+  <button class="btn small" id="bgBtn" title="배경 바꾸기">🖼 배경</button>
+  <button class="btn small" id="fitBtn" title="전체 보기">🔍 전체</button>
+  <a class="btn small" href="index.html#note" style="text-decoration:none">🏠 트릭스터디</a>
+</div>
+
+<div id="home">
+  <div class="box">
+    <h1>📋 생기부 마스터</h1>
+    <div class="hello"><img id="helloImg" src="assets/chibi/erpin.webp" alt=""><div class="bubble" id="helloSay">교주님, 활동 하나하나를 7가지 형식으로 적어 두면 생기부 문장은 제가 같이 다듬어 드릴게요!</div></div>
+    <div class="row"><button class="btn pink" id="newRec">＋ 새 생기부</button><button class="btn" id="impRec">📂 파일 불러오기</button><input type="file" id="impFile" accept=".json,application/json" hidden></div>
+    <div class="rlist" id="rlist"></div>
+    <p class="hint">활동(주제) → <b>📝 형식 만들기</b>로 계기·내용·역할·느낌·행동 변화·결과·미래 비전 7칸 → 칸마다 나의 기록 → AI 선생님 피드백 → <b>🏆 총정리</b>로 교사 기록용·학생 자기평가서용 문장. 이 브라우저에 저장되고, 💾로 파일로 받아 둘 수 있어요. AI 는 📝 노트 탭에 넣은 Gemini 키를 써요.</p>
+  </div>
+</div>
+
+<div id="menu"></div>
+
+<div id="panel">
+  <header><b id="pTitle"></b><button class="btn small" id="pClose">✕</button></header>
+  <div class="body">
+    <div id="recSec">
+      <h3>✍️ 나의 기록장</h3>
+      <textarea id="detail" rows="7" placeholder="여기에 있었던 일을 자유롭게 적어 보세요. (자동 저장)"></textarea>
+    </div>
+    <div class="aibox">
+      <div class="teacher"><img id="tImg" src="assets/chibi/erpin.webp" alt=""><div class="bubble" id="tSay">기록을 적고 🔄 를 눌러 보세요!</div></div>
+      <div class="aihead"><h3 id="aiTitle">🤖 AI 선생님 피드백</h3>
+        <button class="btn small sky" id="aiGo" title="AI 가 정리 (다시 누르면 새로)">🔄 정리</button>
+        <button class="btn small yellow" id="aiTip" title="뭘 쓸지 모를 때 추천">💡 추천</button>
+        <button class="btn small" id="aiEdit" title="직접 고치기">✏️</button>
+        <button class="btn small mint" id="aiSave" title="저장">💾</button>
+        <button class="btn small" id="aiCopy" title="복사">📋</button>
+      </div>
+      <textarea id="aiOut" rows="10" readonly placeholder="🔄 정리를 누르면 AI 가 도와줘요"></textarea>
+      <div id="refine" class="hidden"><b style="font:14px var(--title);color:var(--pink-d)">🔧 이렇게 고쳐 주세요 (적고 🔄)</b><textarea id="refineIn" rows="2" placeholder="예: 리더십을 더 강조해 줘 / 진로(의학)와 연결해 줘"></textarea></div>
+    </div>
+  </div>
+</div>
+
+<div id="bgm"><span id="bgmName">🎵 BGM 꺼짐</span><button class="btn small" id="bgmPlay">▶</button><button class="btn small" id="bgmNext">⏭</button></div>
+<div id="toast"></div>
+
+<script src="js/sado.js?v=13.55"></script>
+<script src="js/ssbg-list.js?v=13.55"></script>
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const esc = (t) => String(t ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+const FORMATS = ["계기", "내용", "역할", "느낌", "행동 변화", "결과", "미래 비전"];
+const FCOLOR = { "계기": "#FF8A80", "내용": "#FFB74D", "역할": "#FFD54F", "느낌": "#81C784", "행동 변화": "#4DB6AC", "결과": "#64B5F6", "미래 비전": "#9575CD" };
+const KEY = "trickstudy-records";
+const BGM = ["02. Day Life", "03. Lounge", "04. Weekday Farm", "15. Spirit Forest", "17. Crystal Lake", "18. Aurora", "27. Fairy Town Street", "28. Bakery In Peace", "34. Life Is Comedy", "40. Sugar Free"];
+const game = (() => { try { return JSON.parse(localStorage.getItem("trickcal-study") || "{}") || {}; } catch (e) { return {}; } })();
+const partner = game.partner || "erpin";
+const ownedIds = Object.keys(game.owned || {}).filter((id) => SADO.some((c) => c.id === id));
+const sadoOf = (id) => SADO.find((c) => c.id === id) || SADO[0];
+
+/* ───── 저장 ───── */
+let db = (() => { try { return JSON.parse(localStorage.getItem(KEY) || "{}") || {}; } catch (e) { return {}; } })();
+if (!Array.isArray(db.list)) db.list = [];
+const saveDb = () => { try { localStorage.setItem(KEY, JSON.stringify(db)); } catch (e) { toast("저장 공간이 가득 찼어요 — 💾 파일로 받아 두세요"); } };
+let rec = null; // 지금 열어 둔 생기부
+const nodeOf = (id) => rec.nodes.find((n) => n.id === id);
+const kids = (id) => rec.nodes.filter((n) => n.parent === id);
+const touch = () => { rec.updated = Date.now(); saveDb(); };
+
+/* ───── 효과음 ───── */
+let actx = null;
+function sfx(type) {
+  try {
+    actx = actx || new (window.AudioContext || window.webkitAudioContext)(); if (actx.state === "suspended") actx.resume();
+    const o = actx.createOscillator(), g = actx.createGain(); o.connect(g); g.connect(actx.destination); const t = actx.currentTime;
+    const P = { click: ["sine", [[800, 0], [400, .1]], .08, .1], ok: ["triangle", [[523, 0], [659, .1], [784, .2]], .06, .4], magic: ["sine", [[400, 0], [1200, .3]], .05, .3], del: ["square", [[150, 0]], .04, .1] }[type] || ["sine", [[600, 0]], .05, .1];
+    o.type = P[0]; P[1].forEach(([f, d]) => o.frequency.setValueAtTime(f, t + d)); g.gain.setValueAtTime(P[2], t); g.gain.exponentialRampToValueAtTime(.001, t + P[3]); o.start(); o.stop(t + P[3]);
+  } catch (e) { /* 무시 */ }
+}
+function toast(t) { const el = $("toast"); el.textContent = t; el.style.display = "block"; clearTimeout(toast.t); toast.t = setTimeout(() => (el.style.display = "none"), 2200); }
+
+/* ───── BGM (트릭컬) ───── */
+const audio = new Audio(); audio.volume = .3; let bi = Math.floor(Math.random() * BGM.length), bgmOn = false;
+const bgmSrc = () => "assets/bgm/" + encodeURIComponent(BGM[bi] + ".mp3");
+audio.onended = () => { bi = (bi + 1) % BGM.length; audio.src = bgmSrc(); audio.play().catch(() => {}); showBgm(); };
+const showBgm = () => { $("bgmName").textContent = bgmOn ? "🎵 " + BGM[bi].replace(/^\d+\.\s*/, "") : "🎵 BGM 꺼짐"; $("bgmPlay").textContent = bgmOn ? "⏸" : "▶"; };
+$("bgmPlay").onclick = () => { bgmOn = !bgmOn; if (bgmOn) { if (!audio.src) audio.src = bgmSrc(); audio.play().catch(() => {}); } else audio.pause(); showBgm(); };
+$("bgmNext").onclick = () => { bi = (bi + 1) % BGM.length; audio.src = bgmSrc(); if (bgmOn) audio.play().catch(() => {}); showBgm(); };
+
+/* ───── 배경 (게임 배경) ───── */
+function setBg(n) { $("bg").style.backgroundImage = `url(assets/ssbg/${n}.webp)`; }
+$("bgBtn").onclick = () => { const n = SS_BACKGROUNDS[Math.floor(Math.random() * SS_BACKGROUNDS.length)]; rec.bg = n; touch(); setBg(n); sfx("click"); };
+
+/* ───── 목록 화면 ───── */
+function renderHome() {
+  rec = null; $("home").classList.remove("hidden"); $("top").classList.add("hidden"); $("empty").classList.add("hidden"); closePanel(); hideMenu();
+  if (network) { network.destroy(); network = null; }
+  setBg(SS_BACKGROUND_HOME);
+  const L = [...db.list].sort((a, b) => b.updated - a.updated);
+  $("rlist").innerHTML = L.length ? L.map((r) => `<div class="ritem" data-id="${r.id}"><b data-a="open">📋 ${esc(r.title)}</b><small>활동 ${r.nodes.filter((n) => !n.parent).length}개 · ${new Date(r.updated).toLocaleDateString("ko-KR")}</small>
+    <button class="btn small" data-a="ren">✏️</button><button class="btn small" data-a="exp">💾</button><button class="btn small" data-a="del">🗑</button></div>`).join("")
+    : `<p class="hint">아직 없어요. <b>＋ 새 생기부</b>로 시작해요 (예: "1학년 자율활동", "진로 탐구").</p>`;
+}
+const SS_BACKGROUND_HOME = SS_BACKGROUNDS[Math.floor(Math.random() * SS_BACKGROUNDS.length)];
+$("rlist").onclick = (e) => {
+  const b = e.target.closest("[data-a]"), it = e.target.closest("[data-id]"); if (!b || !it) return;
+  const r = db.list.find((x) => x.id === it.dataset.id); if (!r) return;
+  const a = b.dataset.a; sfx("click");
+  if (a === "open") openRec(r.id);
+  if (a === "ren") { const t = prompt("새 이름", r.title); if (t && t.trim()) { r.title = t.trim().slice(0, 40); r.updated = Date.now(); saveDb(); renderHome(); } }
+  if (a === "exp") download(r);
+  if (a === "del" && confirm(`「${r.title}」을(를) 지울까요? (되돌릴 수 없어요 — 먼저 💾 로 받아 두면 안전해요)`)) { db.list = db.list.filter((x) => x !== r); saveDb(); renderHome(); }
+};
+$("newRec").onclick = () => {
+  const t = prompt("생기부 이름 (예: 1학년 자율활동)", "새 생기부"); if (!t || !t.trim()) return;
+  const r = { id: "r" + Date.now().toString(36), title: t.trim().slice(0, 40), created: Date.now(), updated: Date.now(), bg: SS_BACKGROUNDS[Math.floor(Math.random() * SS_BACKGROUNDS.length)], nodes: [] };
+  db.list.push(r); saveDb(); sfx("ok"); openRec(r.id);
+};
+function download(r) {
+  const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([JSON.stringify({ app: "trickstudy-record", v: 1, record: r }, null, 1)], { type: "application/json" }));
+  a.download = (r.title || "생기부").replace(/[\\/:*?"<>|]/g, "_") + ".json"; document.body.appendChild(a); a.click(); a.remove(); toast("💾 파일로 받았어요");
+}
+$("impRec").onclick = () => $("impFile").click();
+$("impFile").onchange = async (e) => {
+  for (const f of e.target.files) {
+    try { const j = JSON.parse(await f.text()); const r = j.record || j; if (!Array.isArray(r.nodes)) throw 0; r.id = "r" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5); r.title = (r.title || f.name.replace(/\.json$/, "")) + (db.list.some((x) => x.title === r.title) ? " (가져옴)" : ""); r.updated = Date.now(); db.list.push(r); }
+    catch (er) { toast("생기부 파일이 아니에요: " + f.name); }
+  }
+  saveDb(); e.target.value = ""; renderHome();
+};
+
+/* ───── 마인드맵 (vis-network) ───── */
+let network = null, nodes = null, edges = null;
+function openRec(id) {
+  rec = db.list.find((r) => r.id === id); if (!rec) return renderHome();
+  $("home").classList.add("hidden"); $("top").classList.remove("hidden"); $("rTitle").textContent = "📋 " + rec.title; setBg(rec.bg || SS_BACKGROUNDS[0]);
+  nodes = new vis.DataSet(); edges = new vis.DataSet();
+  network = new vis.Network($("net"), { nodes, edges }, {
+    nodes: { shadow: { enabled: true, color: "rgba(59,42,32,.25)", size: 6, x: 3, y: 4 }, borderWidth: 3, color: { border: "#3b2a20" } },
+    edges: { width: 3, color: { color: "#7a6555", highlight: "#e5517e" }, smooth: { type: "continuous" } },
+    physics: { barnesHut: { gravitationalConstant: -4500, springLength: 170, avoidOverlap: .4 }, stabilization: { iterations: 150 } },
+    interaction: { hover: true },
+  });
+  network.on("click", onClick);
+  network.on("dragStart", hideMenu);
+  network.on("dragEnd", savePos);
+  network.on("stabilized", savePos);
+  draw(); setTimeout(() => network && network.fit({ animation: true }), 400);
+}
+function savePos() { if (!network || !rec) return; const P = network.getPositions(); let ch = false; for (const n of rec.nodes) { const p = P[n.id]; if (p && (n.x !== Math.round(p.x) || n.y !== Math.round(p.y))) { n.x = Math.round(p.x); n.y = Math.round(p.y); ch = true; } } if (ch) saveDb(); }
+function visible() { // 접힌 노드 아래는 숨김
+  const show = new Set(), Q = rec.nodes.filter((n) => !n.parent || !nodeOf(n.parent)).map((n) => n.id);
+  while (Q.length) { const id = Q.shift(); show.add(id); const n = nodeOf(id); if (!n.folded) kids(id).forEach((k) => Q.push(k.id)); }
+  return show;
+}
+function draw() {
+  const show = visible(), N = [], E = [];
+  for (const n of rec.nodes) {
+    if (!show.has(n.id)) continue;
+    const fi = FORMATS.indexOf(n.label), isRoot = !n.parent, has = kids(n.id).length, done = !!(n.detail || n.ai);
+    let label = fi >= 0 ? `${fi + 1}. ${n.label}${done ? " ✔" : ""}` : n.label;
+    if (n.folded && has) label += "\n[+" + has + "]";
+    const o = { id: n.id, label, font: { face: "Jua", size: isRoot ? 22 : 16, color: "#3b2a20", strokeWidth: 4, strokeColor: "#fff" } };
+    if (isRoot) Object.assign(o, { shape: "circularImage", image: `assets/chibi/${n.sado || partner}.webp`, size: 44, color: { background: "#fff8e6", border: "#3b2a20" } });
+    else if (fi >= 0) Object.assign(o, { shape: "box", margin: 10, color: { background: FCOLOR[n.label], border: "#3b2a20", highlight: { background: FCOLOR[n.label], border: "#e5517e" } }, shapeProperties: { borderRadius: 12 } });
+    else Object.assign(o, { shape: "box", margin: 9, color: { background: "#fffdf6", border: "#3b2a20", highlight: { background: "#ffe9a8", border: "#e5517e" } }, shapeProperties: { borderRadius: 12 } });
+    if (n.x != null) { o.x = n.x; o.y = n.y; }
+    N.push(o);
+    if (n.parent && show.has(n.parent)) E.push({ id: n.parent + ">" + n.id, from: n.parent, to: n.id });
+  }
+  nodes.clear(); edges.clear(); nodes.add(N); edges.add(E);
+  $("empty").classList.toggle("hidden", rec.nodes.length > 0);
+}
+
+/* ───── 클릭 메뉴 ───── */
+let menuFor = null;
+function hideMenu() { $("menu").style.display = "none"; }
+function showMenu(x, y, html) { const m = $("menu"); m.innerHTML = html; m.style.display = "flex"; m.style.left = Math.min(x, innerWidth - 240) + "px"; m.style.top = Math.min(y, innerHeight - 260) + "px"; }
+function onClick(p) {
+  sfx("click"); hideMenu();
+  const x = p.pointer.DOM.x, y = p.pointer.DOM.y;
+  if (p.nodes.length) {
+    const n = nodeOf(p.nodes[0]); if (!n) return; menuFor = n.id;
+    if (FORMATS.includes(n.label) && n.parent) return openPanel(n.id, false);
+    const ks = kids(n.id), hasF = ks.some((k) => FORMATS.includes(k.label));
+    showMenu(x, y, `<button class="btn pink" data-m="add">🌱 아래에 추가</button>
+      ${ks.length ? `<button class="btn mint" data-m="fold">${n.folded ? "📂 펼치기" : "📁 접기"}</button>` : ""}
+      ${hasF ? "" : `<button class="btn yellow" data-m="fmt">📝 형식 만들기 (7칸)</button>`}
+      ${hasF ? `<button class="btn" style="background:#ffdac1" data-m="sum">🏆 총정리하기</button>` : ""}
+      <button class="btn" data-m="memo">✍️ 메모·기록</button>
+      <button class="btn" data-m="ren">✏️ 이름 바꾸기</button>
+      ${!n.parent ? `<button class="btn" data-m="face">🧸 사도 바꾸기</button>` : ""}
+      <button class="btn" style="background:#ffd0cb" data-m="del">🗑 삭제</button>`);
+  } else {
+    menuFor = null;
+    showMenu(x, y, `<button class="btn pink" data-m="add">🌱 새 활동(주제)</button>`);
+  }
+}
+$("menu").onclick = (e) => {
+  const b = e.target.closest("[data-m]"); if (!b) return;
+  const m = b.dataset.m, n = menuFor && nodeOf(menuFor);
+  if (m === "add") { $("menu").innerHTML = `<input id="newLabel" placeholder="${n ? "하위 항목" : "활동 이름 (예: 과학 탐구 동아리)"} — 엔터">`; const i = $("newLabel"); i.focus(); i.onkeydown = (ev) => { if (ev.key === "Enter" && i.value.trim()) addNode(i.value.trim(), menuFor); if (ev.key === "Escape") hideMenu(); }; return; }
+  hideMenu();
+  if (m === "fold") { n.folded = !n.folded; touch(); draw(); }
+  if (m === "fmt") { const pos = network.getPositions([n.id])[n.id] || { x: 0, y: 0 }; FORMATS.forEach((f, i) => { const a = (i / FORMATS.length) * Math.PI * 2; rec.nodes.push({ id: uid(), label: f, parent: n.id, detail: "", ai: "", x: Math.round(pos.x + Math.cos(a) * 190), y: Math.round(pos.y + Math.sin(a) * 190) }); }); n.folded = false; touch(); sfx("magic"); draw(); toast("📝 7칸을 만들었어요 — 칸을 눌러 기록해요"); }
+  if (m === "sum") openPanel(n.id, true);
+  if (m === "memo") openPanel(n.id, false);
+  if (m === "ren") { const t = prompt("새 이름", n.label); if (t && t.trim()) { n.label = t.trim().slice(0, 40); touch(); draw(); } }
+  if (m === "face") { const pool = ownedIds.length ? ownedIds : SADO.map((c) => c.id); n.sado = pool[Math.floor(Math.random() * pool.length)]; touch(); draw(); toast(`🧸 ${sadoOf(n.sado).name}(으)로 바꿨어요 (다시 누르면 또 바뀌어요)`); }
+  if (m === "del") { const all = new Set([n.id]); let more = true; while (more) { more = false; for (const x of rec.nodes) if (all.has(x.parent) && !all.has(x.id)) { all.add(x.id); more = true; } } if (!confirm(`「${n.label}」${all.size > 1 ? ` 아래 ${all.size - 1}개까지` : ""} 지울까요?`)) return; rec.nodes = rec.nodes.filter((x) => !all.has(x.id)); touch(); sfx("del"); draw(); }
+};
+const uid = () => "n" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+function addNode(label, parent) {
+  const pos = parent ? network.getPositions([parent])[parent] : network.DOMtoCanvas({ x: parseFloat($("menu").style.left), y: parseFloat($("menu").style.top) });
+  const n = { id: uid(), label: label.slice(0, 40), parent: parent || null, detail: "", ai: "", x: pos ? Math.round(pos.x + (parent ? 160 : 0)) : undefined, y: pos ? Math.round(pos.y + (parent ? 60 : 0)) : undefined };
+  if (!parent) { const pool = ownedIds.length ? ownedIds : [partner]; n.sado = rec.nodes.filter((x) => !x.parent).length ? pool[Math.floor(Math.random() * pool.length)] : partner; }
+  rec.nodes.push(n); const p = parent && nodeOf(parent); if (p) p.folded = false; touch(); sfx("ok"); hideMenu(); draw();
+}
+
+/* ───── 옆 패널 ───── */
+let pid = null, sumMode = false;
+function openPanel(id, summary) {
+  const n = nodeOf(id); if (!n) return; pid = id; sumMode = summary;
+  const parent = n.parent && nodeOf(n.parent);
+  $("pTitle").textContent = summary ? `🏆 ${n.label} 총정리` : parent ? `${parent.label} · ${n.label}` : n.label;
+  $("recSec").classList.toggle("hidden", summary);
+  $("refine").classList.toggle("hidden", !summary);
+  $("aiTip").classList.toggle("hidden", summary);
+  $("aiTitle").textContent = summary ? "🏆 활동 총정리" : "🤖 AI 선생님 피드백";
+  $("detail").value = n.detail || ""; $("aiOut").value = summary ? n.sum || "" : n.ai || ""; $("aiOut").readOnly = true; $("refineIn").value = "";
+  const t = sadoOf((parent && !parent.parent ? parent.sado : n.sado) || partner); $("tImg").src = `assets/chibi/${t.id}.webp`;
+  $("tSay").textContent = summary ? `${t.name}: 7칸 기록을 모아서 교사 기록용·학생 자기평가서용 두 가지로 정리해 줄게요!` : `${t.name}: 기록장에 있었던 일을 적고 🔄 정리를 눌러요. 뭘 쓸지 모르겠으면 💡 추천!`;
+  $("panel").classList.add("on"); hideMenu();
+}
+function closePanel() { $("panel").classList.remove("on"); pid = null; }
+$("pClose").onclick = () => { sfx("click"); closePanel(); };
+$("detail").oninput = () => { const n = pid && nodeOf(pid); if (!n) return; n.detail = $("detail").value; clearTimeout(openPanel.t); openPanel.t = setTimeout(() => { touch(); draw(); }, 500); };
+$("aiEdit").onclick = () => { $("aiOut").readOnly = false; $("aiOut").focus(); toast("✏️ 직접 고친 뒤 💾 저장"); };
+$("aiSave").onclick = () => { const n = nodeOf(pid); if (!n) return; if (sumMode) n.sum = $("aiOut").value; else n.ai = $("aiOut").value; $("aiOut").readOnly = true; touch(); draw(); sfx("ok"); toast("💾 저장했어요"); };
+$("aiCopy").onclick = async () => { try { await navigator.clipboard.writeText($("aiOut").value); toast("📋 복사했어요"); } catch (e) { $("aiOut").select(); toast("글을 골라 뒀어요 — Ctrl+C"); } };
+
+/* ───── AI (Gemini — 노트 탭에 넣은 키) ───── */
+const gem = (() => { try { return JSON.parse(localStorage.getItem("trickstudy-gemini") || "{}") || {}; } catch (e) { return {}; } })();
+const short = (m) => String(m || "").replace("gemini-", "");
+$("aiChip").textContent = gem.key && gem.model ? `🤖 ${short(gem.tidyModel || gem.model)}` : "🔑 AI 키 없음";
+async function ask(prompt) {
+  if (!(gem.key && gem.model)) throw new Error("트릭스터디 → 📝 노트 탭의 AI 설정에서 Gemini 키를 넣어 주세요");
+  const order = [...new Set([gem.tidyModel, gem.model, ...(gem.models || [])].filter(Boolean))].slice(0, 4), why = [];
+  for (const m of order) {
+    const ac = new AbortController(), tm = setTimeout(() => ac.abort(), 60000);
+    try {
+      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(m)}:generateContent`, { method: "POST", signal: ac.signal, headers: { "Content-Type": "application/json", "x-goog-api-key": gem.key },
+        body: JSON.stringify({ systemInstruction: { parts: [{ text: "너는 고등학교 학교생활기록부(생기부) 작성을 돕는 전문가다. 학생이 적은 사실만 바탕으로 쓰고, 없는 활동·수상·수치는 지어내지 않는다." }] }, contents: [{ role: "user", parts: [{ text: prompt }] }], generationConfig: { temperature: .7 } }) });
+      if (r.ok) { const j = await r.json(); const t = ((j.candidates || [])[0] || {}).content; const txt = t ? t.parts.map((p) => p.text || "").join("") : ""; if (txt.trim()) return txt.trim(); why.push(short(m) + ": 빈 답"); continue; }
+      let msg = r.status + ""; try { const e = await r.json(); msg = (e.error && e.error.message) || msg; } catch (e) { /* 무시 */ }
+      if (r.status === 401 || r.status === 403) throw new Error("키 권한 문제예요: " + msg.slice(0, 100));
+      why.push(`${short(m)}: ${r.status === 429 ? "사용량 한도" : r.status === 503 ? "붐빔" : msg.slice(0, 60)}`);
+    } catch (e) { if (e.name === "AbortError") why.push(short(m) + ": 60초 넘게 답 없음"); else if (/키 권한/.test(e.message)) throw e; else why.push(short(m) + ": " + e.message); }
+    finally { clearTimeout(tm); }
+  }
+  throw new Error("AI 가 답하지 못했어요 (" + why.join(" · ") + ")");
+}
+async function run(btn, fn) {
+  if (btn.disabled) return; const old = btn.textContent; btn.disabled = true; const t0 = Date.now();
+  const tick = setInterval(() => (btn.textContent = `⏳ ${Math.round((Date.now() - t0) / 1000)}초`), 1000);
+  $("aiOut").value = "AI 선생님이 생각 중이에요… 🧠"; sfx("magic");
+  try { $("aiOut").value = await fn(); sfx("ok"); toast("✨ 다 됐어요! 마음에 들면 💾 저장"); }
+  catch (e) { $("aiOut").value = "⚠️ " + e.message; }
+  finally { clearInterval(tick); btn.disabled = false; btn.textContent = old; }
+}
+$("aiGo").onclick = () => {
+  const n = nodeOf(pid); if (!n) return;
+  if (sumMode) return run($("aiGo"), () => summary(n));
+  const parent = n.parent ? nodeOf(n.parent) : null;
+  if (!$("detail").value.trim()) { toast("먼저 ✍️ 나의 기록을 적어 주세요"); return; }
+  run($("aiGo"), () => ask(`학생의 생기부 작성을 돕는 다정한 AI 선생님으로서, 아래 나의 기록 내용을 보고 '${parent ? parent.label : "활동"}' 활동의 '${n.label}' 부분에 들어갈 내용을 5문장 정도로 자연스럽게 정리해 줘. 기록에 없는 사실은 더하지 마.\n\n나의 기록: ${$("detail").value.trim()}`));
+};
+$("aiTip").onclick = () => {
+  const n = nodeOf(pid); if (!n) return;
+  const sib = n.parent ? kids(n.parent).filter((x) => x.id !== n.id).map((x) => [x.label, x.detail || x.ai]).filter(([, t]) => t && t.length > 5).map(([l, t]) => `- ${l}: ${t}`).join("\n") : "";
+  const parent = n.parent ? nodeOf(n.parent) : null;
+  run($("aiTip"), async () => "💡 AI 추천 아이디어 (마음에 드는 걸 ✍️ 나의 기록에 참고하세요)\n\n" + await ask(`학생이 지금 '${parent ? parent.label + " 활동의 " : ""}${n.label}' 항목을 작성하려는데 무엇을 써야 할지 몰라 고민하고 있다.\n\n[현재까지 작성된 이 활동의 다른 정보]\n${sib || "(아직 작성된 다른 정보가 없음)"}\n\n위 문맥을 고려하여, '${n.label}' 칸에 들어갈 만한 구체적이고 창의적인 내용 3가지를 추천해줘. 번호를 매겨서 간결하게 제시해.`));
+};
+function summary(n) {
+  const child = {}; kids(n.id).forEach((k) => (child[k.label] = k.detail || k.ai || "(내용 없음)"));
+  const ev = FORMATS.map((f) => `${f} : ${child[f] || "(작성되지 않음)"}`).join("\n");
+  const ref = $("refineIn").value.trim();
+  return ask(`아래 제공된 7가지 형식의 활동 내용을 바탕으로, 두 가지 버전의 총정리 글을 작성해라. (활동: ${n.label})
+
+[제공된 정보]
+${ev}
+${ref ? `\n---\n[사용자 수정 요청사항]\n"${ref}"\n이 요청을 최우선으로 반영하여 다시 작성해라.\n---\n` : ""}
+[작성 요구사항]
+1. 교사 기록용 (평가 버전)
+   - 문체: 객관적, 평가적 (~함, ~하였음).
+   - 내용: 학업 역량과 활동의 우수성 강조.
+   - 분량: 8~10문장의 한 문단 (줄바꿈 금지).
+2. 학생 자기평가서용 (성찰 버전)
+   - 문체: 1인칭, 성찰 (~했습니다, ~느꼈습니다). '~했어요' 금지.
+   - 내용: 느낀 점, 배운 점, 성장 과정 강조.
+   - 분량: 8~10문장의 한 문단 (줄바꿈 금지).
+
+[출력 형식]
+### 교사 기록용
+(내용)
+
+### 학생 자기평가서용
+(내용)`);
+}
+
+/* ───── 시작 ───── */
+$("back").onclick = () => { sfx("click"); savePos(); renderHome(); };
+$("fitBtn").onclick = () => network && network.fit({ animation: true });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") { hideMenu(); closePanel(); } });
+$("helloImg").src = `assets/chibi/${partner}.webp`; $("tImg").src = `assets/chibi/${partner}.webp`;
+$("helloSay").textContent = `${sadoOf(partner).name}: 교주님, 활동 하나하나를 7가지 형식으로 적어 두면 생기부 문장은 제가 같이 다듬어 드릴게요!`;
+const want = new URLSearchParams(location.search).get("id");
+if (want && db.list.some((r) => r.id === want)) openRec(want); else renderHome();
+window.__rec = { get rec() { return rec; }, get db() { return db; }, get net() { return network; } };
+</script>
+</body>
+</html>

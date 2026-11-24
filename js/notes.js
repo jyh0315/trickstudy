@@ -246,6 +246,7 @@
           <div class="nt-actions">
             <button class="btn pink big" id="nt-new">＋ 새 노트</button>
             <button class="btn" id="nt-import">📂 노트 파일 불러오기</button>
+            <a class="btn yellow" href="record.html" style="text-decoration:none" title="활동을 7가지 형식으로 정리하고 AI 로 생기부 문장 만들기">📋 생기부 마스터</a>
             <input type="file" id="nt-file" accept=".tnote,.tnotes,application/json" multiple hidden>
           </div>
           <div class="nt-list" id="nt-list"><p class="hint">불러오는 중…</p></div>
