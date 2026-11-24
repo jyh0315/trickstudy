@@ -52,7 +52,7 @@ const out = {
   pets: ctx.PETS.map((p) => ({ id: p.id, name: p.name, grade: (ctx.PET_GRADES[p.grade] || {}).label, url: SITE + p.img })),
   emoticons_bolddagu: [1, 2].flatMap((k) => Array.from({ length: 24 }, (_, i) => {
     const n = `bolddagu${k}-${String(i + 1).padStart(2, "0")}`;
-    return { name: n, gif_small_106: u(`kakao/gif/${n}.gif`), gif_medium_159: `${L2D}kakao/m/${n}.gif`, gif_large_212: `${L2D}kakao/l/${n}.gif`, webp_small: u(`kakao/${n}.webp`) };
+    return { name: n, gif_small_106: `${L2D}kakao/s/${n}.gif`, gif_medium_160: `${L2D}kakao/m/${n}.gif`, gif_large_256: `${L2D}kakao/l/${n}.gif`, webp_small: u(`kakao/${n}.webp`) };
   })),
   story_cg: Object.fromEntries(["main", "theme"].map((kind) => [kind, ctx.CG_CATALOG[kind].map((e) => ({ ep: e.ep, title: e.t, images: e.f.map((f) => u(`story/cg/${kind}/${String(e.ep).padStart(2, "0")}/${f}.webp`)) }))])),
   videos: ls("video").filter((f) => f.endsWith(".webm")).map((f) => ({ video: u("video/" + f), poster: voices && fs.existsSync(A("video/" + f.replace(".webm", ".jpg"))) ? u("video/" + f.replace(".webm", ".jpg")) : null })),

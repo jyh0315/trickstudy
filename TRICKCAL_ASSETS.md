@@ -40,8 +40,8 @@ L = https://jyh0315.github.io/trickstudy-assets/
 - 아티팩트 아이콘:                  S + artifacts/<id>.webp
 - 애장품 그림:                      S + keepsakes/000~069.webp
 - 펫(꼬마 동물):                    S + pets/00~78.webp
-- 볼따구콘 이모티콘(움직이는 GIF):  S + kakao/gif/bolddagu1-01~24.gif, bolddagu2-01~24.gif (106px)
-                                    L + kakao/m/…gif (159px), L + kakao/l/…gif (212px)
+- 볼따구콘 이모티콘(움직이는 GIF):  L + kakao/s/bolddagu1-01~24.gif, bolddagu2-01~24.gif (106px)
+                                    L + kakao/m/…gif (160px), L + kakao/l/…gif (256px)  ※ AI 화질 개선판
 - 스토리 CG:                        S + story/cg/main/<화 2자리>/<번호>.webp, story/cg/theme/<화 2자리>/<번호>.webp
 - 사도 목소리(짧은 대사):           S + voice/<사도id>-pull.mp3, <사도id>-pat.mp3 (있는 사도만)
 - 배경음악(BGM, 큼):                JSON 의 bgm[]
