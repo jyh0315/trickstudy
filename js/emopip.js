@@ -11,7 +11,7 @@ const NAMES = [1, 2].flatMap((k) => Array.from({ length: 24 }, (_, i) => `boldda
 // 크기: 소(108px) · 중(1.5배) · 대(2배) — 끌어다 놓으면 GIF 원래 크기로 들어가서 크기별 파일을 따로 둠
 // 중·대는 용량이 커서 움직이는 사도 데이터와 같은 저장소(trickstudy-assets)에 둠
 const ASSETS = "https://jyh0315.github.io/trickstudy-assets/kakao/";
-const SIZES = { s: { base: null, px: 106, label: "소" }, m: { base: ASSETS + "m/", px: 160, label: "중" }, l: { base: ASSETS + "l/", px: 256, label: "대" } };
+const SIZES = { s: { base: ASSETS + "s/", px: 106, label: "소" }, m: { base: ASSETS + "m/", px: 160, label: "중" }, l: { base: ASSETS + "l/", px: 256, label: "대" } };
 const SKEY = "trickstudy-emo-size";
 let size = (() => { try { return SIZES[localStorage.getItem(SKEY)] ? localStorage.getItem(SKEY) : "s"; } catch (e) { return "s"; } })();
 const GV = "?v=3"; // AI(Real-ESRGAN 애니)로 화질 올린 판 (브라우저에 남은 예전 그림 무시)
