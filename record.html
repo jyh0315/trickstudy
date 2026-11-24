@@ -82,6 +82,7 @@ textarea[readonly] { background: #fbf7ee; }
 
 <div id="home">
   <div class="box">
+    <a class="btn small" href="index.html#note" style="text-decoration:none;position:absolute;top:14px;right:14px">🏠 트릭스터디로</a>
     <h1>📋 생기부 마스터</h1>
     <div class="hello"><img id="helloImg" src="assets/chibi/erpin.webp" alt=""><div class="bubble" id="helloSay">교주님, 활동 하나하나를 7가지 형식으로 적어 두면 생기부 문장은 제가 같이 다듬어 드릴게요!</div></div>
     <div class="row"><button class="btn pink" id="newRec">＋ 새 생기부</button><button class="btn" id="impRec">📂 파일 불러오기</button><input type="file" id="impFile" accept=".json,application/json" hidden></div>
@@ -117,8 +118,8 @@ textarea[readonly] { background: #fbf7ee; }
 <div id="bgm"><span id="bgmName">🎵 BGM 꺼짐</span><button class="btn small" id="bgmPlay">▶</button><button class="btn small" id="bgmNext">⏭</button></div>
 <div id="toast"></div>
 
-<script src="js/sado.js?v=13.55"></script>
-<script src="js/ssbg-list.js?v=13.55"></script>
+<script src="js/sado.js?v=13.56"></script>
+<script src="js/ssbg-list.js?v=13.56"></script>
 <script>
 "use strict";
 const $ = (id) => document.getElementById(id);
@@ -211,24 +212,41 @@ function openRec(id) {
   nodes = new vis.DataSet(); edges = new vis.DataSet();
   network = new vis.Network($("net"), { nodes, edges }, {
     nodes: { shadow: { enabled: true, color: "rgba(59,42,32,.25)", size: 6, x: 3, y: 4 }, borderWidth: 3, color: { border: "#3b2a20" } },
-    edges: { width: 3, color: { color: "#7a6555", highlight: "#e5517e" }, smooth: { type: "continuous" } },
-    physics: { barnesHut: { gravitationalConstant: -4500, springLength: 170, avoidOverlap: .4 }, stabilization: { iterations: 150 } },
-    interaction: { hover: true },
+    edges: { width: 3, color: { color: "#7a6555", highlight: "#e5517e" }, smooth: { type: "cubicBezier", forceDirection: "horizontal", roundness: .55 } },
+    physics: false, // 자동 정렬 — 흔들리지 않음
+    interaction: { hover: true, dragNodes: false },
   });
   network.on("click", onClick);
   network.on("dragStart", hideMenu);
-  network.on("dragEnd", savePos);
-  network.on("stabilized", savePos);
-  draw(); setTimeout(() => network && network.fit({ animation: true }), 400);
+  draw(); fitView(false);
 }
-function savePos() { if (!network || !rec) return; const P = network.getPositions(); let ch = false; for (const n of rec.nodes) { const p = P[n.id]; if (p && (n.x !== Math.round(p.x) || n.y !== Math.round(p.y))) { n.x = Math.round(p.x); n.y = Math.round(p.y); ch = true; } } if (ch) saveDb(); }
+function fitView(anim) { if (!network) return; network.fit({ animation: false }); const sc = Math.min(Math.max(network.getScale() * .9, .45), 1.1); network.moveTo({ scale: sc, animation: anim ? { duration: 350 } : false }); }
+function savePos() { /* 자리는 자동 정렬이라 저장할 것 없음 */ }
+/* 왼쪽→오른쪽 나무 정렬: 활동(주제)은 왼쪽에 세로로, 하위 칸은 오른쪽으로 한 줄씩 */
+const COL = [0, 250, 470, 670, 860], ROW = 58, ROOT_H = 150, GAP = 40;
+function layout(show) {
+  const pos = {};
+  const place = (id, depth, top) => { // 반환: 이 가지가 차지한 높이
+    const ks = nodeOf(id).folded ? [] : kids(id).filter((k) => show.has(k.id));
+    let h = 0;
+    for (const k of ks) h += place(k.id, depth + 1, top + h);
+    const own = depth === 0 ? ROOT_H : ROW, H = Math.max(h, own);
+    if (h < own) { let y = top + (own - h) / 2; for (const k of ks) shift(k.id, y - top); } // 자식이 적으면 가운데로
+    pos[id] = { x: COL[Math.min(depth, COL.length - 1)] + Math.max(0, depth - COL.length + 1) * 190, y: top + H / 2 };
+    return H;
+  };
+  const shift = (id, dy) => { if (!pos[id]) return; pos[id].y += dy; kids(id).forEach((k) => shift(k.id, dy)); };
+  let top = 0;
+  for (const r of rec.nodes.filter((n) => !n.parent || !nodeOf(n.parent))) top += place(r.id, 0, top) + GAP;
+  return pos;
+}
 function visible() { // 접힌 노드 아래는 숨김
   const show = new Set(), Q = rec.nodes.filter((n) => !n.parent || !nodeOf(n.parent)).map((n) => n.id);
   while (Q.length) { const id = Q.shift(); show.add(id); const n = nodeOf(id); if (!n.folded) kids(id).forEach((k) => Q.push(k.id)); }
   return show;
 }
 function draw() {
-  const show = visible(), N = [], E = [];
+  const show = visible(), N = [], E = [], P = layout(show);
   for (const n of rec.nodes) {
     if (!show.has(n.id)) continue;
     const fi = FORMATS.indexOf(n.label), isRoot = !n.parent, has = kids(n.id).length, done = !!(n.detail || n.ai);
@@ -238,11 +256,11 @@ function draw() {
     if (isRoot) Object.assign(o, { shape: "circularImage", image: `assets/chibi/${n.sado || partner}.webp`, size: 44, color: { background: "#fff8e6", border: "#3b2a20" } });
     else if (fi >= 0) Object.assign(o, { shape: "box", margin: 10, color: { background: FCOLOR[n.label], border: "#3b2a20", highlight: { background: FCOLOR[n.label], border: "#e5517e" } }, shapeProperties: { borderRadius: 12 } });
     else Object.assign(o, { shape: "box", margin: 9, color: { background: "#fffdf6", border: "#3b2a20", highlight: { background: "#ffe9a8", border: "#e5517e" } }, shapeProperties: { borderRadius: 12 } });
-    if (n.x != null) { o.x = n.x; o.y = n.y; }
+    if (P[n.id]) { o.x = P[n.id].x; o.y = P[n.id].y; }
     N.push(o);
     if (n.parent && show.has(n.parent)) E.push({ id: n.parent + ">" + n.id, from: n.parent, to: n.id });
   }
-  nodes.clear(); edges.clear(); nodes.add(N); edges.add(E);
+  const grew = N.length !== nodes.length; nodes.clear(); edges.clear(); nodes.add(N); edges.add(E); if (grew && nodes.length) fitView(true);
   $("empty").classList.toggle("hidden", rec.nodes.length > 0);
 }
 
@@ -384,7 +402,7 @@ ${ref ? `\n---\n[사용자 수정 요청사항]\n"${ref}"\n이 요청을 최우�
 
 /* ───── 시작 ───── */
 $("back").onclick = () => { sfx("click"); savePos(); renderHome(); };
-$("fitBtn").onclick = () => network && network.fit({ animation: true });
+$("fitBtn").onclick = () => fitView(true);
 document.addEventListener("keydown", (e) => { if (e.key === "Escape") { hideMenu(); closePanel(); } });
 $("helloImg").src = `assets/chibi/${partner}.webp`; $("tImg").src = `assets/chibi/${partner}.webp`;
 $("helloSay").textContent = `${sadoOf(partner).name}: 교주님, 활동 하나하나를 7가지 형식으로 적어 두면 생기부 문장은 제가 같이 다듬어 드릴게요!`;
