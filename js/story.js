@@ -793,7 +793,7 @@ function touchPick(kind, byHand) {
   const el = P.root.querySelector(".sp-choice"); el.classList.add("hidden"); el.classList.remove("touch");
   const a = P.actors[L.touch];
   if (a && a.live && !byHand) {
-    if (kind === "smash") { a.live.play("touch"); TS.sfx("poke"); }
+    if (kind === "smash") { a.live.play("smash"); TS.sfx("poke"); }
     else if (kind === "pull") { a.live.play("surprise"); TS.sfx("poke"); }
     else { holdAnim(a, kind); setTimeout(() => holdOff(a, kind), kind === "tickle" ? 3200 : 1800); if (kind === "pat") hearts(a); }
   }
@@ -876,12 +876,14 @@ function holdAnim(a, kind) {
   c.player.animationState.setAnimation(0, loop, true); c.busyUntil = Infinity;
   // 간지럼: 참다가 계속하면 깔깔
   clearTimeout(a.laughT);
-  if (alt && c.anims.includes(alt)) a.laughT = setTimeout(() => { if (c.busyUntil === Infinity) c.player.animationState.setAnimation(0, alt, true); }, 2200);
+  a.laughing = false;
+  if (alt && c.anims.includes(alt)) a.laughT = setTimeout(() => { if (c.busyUntil === Infinity) { c.player.animationState.setAnimation(0, alt, true); a.laughing = true; } }, 2200);
 }
 function holdOff(a, kind) {
   const c = a.ctrl; if (!c || !c.player) return;
   const [loop, end] = T_HOLD[kind];
   clearTimeout(a.laughT);
+  if (a.laughing) { a.laughing = false; setTimeout(() => holdOff(a, kind), 2000); return; } // 웃던 중이면 조금 더 웃다가
   if (!c.anims.includes(loop)) return;
   const st = c.player.animationState;
   let dur = 0; const rest = kind === "tickle" && c.anims.includes(end) ? 1.3 : 0;
@@ -925,7 +927,7 @@ function bindTouch(root) {
     // 데이트의 만지기 순간: 직접 만진 것으로 고름 (톡 누르기 = 꿀밤)
     if (P && P.touchL && d.a.id === P.touchL.touch) {
       if (d.kind) touchPick(d.kind, true);
-      else if (Date.now() - d.t0 < 350 && d.moved < 15) { used = true; d.a.live && d.a.live.play("touch"); TS.sfx("poke"); touchPick("smash", true); }
+      else if (Date.now() - d.t0 < 350 && d.moved < 15) { used = true; d.a.live && d.a.live.play("smash"); TS.sfx("poke"); touchPick("smash", true); }
     }
     d = null;
   };

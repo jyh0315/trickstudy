@@ -11,7 +11,8 @@ const MIN_POSE = 1.6;                      // 반응 동작 최소 길이(초)
 const LOAD_TIMEOUT = 15000;               // 서버 하나당 기다리는 시간. 넘으면 다음 서버, 다 안 되면 그림으로 표시                     // 스킨 1개 해금 별사탕
 const skinAffLv = (idx) => idx * 2;       // idx번째 스킨 무료 해금 호감도 레벨
 const LIVE_REACT = {                      // 반응 → 애니메이션 후보 (있는 것 중에서 고름)
-  touch:    [["Smash", "Smash_End_1", "Smash_End_2"], ["Smash", "Smash_End_1"], ["Touch_Idle", "Touch_End"]], // 콕 = 꿀밤(Smash) → End_1 → 반응(End_2)
+  touch:    [["Touch_Idle", "Touch_End"]],
+  smash:    [["Smash", "Smash_End_1", "Smash_End_2"], ["Smash", "Smash_End_1"], ["Touch_Idle", "Touch_End"]], // 꿀밤 → End_1 → 반응(End_2)
   pat:      [["Pat_Idle", "Pat_Idle", "Pat_End"]],
   tickle:   [["Tickle_Idle_1", "Tickle_Idle_2", "Tickle_End"], ["Tickle_Idle_1", "Tickle_End"]],
   happy:    [/^Happy_/],
@@ -379,7 +380,8 @@ function holdEnd() {
     st.addAnimation(0, rand(stage.idles.length ? stage.idles : [stage.anims[0]]), true, rest ? dur + rest : 0);
     stage.busyUntil = Date.now() + (dur + rest) * 1000;
   };
-  const wait = HOLD_MIN * 1000 - (Date.now() - h.t);
+  // 깔깔 웃기 시작했으면 손을 떼도 조금 더 웃다가 멈춤
+  const wait = Math.max(HOLD_MIN * 1000 - (Date.now() - h.t), h.laughed ? 2000 : 0);
   if (wait > 0) setTimeout(finish, wait); else finish();
 }
 
@@ -432,6 +434,7 @@ partner.addEventListener("click", (e) => { if (gesture) { e.stopImmediatePropaga
 partner.addEventListener("pointerup", up);
 partner.addEventListener("pointerleave", (e) => { if (!(down && down.pull)) up(); });
 partner.addEventListener("pointercancel", up);
+TS.on("knock", () => react("smash")); // 빠르게 두 번 = 꿀밤
 TS.on("poke", () => {
   if (gesture) return; // 볼 당기기·쓰다듬기·간지럽히기 중이면 콕 반응은 생략
   const now = Date.now();
