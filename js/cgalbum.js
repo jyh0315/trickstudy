@@ -14,7 +14,9 @@ const KINDS = { main: { label: "메인 스토리", need: (ep) => (window.CG_MAIN
 const studied = () => { const s = S(), b = s.story && s.story.base2 != null ? s.story.base2 : s.stats.totalMin; return Math.max(0, s.stats.totalMin - b); };
 const hm = (m) => (m >= 60 ? `${Math.floor(m / 60)}시간${m % 60 ? ` ${m % 60}분` : ""}` : `${m}분`);
 const dir = (kind, ep) => `assets/story/cg/${kind}/${String(ep).padStart(2, "0")}/`;
-const isOpen = (kind, e) => PREVIEW || studied() >= KINDS[kind].need(e.ep);
+// 테마극장 CG 는 그 테마극장을 별사탕으로 산 뒤에 열림
+const ttStory = (ep) => typeof STORY !== "undefined" && STORY.some((c) => c.id === "tt" + ep); // 이야기로 만든 테마극장인지
+const isOpen = (kind, e) => PREVIEW || (kind === "theme" && ttStory(e.ep) ? ((S().story || {}).ttBought || []).includes("tt" + e.ep) : studied() >= KINDS[kind].need(e.ep));
 const seen = () => { const s = S(); if (!s.cgSeen) s.cgSeen = {}; return s.cgSeen; };
 let tab = "main";
 const all = {};
@@ -36,7 +38,7 @@ function card() {
       return `<button class="cga ${o ? "" : "lock"}" ${o ? `data-cga="${tab}:${e.ep}"` : "disabled"}>
         <img src="${dir(tab, e.ep)}${cover}.webp" alt="" loading="lazy">
         <b>Ep.${e.ep} ${esc(e.t)}</b>
-        <em>${o ? `${seen()[tab + e.ep] ? "✔" : "NEW"} · ${e.f.length}장${e.f.some((f) => vidOf(tab, e.ep, f)) ? " · 🎞️ 영상" : ""}` : `🔒 공부 ${hm(Math.max(0, KINDS[tab].need(e.ep) - studied()))} 더`}</em></button>`;
+        <em>${o ? `${seen()[tab + e.ep] ? "✔" : "NEW"} · ${e.f.length}장${e.f.some((f) => vidOf(tab, e.ep, f)) ? " · 🎞️ 영상" : ""}` : (tab === "theme" && ttStory(e.ep) ? "🔒 테마극장에서 구매" : `🔒 공부 ${hm(Math.max(0, KINDS[tab].need(e.ep) - studied()))} 더`)}</em></button>`;
     }).join("")}</div>
     ${open.length > 8 ? `<div class="modal-actions" style="margin-top:8px"><button class="btn white small" data-cgaall>${all[tab] ? "최근 것만 보기" : `앞의 ${hidden}화도 전체 보기`}</button></div>` : ""}
     ${lock.length > 3 ? `<p class="hint" style="margin:8px 0 0">🔒 그 밖에 ${lock.length - 3}화가 더 기다리고 있어요.</p>` : ""}</div>`;

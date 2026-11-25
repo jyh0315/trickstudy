@@ -28,7 +28,12 @@ const $ = (id) => document.getElementById(id);
 const esc = TS.esc;
 const S = () => TS.state;
 
-function st() { const s = S(); if (!s.story) s.story = { base: s.stats.totalMin, seen: [] }; if (s.story.base2 == null) s.story.base2 = s.stats.totalMin; return s.story; }
+function st() {
+  const s = S(); if (!s.story) s.story = { base: s.stats.totalMin, seen: [] }; if (s.story.base2 == null) s.story.base2 = s.stats.totalMin;
+  // 테마극장이 별사탕 구매로 바뀌면서 지금까지 본 테마극장 기록은 한 번 초기화
+  if (!s.story.ttReset && typeof STORY !== "undefined") { const tt = new Set(STORY.filter((c) => c.season === "테마극장").flatMap((c) => c.eps.map((e) => e.id))); s.story.seen = s.story.seen.filter((x) => !tt.has(x)); s.story.ttBought = []; s.story.ttReset = 1; }
+  return s.story;
+}
 // ?preview 로 열면 시작 화면 없이 스토리 탭으로, 모든 화 열림 + 대본 보기 (구성 확인용, 보상 없음)
 const PREVIEW = new URLSearchParams(location.search).has("preview");
 // hide: true 인 챕터(원작 메인 스토리 등 준비 중)는 미리보기에서만
@@ -38,10 +43,19 @@ const allEps = () => chapters().flatMap((ch) => ch.eps.map((ep) => ({ ...ep, ch 
 const studied = () => Math.max(0, S().stats.totalMin - st().base2);
 // 화마다 need(분)를 채우면 열림. need 가 없으면 화 순서 × STORY_MIN_PER_EP
 const needOf = (ep, i) => (ep.need != null ? ep.need : i * STORY_MIN_PER_EP);
-const isOpen = (ep, i) => PREVIEW || studied() >= needOf(ep, i);
+// 🎭 테마극장은 공부 시간이 아니라 별사탕으로 한 편씩 구매해서 봄
+const TT_PRICE = 100;
+const isTheme = (ch) => !!ch && ch.season === "테마극장";
+const ttBought = () => { const s = st(); if (!s.ttBought) s.ttBought = []; return s.ttBought; };
+const isOpen = (ep, i) => PREVIEW || (ep && isTheme(ep.ch) ? ttBought().includes(ep.ch.id) : studied() >= needOf(ep, i));
+function buyTheme(id) {
+  const s = S(); if (ttBought().includes(id)) return true;
+  if (s.candy < TT_PRICE) { TS.toast && TS.toast(`별사탕이 ${TT_PRICE - s.candy}개 모자라요`); return false; }
+  s.candy -= TT_PRICE; ttBought().push(id); TS.sfx("coin"); TS.save(); TS.refresh(); return true;
+}
 const unlockedN = () => allEps().filter((e, i) => isOpen(e, i)).length;
 // 아직 안 열린 화 중 가장 먼저 열릴 화
-const nextEp = () => { const L = allEps().map((ep, i) => ({ ep, need: needOf(ep, i) })).filter((x) => x.need > studied()).sort((a, b) => a.need - b.need); return L[0] || null; };
+const nextEp = () => { const L = allEps().map((ep, i) => ({ ep, need: needOf(ep, i) })).filter((x) => !isTheme(x.ep.ch) && x.need > studied()).sort((a, b) => a.need - b.need); return L[0] || null; };
 const nextIn = () => { const x = nextEp(); return x ? Math.max(0, x.need - studied()) : 0; };
 const hm = (m) => (m >= 60 ? `${Math.floor(m / 60)}시간${m % 60 ? ` ${m % 60}분` : ""}` : `${m}분`);
 
@@ -61,14 +75,14 @@ function epItems(ch, eps, seen, list) {
     return `<li class="${lock ? "lock" : ""} ${seen.has(ep.id) ? "seen" : ""}">
       <button ${lock ? "disabled" : ""} data-play="${ep.id}">
         <b>${ch.eps.indexOf(ep) + 1}화</b><span>${esc(ep.title)}</span>
-        <em>${lock ? `🔒 공부 ${hm(Math.max(0, needOf(ep, i) - studied()))} 더` : seen.has(ep.id) ? "✔ 다시 보기" : "NEW"}</em>
+        <em>${lock ? (isTheme(ch) ? `🔒 🍬 ${TT_PRICE}개로 열기` : `🔒 공부 ${hm(Math.max(0, needOf(ep, i) - studied()))} 더`) : seen.has(ep.id) ? "✔ 다시 보기" : "NEW"}</em>
       </button>${PREVIEW ? `<button class="story-script" data-script="${ep.id}">📜 대본</button>` : ""}</li>`;
   }).join("");
 }
 function chInfo(ch, eps, seen) {
   const idx = ch.eps.map((ep) => eps.findIndex((x) => x.id === ep.id));
   const nOpen = idx.filter((k) => isOpen(eps[k], k)).length, nSeen = ch.eps.filter((ep) => seen.has(ep.id)).length;
-  return { idx, nOpen, nSeen, state: !nOpen ? "🔒" : nSeen === ch.eps.length ? "✔ 다 봄" : `${nSeen} / ${ch.eps.length}화` };
+  return { idx, nOpen, nSeen, state: !nOpen ? (isTheme(ch) ? `🍬 ${TT_PRICE}` : "🔒") : nSeen === ch.eps.length ? "✔ 다 봄" : `${nSeen} / ${ch.eps.length}화` };
 }
 // 접는 카드 (메인 스토리 · 사도 이야기 · 예고편)
 function chDetails(ch, eps, seen, firstNew, isCur) {
@@ -99,11 +113,13 @@ function openTheme(id) {
   const first = ch.eps.find((ep) => { const k = eps.findIndex((x) => x.id === ep.id); return isOpen(eps[k], k) && !seen.has(ep.id); });
   TS.modal(`<div class="tt-modal">
     ${th ? `<div class="tt-hero"><img src="${th}" alt=""><span><i>${tabOf(ch) === "main" ? `📖 ${esc(ch.season)}` : `🎭 테마극장 #${String(ttNum(ch)).padStart(2, "0")}`}</i><b>${esc(ch.name)}</b><small>${esc(ch.title)}</small></span></div>` : `<h2>${esc(ch.name)}</h2>`}
+    ${isTheme(ch) && !ttBought().includes(ch.id) && !PREVIEW ? `<button class="btn pink tt-go" id="tt-buy" ${S().candy < TT_PRICE ? "disabled" : ""}>🍬 별사탕 ${TT_PRICE}개로 구매 (가진 별사탕 ${S().candy})</button>` : ""}
     ${first ? `<button class="btn yellow tt-go" data-play="${first.id}">▶ 이어 보기 — ${ch.eps.indexOf(first) + 1}화 ${esc(first.title)}</button>` : ""}
     <ol class="story-eps">${epItems(ch, eps, seen)}</ol>
     <div class="modal-actions"><button class="btn" data-close>닫기</button></div></div>`, (m, close) => {
     m.querySelectorAll("[data-play]").forEach((b) => (b.onclick = () => { close(); play(b.dataset.play); }));
     m.querySelectorAll("[data-script]").forEach((b) => (b.onclick = () => showScript(b.dataset.script)));
+    const buy = m.querySelector("#tt-buy"); if (buy) buy.onclick = () => { if (buyTheme(id)) { close(); openTheme(id); } };
   }, { cls: "tt-modal-wrap" });
 }
 function applyThemeFilter(el) {
