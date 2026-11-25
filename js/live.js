@@ -109,7 +109,7 @@ function headPos(sk) {
   sk.getBounds(off, size);
   return { x: off.x + size.x / 2, y: off.y + size.y * 0.6 };
 }
-function frameView(p, mode, host) {
+function frameView(p, mode, host, calcOnly) {
   // 불러온 직후엔 뼈 위치가 아직 계산 전이라 한 번 계산
   p.animationState.apply(p.skeleton);
   p.skeleton.updateWorldTransform();
@@ -119,6 +119,9 @@ function frameView(p, mode, host) {
   if (mode === "face") {
     const S = 430;
     v = { x: h.x - S / 2, y: h.y - 140, width: S, height: S };
+  } else if (mode === "react") { // 로비 꿀밤 반응: 얼굴 틀보다 조금 멀리 (손·팔 동작까지 보이게)
+    const S = 720;
+    v = { x: h.x - S / 2, y: h.y - 390, width: S, height: S };
   } else if (mode === "story") { // 스토리: 무릎 위까지 (머리 뼈가 아래에서 63% 높이, 가로:세로 = 900:887, 무기·날개 안 잘리게 옆을 넉넉히)
     v = { x: h.x - 450, y: h.y - 560, width: 900, height: 887 };
   } else if (mode === "bust") { // 시작 화면: 머리 위 넉넉히 ~ 허리 (가로:세로 = 4:5, 아래는 화면 밖으로)
@@ -144,9 +147,27 @@ function frameView(p, mode, host) {
       Object.assign(host.style, { inset: "auto", left: `${50 - w / 2}%`, width: `${w}%`, bottom: `${((bottom - BB) / (BT - BB)) * 100}%`, height: `${hh}%` });
     }
   }
+  if (calcOnly) return v;
   Object.assign(p.config.viewport, v, { padLeft: 0, padRight: 0, padTop: 0, padBottom: 0, transitionTime: 0 });
   const cur = p.animationState.getCurrent(0);
   if (cur) p.setViewport(cur.animation.name);
+}
+/* 화면 틀을 부드럽게 바꾸기 (얼굴 ↔ 무릎 위). 꿀밤처럼 몸 전체로 하는 반응을 보여 줄 때 */
+function zoomTo(p, mode, ms = 350) {
+  if (!p || !p.config) return;
+  const vp = p.config.viewport, from = { x: vp.x, y: vp.y, width: vp.width, height: vp.height };
+  // 목표 틀은 기본 자세 기준으로 (반응 동작 중 머리 위치가 흔들려도 틀은 그대로)
+  const to = frameView(p, mode, null, true);
+  if (![from.x, from.y, from.width, from.height].every(Number.isFinite)) { Object.assign(vp, to); return; }
+  cancelAnimationFrame(p._zoomRaf);
+  const t0 = performance.now(), ease = (k) => 1 - Math.pow(1 - k, 3);
+  const step = (now) => {
+    const k = Math.min(1, (now - t0) / ms), e = ease(k);
+    for (const key of ["x", "y", "width", "height"]) vp[key] = from[key] + (to[key] - from[key]) * e;
+    const cur = p.animationState.getCurrent(0); if (cur) p.setViewport(cur.animation.name);
+    if (k < 1) p._zoomRaf = requestAnimationFrame(step);
+  };
+  p._zoomRaf = requestAnimationFrame(step);
 }
 
 /* ───── Spine 플레이어 하나 ───── */
@@ -353,7 +374,18 @@ function mountStage(force) {
   stagePull = null;
   stage = mount(box, id, { frame: "face", onReady: (c) => { if (stage === c || !stage) stagePull = cheekPull(c); }, onFail: () => { stage = null; failedIds.add(key); } });
 }
-function react(kind) { if (stage) return stage.play(kind); return false; }
+let zoomBackT = 0;
+function react(kind) {
+  if (!stage) return false;
+  const ok = stage.play(kind);
+  // 꿀밤은 손으로 입 가리기·팔 벌리기처럼 몸으로 하는 동작이라, 반응하는 동안만 무릎 위까지 보이게 줌아웃
+  if (ok && kind === "smash" && stage.player) {
+    const p = stage.player; clearTimeout(zoomBackT);
+    if (!p._zoomed) { p._zoomBase = { ...p.config.viewport }; p._zoomed = true; zoomTo(p, "react"); }
+    zoomBackT = setTimeout(() => { if (stage && stage.player === p) { zoomTo(p, "face", 500); p._zoomed = false; } }, Math.max(800, stage.busyUntil - Date.now()));
+  }
+  return ok;
+}
 /* 누르고 있는 동안 계속되는 반응 (쓰다듬기·간지럽히기): 손을 뗄 때까지 반복, 떼면 끝 동작
    너무 짧게 문질러도 최소 HOLD_MIN 초는 보여 줌 */
 const HOLD = { pat: ["Pat_Idle", "Pat_End"], tickle: ["Tickle_Idle_1", "Tickle_End", "Tickle_Idle_2"] };
