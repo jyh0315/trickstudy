@@ -11,7 +11,7 @@ const MIN_POSE = 1.6;                      // 반응 동작 최소 길이(초)
 const LOAD_TIMEOUT = 15000;               // 서버 하나당 기다리는 시간. 넘으면 다음 서버, 다 안 되면 그림으로 표시                     // 스킨 1개 해금 별사탕
 const skinAffLv = (idx) => idx * 2;       // idx번째 스킨 무료 해금 호감도 레벨
 const LIVE_REACT = {                      // 반응 → 애니메이션 후보 (있는 것 중에서 고름)
-  touch:    [["Smash", "Smash_End_1"], ["Smash", "Smash_End_2"], ["Touch_Idle", "Touch_End"]], // 콕 = 꿀밤(Smash) → 끝 동작 (두 가지 중 랜덤)
+  touch:    [["Smash", "Smash_End_1", "Smash_End_2"], ["Smash", "Smash_End_1"], ["Touch_Idle", "Touch_End"]], // 콕 = 꿀밤(Smash) → End_1 → 반응(End_2)
   pat:      [["Pat_Idle", "Pat_Idle", "Pat_End"]],
   tickle:   [["Tickle_Idle_1", "Tickle_Idle_2", "Tickle_End"], ["Tickle_Idle_1", "Tickle_End"]],
   happy:    [/^Happy_/],
@@ -224,7 +224,6 @@ function mount(container, id, opts = {}) {
     const st = ctrl.player.animationState, have = (n) => ctrl.anims.includes(n);
     let seq = null;
     const cands = (LIVE_REACT[kind] || []).slice();
-    if (kind === "touch" && Math.random() < 0.5) [cands[0], cands[1]] = [cands[1], cands[0]]; // Smash 끝 동작 둘 중 하나
     for (const c of cands) {
       if (Array.isArray(c)) { if (c.every(have)) { seq = c; break; } }
       else { const m = ctrl.anims.filter((n) => c.test(n)); if (m.length) { seq = [rand(m)]; break; } }
