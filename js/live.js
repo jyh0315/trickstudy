@@ -350,6 +350,9 @@ function react(kind) { if (stage) return stage.play(kind); return false; }
 /* 누르고 있는 동안 계속되는 반응 (쓰다듬기·간지럽히기): 손을 뗄 때까지 반복, 떼면 끝 동작
    너무 짧게 문질러도 최소 HOLD_MIN 초는 보여 줌 */
 const HOLD = { pat: ["Pat_Idle", "Pat_End"], tickle: ["Tickle_Idle_1", "Tickle_End", "Tickle_Idle_2"] };
+// 간지럼: 처음엔 참다가(Idle_1) 계속 문지르면 깔깔 웃고(Idle_2), 떼면 End 를 보여 주고 잠깐 멈췄다가 원래대로
+const TICKLE_LAUGH = 2200, END_REST = 1.3;
+const LAUGH_LINES = ["깔깔깔! 그, 그만~!", "푸하하하! 항복, 항복!", "히히히힉! 숨 막혀~!", "아하하하! 반칙이야~!"];
 const HOLD_MIN = 2.6;
 let holding = null;
 function holdStart(kind) {
@@ -358,21 +361,22 @@ function holdStart(kind) {
   if (!have(loop)) return react(kind);
   const st = stage.player.animationState;
   st.setAnimation(0, loop, true);
-  if (alt && have(alt)) { st.addAnimation(0, alt, false, 0); st.addAnimation(0, loop, true, 0); }
   stage.busyUntil = Infinity;
   holding = { kind, t: Date.now(), end: have(end) ? end : null };
+  if (alt && have(alt)) { const h = holding; h.laughT = setTimeout(() => { if (holding !== h || !stage) return; stage.player.animationState.setAnimation(0, alt, true); h.laughed = true; TS.say(rand(LAUGH_LINES), false); }, TICKLE_LAUGH); }
   return true;
 }
 function holdEnd() {
   if (!holding || !stage) { holding = null; return; }
-  const h = holding; holding = null;
+  const h = holding; holding = null; clearTimeout(h.laughT);
   const finish = () => {
     if (!stage) return;
     const st = stage.player.animationState;
-    let dur = 0;
+    let dur = 0, rest = h.kind === "tickle" && h.end ? END_REST : 0;
     if (h.end) { st.setAnimation(0, h.end, false); dur = stage.player.skeleton.data.findAnimation(h.end).duration; }
-    st.addAnimation(0, rand(stage.idles.length ? stage.idles : [stage.anims[0]]), true, 0);
-    stage.busyUntil = Date.now() + dur * 1000;
+    // 간지럼 End 는 마지막 모습에서 잠깐 쉬었다가 (delay>0 = 앞 동작 시작부터 잰 시간)
+    st.addAnimation(0, rand(stage.idles.length ? stage.idles : [stage.anims[0]]), true, rest ? dur + rest : 0);
+    stage.busyUntil = Date.now() + (dur + rest) * 1000;
   };
   const wait = HOLD_MIN * 1000 - (Date.now() - h.t);
   if (wait > 0) setTimeout(finish, wait); else finish();

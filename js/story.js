@@ -81,14 +81,14 @@ function chDetails(ch, eps, seen, firstNew, isCur) {
   </details>`;
 }
 // 테마극장: 썸네일 카드 그리드 → 누르면 화 목록 창
-function themeCard(ch, eps, seen) {
+function themeCard(ch, eps, seen, num) {
   const { nOpen, nSeen, state } = chInfo(ch, eps, seen);
-  const n = ttNum(ch), th = thumbOf(ch), cast = (ch.title || "").replace(/^주연:\s*/, "");
+  const n = num || ttNum(ch), th = thumbOf(ch), cast = num ? `${ch.season} · ${ch.name} · ${ch.eps.length}화` : (ch.title || "").replace(/^주연:\s*/, ""), nm = num && ch.title ? ch.title : ch.name;
   const hasNew = nOpen > nSeen;
   const kind = !nOpen ? "lock" : nSeen === ch.eps.length ? "done" : nSeen ? "ing" : "new";
   return `<button class="tt-card ${kind}" data-tt="${ch.id}" data-kind="${kind}" data-q="${esc((ch.name + " " + cast + " " + n).toLowerCase())}">
     <span class="tt-thumb">${th ? `<img src="${th}" alt="" loading="lazy">` : ""}<i class="tt-no">#${String(n).padStart(2, "0")}</i>${hasNew ? '<i class="tt-new">NEW</i>' : ""}</span>
-    <b class="tt-name">${esc(ch.name)}</b>
+    <b class="tt-name">${esc(nm)}</b>
     <small class="tt-cast">${esc(cast)}</small>
     <span class="tt-foot"><span class="bar"><i style="width:${(nSeen / ch.eps.length) * 100}%"></i></span><em>${state}</em></span>
   </button>`;
@@ -98,7 +98,7 @@ function openTheme(id) {
   const eps = allEps(), seen = new Set(st().seen), th = thumbOf(ch);
   const first = ch.eps.find((ep) => { const k = eps.findIndex((x) => x.id === ep.id); return isOpen(eps[k], k) && !seen.has(ep.id); });
   TS.modal(`<div class="tt-modal">
-    ${th ? `<div class="tt-hero"><img src="${th}" alt=""><span><i>🎭 테마극장 #${String(ttNum(ch)).padStart(2, "0")}</i><b>${esc(ch.name)}</b><small>${esc(ch.title)}</small></span></div>` : `<h2>${esc(ch.name)}</h2>`}
+    ${th ? `<div class="tt-hero"><img src="${th}" alt=""><span><i>${tabOf(ch) === "main" ? `📖 ${esc(ch.season)}` : `🎭 테마극장 #${String(ttNum(ch)).padStart(2, "0")}`}</i><b>${esc(ch.name)}</b><small>${esc(ch.title)}</small></span></div>` : `<h2>${esc(ch.name)}</h2>`}
     ${first ? `<button class="btn yellow tt-go" data-play="${first.id}">▶ 이어 보기 — ${ch.eps.indexOf(first) + 1}화 ${esc(first.title)}</button>` : ""}
     <ol class="story-eps">${epItems(ch, eps, seen)}</ol>
     <div class="modal-actions"><button class="btn" data-close>닫기</button></div></div>`, (m, close) => {
@@ -129,7 +129,19 @@ function render() {
   // 지금 볼 차례 챕터 (메인/사도 탭에서 펼쳐 둘 것)
   const curCh = (() => { if (firstNew >= 0) return eps[firstNew].ch.id; const L = chs.filter((c) => c.eps.some((ep) => { const k = eps.findIndex((x) => x.id === ep.id); return isOpen(eps[k], k); })); return L.length ? L[L.length - 1].id : ""; })();
   let body = "";
-  if (tab === "theme") {
+  const bar = (n, what) => { const fb = (k, label) => `<button data-ttf="${k}" class="${themeFilter === k ? "on" : ""}">${label}</button>`; return `<div class="card tt-bar">
+        <input type="search" class="tt-search" placeholder="🔍 ${what}" value="${esc(themeQuery)}">
+        <div class="seg small">${fb("all", "전체")}${fb("todo", "볼 거리")}${fb("done", "다 본 것")}${fb("lock", "잠김")}</div>
+        <small class="hint">전체 ${n}편 · 카드를 누르면 화 목록이 열려요</small>
+      </div>`; };
+  if (tab === "cg" || tab === "video") {
+    body = ""; // 아래 CG 앨범 · 특별 영상 카드가 채움
+  } else if (tab === "main") {
+    const L = chs.filter((c) => tabOf(c) === "main");
+    body = `${bar(L.length, "챕터 이름이나 시즌으로 찾기")}
+      <div class="tt-grid">${L.map((c, k) => themeCard(c, eps, seen, k + 1)).join("")}</div>
+      <p class="hint tt-empty" hidden>조건에 맞는 이야기가 없어요.</p>`;
+  } else if (tab === "theme") {
     const L = chs.filter((c) => tabOf(c) === "theme");
     const full = L.filter((c) => ttNum(c)).sort((a, b) => ttNum(a) - ttNum(b)), rest = L.filter((c) => !ttNum(c));
     const fb = (k, label) => `<button data-ttf="${k}" class="${themeFilter === k ? "on" : ""}">${label}</button>`;
@@ -158,6 +170,8 @@ function render() {
       <button data-stab="main" class="${tab === "main" ? "on" : ""}">📖 메인 스토리${badge("main")}</button>
       <button data-stab="theme" class="${tab === "theme" ? "on" : ""}">🎭 테마극장${badge("theme")}</button>
       <button data-stab="side" class="${tab === "side" ? "on" : ""}">💬 사도 이야기${badge("side")}</button>
+      <button data-stab="cg" class="${tab === "cg" ? "on" : ""}">🖼️ CG 앨범</button>
+      <button data-stab="video" class="${tab === "video" ? "on" : ""}">🎞️ 특별 영상</button>
     </div>
     ${body}
     <p class="hint">시즌 1은 원작 메인 스토리 줄거리(「트릭컬 스토리 정리」)를, 사도 이야기는 「트릭컬 사도 정리」의 대사·말투를 바탕으로 새로 쓴 팬 창작이에요.</p>`;
@@ -167,7 +181,7 @@ function render() {
   el.querySelectorAll("[data-tt]").forEach((b) => (b.onclick = () => openTheme(b.dataset.tt)));
   el.querySelectorAll("[data-ttf]").forEach((b) => (b.onclick = () => { themeFilter = b.dataset.ttf; el.querySelectorAll("[data-ttf]").forEach((x) => x.classList.toggle("on", x === b)); applyThemeFilter(el); }));
   const sq = el.querySelector(".tt-search"); if (sq) sq.oninput = () => { themeQuery = sq.value; applyThemeFilter(el); };
-  if (tab === "theme") applyThemeFilter(el);
+  if (tab === "theme" || tab === "main") applyThemeFilter(el);
   if (PREVIEW) el.insertAdjacentHTML("afterbegin", '<div class="card story-preview-note">🔍 <b>미리보기 모드</b> — 모든 화가 열려 있고 📜 대본으로 구성을 볼 수 있어요. 여기서 본 건 기록·보상에 반영되지 않아요.</div>');
 }
 /* 대본 보기 (미리보기 모드) */
@@ -232,7 +246,7 @@ function playVideo(id) {
 }
 TS.on("refresh", (view) => {
   if (view !== "story") return;
-  const el = $("view-story"); if (!el || el.querySelector(".cgv-grid") || el.dataset.tab === "theme") return;
+  const el = $("view-story"); if (!el || el.querySelector(".cgv-grid") || el.dataset.tab !== "video") return;
   const hint = el.querySelector(":scope > p.hint");
   (hint || el.lastElementChild).insertAdjacentHTML("beforebegin", videoCard());
   el.querySelectorAll("[data-cgv]").forEach((b) => (b.onclick = () => playVideo(b.dataset.cgv)));
@@ -813,21 +827,25 @@ function reactLine(a, kind) {
   clearTimeout(b._t); b._t = setTimeout(() => b.classList.remove("on"), 2600);
   if (!v) TS.sfx("poke");
 }
-const T_HOLD = { pat: ["Pat_Idle", "Pat_End"], tickle: ["Tickle_Idle_1", "Tickle_End"] };
+const T_HOLD = { pat: ["Pat_Idle", "Pat_End"], tickle: ["Tickle_Idle_1", "Tickle_End", "Tickle_Idle_2"] };
 function holdAnim(a, kind) {
-  const c = a.ctrl, [loop] = T_HOLD[kind];
+  const c = a.ctrl, [loop, , alt] = T_HOLD[kind];
   if (!c.anims.includes(loop)) { a.live.play(kind === "pat" ? "happy" : "shy"); return; }
   c.player.animationState.setAnimation(0, loop, true); c.busyUntil = Infinity;
+  // 간지럼: 참다가 계속하면 깔깔
+  clearTimeout(a.laughT);
+  if (alt && c.anims.includes(alt)) a.laughT = setTimeout(() => { if (c.busyUntil === Infinity) c.player.animationState.setAnimation(0, alt, true); }, 2200);
 }
 function holdOff(a, kind) {
   const c = a.ctrl; if (!c || !c.player) return;
   const [loop, end] = T_HOLD[kind];
+  clearTimeout(a.laughT);
   if (!c.anims.includes(loop)) return;
   const st = c.player.animationState;
-  let dur = 0;
+  let dur = 0; const rest = kind === "tickle" && c.anims.includes(end) ? 1.3 : 0;
   if (c.anims.includes(end)) { st.setAnimation(0, end, false); dur = c.player.skeleton.data.findAnimation(end).duration; }
-  st.addAnimation(0, c.idles[0] || c.anims[0], true, 0);
-  c.busyUntil = Date.now() + dur * 1000;
+  st.addAnimation(0, c.idles[0] || c.anims[0], true, rest ? dur + rest : 0);
+  c.busyUntil = Date.now() + (dur + rest) * 1000;
 }
 function bindTouch(root) {
   let d = null, used = false;

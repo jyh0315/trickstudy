@@ -2667,3 +2667,5 @@ a.icon-btn { text-decoration: none; display: inline-grid; place-items: center; }
 .ss-aff { position: absolute; left: 50%; top: 3vh; transform: translateX(-50%); z-index: 10; font: 15px var(--font-title, inherit); background: rgba(255,255,255,.9); border: 2px solid var(--ink); border-radius: 99px; padding: 4px 14px; opacity: 0; pointer-events: none; }
 .ss-aff.show { animation: ssAff 2.4s ease forwards; }
 @keyframes ssAff { 10%, 80% { opacity: 1; } 100% { opacity: 0; } }
+.kg-toast .btn { color: var(--ink) !important; text-shadow: none; }
+.story-tabs { flex-wrap: wrap; } .story-tabs button { min-width: 120px; }

@@ -134,7 +134,7 @@ function finish() {
 }
 
 /* 로비 버튼 */
-const talk = document.getElementById("talk-btn") || document.getElementById("pip-btn");
+const talk = null; // 대표 사도 아래 버튼은 없앰 (쉬는 시간 알림에서만 열림)
 if (talk) {
   const b = document.createElement("button");
   b.className = "btn white small"; b.id = "knock-btn"; b.textContent = "🔨 꿀밤 타임"; b.title = "쉬는 시간에 머리 비우고 하는 미니게임";

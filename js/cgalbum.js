@@ -43,7 +43,9 @@ function card() {
 }
 function mountCard() {
   const el = document.getElementById("view-story"); if (!el) return;
-  const old = el.querySelector(".cga-card"), html = card();
+  const old = el.querySelector(".cga-card");
+  if (el.dataset.tab !== "cg") { if (old) old.remove(); return; } // 🖼️ CG 앨범 탭에서만
+  const html = card();
   if (old) old.outerHTML = html;
   else { const hint = el.querySelector(":scope > p.hint"); (hint || el.lastElementChild).insertAdjacentHTML("beforebegin", html); }
 }
