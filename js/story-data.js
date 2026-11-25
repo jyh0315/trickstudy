@@ -5,8 +5,8 @@
 const STORY_NPC = {
   yeongchun: { name: "영춘", img: "assets/story/yeongchun.webp" },
 };
-/* 🎞️ 움직이는 CG (assets/video/<id>.webm + 같은 이름 .jpg 미리보기)
-   이야기 대본에서 { cg: "assets/video/cg1.webm" } 처럼 쓰거나, 이야기 탭 「특별 영상」에서 봄 · 화면보호기 배경으로도 나옴
+/* 🎞️ 움직이는 CG (https://jyh0315.github.io/trickstudy-assets/video/<id>.webm + 같은 이름 .jpg 미리보기)
+   이야기 대본에서 { cg: "https://jyh0315.github.io/trickstudy-assets/video/cg1.webm" } 처럼 쓰거나, 이야기 탭 「특별 영상」에서 봄 · 화면보호기 배경으로도 나옴
    need = 열리는 공부 시간(분, 이야기 기능이 열린 뒤부터). 어느 챕터 장면인지 알게 되면 그 화 대본에도 넣기 */
 const CG_VIDEOS = [
   { id: "cg1", title: "바닷가의 눈물", need: 0 },
@@ -417,7 +417,7 @@ const STORY = [
           {s: "me",t: "배신당한 거야?!",st: "shout",shake: 1,sfx: "drop"},
           {s: "erpin",t: "월세 1년이라며… 빵도 안 뜯었는데…",f: "sad",e: "💧"},
           {s: "me",t: "에르핀, 너무 실망하지 마. 에슈르도 사정이 있었겠지."},
-          {cg: "assets/video/1cc0c9ec.webm"},
+          {cg: "https://jyh0315.github.io/trickstudy-assets/video/1cc0c9ec.webm"},
           {s: "erpin",t: "다 끝났어… 에르핀도 그냥 반란군 할래…",f: "sad",e: "💧"},
           {s: "erpin",t: "반란군 하면 케이크 줄지도 모르잖아…",f: "sad"},
           {s: "ner",t: "폐하, 여왕이 반란군을 하시면 안 돼요. 누구한테 반란하시려고요.",f: "sad"},

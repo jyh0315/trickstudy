@@ -33,7 +33,7 @@ function pickChars(n) {
 function buildBgList(c) {
   const game = (typeof SS_BACKGROUNDS !== "undefined" ? SS_BACKGROUNDS : []).map((n) => `assets/ssbg/${n}.webp`);
   const illust = (c.allBg ? BACKGROUNDS.map((b) => b.id) : S().unlockedBg.slice()).map((id) => bgSrc(id));
-  const video = (typeof CG_VIDEOS !== "undefined" ? CG_VIDEOS : []).map((v) => `assets/video/${v.id}.webm`);
+  const video = (typeof CG_VIDEOS !== "undefined" ? CG_VIDEOS : []).map((v) => `https://jyh0315.github.io/trickstudy-assets/video/${v.id}.webm`);
   const list = c.bgSrc === "illust" ? illust : c.bgSrc === "mix" ? game.concat(illust) : c.bgSrc === "video" ? video : c.bgSrc === "all" ? game.concat(illust, video) : game;
   return (list.length ? list : illust).sort(() => Math.random() - 0.5);
 }

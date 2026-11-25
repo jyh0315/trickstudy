@@ -19,7 +19,7 @@ const seen = () => { const s = S(); if (!s.cgSeen) s.cgSeen = {}; return s.cgSee
 let tab = "main";
 const all = {};
 // 이 CG에 움직이는 버전(특별 영상)이 있으면 그 영상 주소
-const VID = (() => { const m = {}; if (typeof CG_VIDEO_FROM !== "undefined") for (const [id, p] of Object.entries(CG_VIDEO_FROM)) m[p] = `assets/video/${id}.webm`; return m; })();
+const VID = (() => { const m = {}; if (typeof CG_VIDEO_FROM !== "undefined") for (const [id, p] of Object.entries(CG_VIDEO_FROM)) m[p] = `https://jyh0315.github.io/trickstudy-assets/video/${id}.webm`; return m; })();
 const vidOf = (kind, ep, f) => VID[`${kind}/${String(ep).padStart(2, "0")}/${f}`];
 
 function card() {
