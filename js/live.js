@@ -7,7 +7,7 @@
    스킨: 기본 스킨은 무료, 나머지는 호감도 Lv(2·4·6·8…) 달성 또는 별사탕으로 해금
    ========================================================= */
 const SKIN_COST = 50;
-const HOLD_LOOP = { Smash_End_1: 2.2 };    // 이어지는 동작 중 이 시간(초)만큼 반복해서 보여 줄 것
+const HOLD_LOOP = {};                     // (예전: 꿀밤 머리 쾅 반복) — 지금은 한 번만    // 이어지는 동작 중 이 시간(초)만큼 반복해서 보여 줄 것
 const MIN_POSE = 1.6;                      // 반응 동작 최소 길이(초)
 const LOAD_TIMEOUT = 15000;               // 서버 하나당 기다리는 시간. 넘으면 다음 서버, 다 안 되면 그림으로 표시                     // 스킨 1개 해금 별사탕
 const skinAffLv = (idx) => idx * 2;       // idx번째 스킨 무료 해금 호감도 레벨
@@ -375,16 +375,25 @@ function mountStage(force) {
   stagePull = null;
   stage = mount(box, id, { frame: "face", onReady: (c) => { if (stage === c || !stage) stagePull = cheekPull(c); }, onFail: () => { stage = null; failedIds.add(key); } });
 }
-let zoomBackT = 0;
+/* 대표 사도를 만지는 동안(꿀밤·쓰다듬기·볼 당기기·간지럽히기)은 몸까지 보이게 줌아웃, 손을 떼고 반응이 끝나면 얼굴로 */
+let zoomBackT = 0, hovering = false;
+function zoomOut() {
+  clearTimeout(zoomBackT);
+  const p = stage && stage.ready && stage.player; if (!p || p._zoomed) return;
+  p._zoomed = true; zoomTo(p, "react");
+}
+function zoomBackLater(ms = 2200) {
+  clearTimeout(zoomBackT);
+  zoomBackT = setTimeout(() => {
+    const p = stage && stage.player; if (!p || !p._zoomed) return;
+    if (hovering || holding || (down && down.pull) || (stage.busyUntil > Date.now() && stage.busyUntil !== Infinity)) return zoomBackLater(stage.busyUntil !== Infinity && stage.busyUntil > Date.now() ? stage.busyUntil - Date.now() + 600 : 1200);
+    zoomTo(p, "face", 500); p._zoomed = false;
+  }, ms);
+}
 function react(kind) {
   if (!stage) return false;
   const ok = stage.play(kind);
-  // 꿀밤은 손으로 입 가리기·팔 벌리기처럼 몸으로 하는 동작이라, 반응하는 동안만 무릎 위까지 보이게 줌아웃
-  if (ok && kind === "smash" && stage.player) {
-    const p = stage.player; clearTimeout(zoomBackT);
-    if (!p._zoomed) { p._zoomBase = { ...p.config.viewport }; p._zoomed = true; zoomTo(p, "react"); }
-    zoomBackT = setTimeout(() => { if (stage && stage.player === p) { zoomTo(p, "face", 500); p._zoomed = false; } }, Math.max(800, stage.busyUntil - Date.now()));
-  }
+  if (ok && kind === "smash") { zoomOut(); zoomBackLater(Math.max(800, stage.busyUntil - Date.now() + 400)); }
   return ok;
 }
 /* 누르고 있는 동안 계속되는 반응 (쓰다듬기·간지럽히기): 손을 뗄 때까지 반복, 떼면 끝 동작
@@ -426,7 +435,10 @@ function holdEnd() {
 /* 클릭 · 길게 누르기 · 문지르기 */
 let down = null, gesture = "", pokes = [];
 const partner = $("partner");
+partner.addEventListener("pointerenter", (e) => { if (e.pointerType === "mouse") { hovering = true; zoomOut(); } });
+partner.addEventListener("pointerleave", () => { hovering = false; zoomBackLater(); });
 partner.addEventListener("pointerdown", (e) => {
+  zoomOut();
   gesture = "";
   // 볼 근처를 누르면 볼 당기기 (시작 화면처럼)
   if (stagePull && stage && stage.ready && stagePull.near(e.clientX, e.clientY) < partner.clientWidth * 0.22) {
@@ -463,6 +475,7 @@ partner.addEventListener("pointermove", (e) => {
   }
 });
 const up = () => {
+  zoomBackLater(holding ? 3200 : 2200);
   if (down && down.pull) { stagePull.release(() => partner.classList.remove("pulling")); down = null; return; }
   if (down) clearTimeout(down.timer); down = null;
   holdEnd();
