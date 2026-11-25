@@ -163,6 +163,26 @@ function voice(id, kind = "pull") {
   voiceEl.play().catch(() => {});
   return { text: (typeof VOICE_TEXT !== "undefined" && VOICE_TEXT[`${file}-${kind}`]) || "" };
 }
+/* 상호작용 대사 (sado-touch.js): 지금 입은 스킨 + 호감도(레벨 4↑ = 게임 친밀 10↑, 7↑ = 20↑)에 맞는 줄
+   kind: pull 볼 당기기 · pat 쓰다듬기 · knock 꿀밤 */
+function touchLine(id, kind) {
+  const T = typeof SADO_TOUCH !== "undefined" && SADO_TOUCH[id]; if (!T || !T[kind]) return null;
+  const sk = window.Live ? window.Live.curSkin(id) : 0;
+  const pts = (state.aff && state.aff[id]) || 0, L = typeof AFF_LEVELS !== "undefined" ? AFF_LEVELS : [0];
+  let lv = 1; L.forEach((need, i) => { if (pts >= need) lv = i + 1; });
+  const bands = (lv >= 7 ? ["20", "10", "0"] : lv >= 4 ? ["10", "0"] : ["0"]);
+  for (const b of bands) { const row = T[kind][b]; if (!row) continue; const lines = row[sk] || row[0]; if (lines && lines.length) return rand(lines); }
+  return null;
+}
+// 대사를 고르고, 그 대사의 음성 파일이 있으면 같이 재생 (없으면 글자만)
+function touchVoice(id, kind) {
+  const line = touchLine(id, kind);
+  if (!line) return voice(id, kind);
+  const sk = window.Live ? window.Live.curSkin(id) : 0, file = sk && (VOICE_SKINS[id] || []).includes(sk) ? `${id}_s${sk}` : id;
+  const vt = typeof VOICE_TEXT !== "undefined" && VOICE_TEXT[`${file}-${kind}`], n = (t) => String(t || "").replace(/[^가-힣a-zA-Z0-9]/g, "");
+  if (vt && n(vt) === n(line)) { const v = voice(id, kind); if (v) return { text: line }; }
+  return { text: line, silent: true };
+}
 function sfx(kind) {
   if (!state.settings.sound) return;
   try {
@@ -394,8 +414,8 @@ function poke() {
   const fx = $("poke-fx");
   fx.textContent = rand(["콕!", "말랑", "뿅!", "쿡!", "볼따구!"]);
   fx.classList.remove("show"); void fx.offsetWidth; fx.classList.add("show");
-  const v = voice(state.partner, "pull");
-  if (!v) sfx("poke");
+  const v = touchVoice(state.partner, "pull");
+  if (!v || v.silent) sfx("poke");
   if (v && v.text) say(v.text); else sayKind("poke");
   state.stats.pokes++; state.daily.poke++;
   emit("poke", state.partner);
@@ -1178,7 +1198,7 @@ function knock() {
   sfx("poke");
   const v = typeof voiceOf === "function" ? voiceOf(c.id) : null;
   const L = (v && (v.knock || v.poke)) || linesOf(c, "poke");
-  say(fmt(rand(L), c));
+  say(touchLine(c.id, "knock") || fmt(rand(L), c));
   state.stats.knocks = (state.stats.knocks || 0) + 1;
   emit("knock", state.partner);
   save();
@@ -1189,7 +1209,7 @@ window.TS = {
   get state() { return state; }, get view() { return view; }, get modalOpen() { return modalOpen; },
   save, refresh, go, on, emit, views, lineHooks, chatterHooks, detailHooks, rewardHooks,
   modal, confirmModal, toast, confetti, sfx, voice, say, sayKind, renderPartner,
-  addElif, addExp, addCandy, esc, rand, pad, dateKey, today, weekKey, daysAgo,
+  addElif, addExp, addCandy, esc, rand, touchLine, touchVoice, pad, dateKey, today, weekKey, daysAgo,
   addItem, randomItem, itemChip, itemIcon, itemOf, bag,
   RESET_EPOCH, SADO_MAP, linesOf, fmt, portrait, chibiSrc, emoteSrc, stars, shortName, isPlain, setPlain, applyBg,
   timer: { left: timerLeft, dur: timerDur, start: startTimer, pause: pauseTimer, mmss, get t() { return state.timer; } },

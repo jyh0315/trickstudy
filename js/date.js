@@ -131,7 +131,7 @@ function buildEp(id, place, gift) {
   L.push({ s: id, t: T(id, ev.say), f: "surprise", e: "!" });
   const idle = real(id, "idle"); if (idle) L.push({ s: id, t: idle, f: "talk" });
   // 만지기 순간
-  const knock = real(id, "knock"), pat = real(id, "pat"), poke = real(id, "poke");
+  const knock = TS.touchLine(id, "knock") || real(id, "knock"), pat = TS.touchLine(id, "pat") || real(id, "pat"), poke = TS.touchLine(id, "pull") || real(id, "poke");
   L.push({ n: `${c.name}이(가) 슬쩍 가까이 다가왔다.` });
   L.push({ touch: id, prompt: "…어떻게 할까?", r: {
     pat: [{ s: id, t: pat || T(id, ["헤헤… 쓰다듬어 주는 거야? 조금만 더.", "헤헤… 쓰다듬어 주시는 거예요? 조금만 더요."]), f: "shy", e: "♥" }],

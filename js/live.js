@@ -447,8 +447,8 @@ partner.addEventListener("pointerdown", (e) => {
     gesture = "pull";
     stagePull.grab(e.clientX, e.clientY);
     partner.classList.add("pulling");
-    const v = TS.voice(S().partner, "pull");
-    if (!v) TS.sfx("poke");
+    const v = TS.touchVoice(S().partner, "pull");
+    if (!v || v.silent) TS.sfx("poke");
     if (v && v.text) TS.say(v.text, false); else TS.sayKind("poke");
     TS.emit("poke", S().partner);
     return;
@@ -459,7 +459,7 @@ partner.addEventListener("pointerdown", (e) => {
   down.timer = setTimeout(() => {
     if (!down || down.moved > 20) return;
     gesture = "pat";
-    const v = TS.voice(S().partner, "pat");
+    const v = TS.touchVoice(S().partner, "pat");
     holdStart("pat"); hearts(); TS.say(v && v.text ? v.text : TS.fmt(rand(LIVE_LINES.pat), TS.SADO_MAP[S().partner]), false);
   }, 550);
 });

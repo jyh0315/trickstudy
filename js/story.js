@@ -877,13 +877,13 @@ function actorAt(x, y) {
   return list.find((a) => { const r = a.el.getBoundingClientRect(); return Math.abs(x - (r.left + r.width / 2)) < r.width * 0.2 && y > r.top + r.height * 0.12 && y < r.bottom - r.height * 0.05; });
 }
 function reactLine(a, kind) {
-  const v = TS.voice && TS.voice(a.id, kind === "pull" ? "pull" : "pat");
+  const v = kind === "tickle" ? null : TS.touchVoice ? TS.touchVoice(a.id, kind) : TS.voice(a.id, kind);
   const text = (v && v.text) || TS.fmt(TS.rand(TOUCH_LINES[kind]), TS.SADO_MAP[a.id]);
   let b = a.el.querySelector(".sp-react");
   if (!b) { b = document.createElement("div"); b.className = "sp-react"; a.el.appendChild(b); }
   b.textContent = text; b.classList.remove("on"); void b.offsetWidth; b.classList.add("on");
   clearTimeout(b._t); b._t = setTimeout(() => b.classList.remove("on"), 2600);
-  if (!v) TS.sfx("poke");
+  if (!v || v.silent) TS.sfx("poke");
 }
 const T_HOLD = { pat: ["Pat_Idle", "Pat_End"], tickle: ["Tickle_Idle_1", "Tickle_End", "Tickle_Idle_2"] };
 function holdAnim(a, kind) {
