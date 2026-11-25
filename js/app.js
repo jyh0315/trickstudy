@@ -412,11 +412,12 @@ function poke() {
   const p = $("partner");
   p.classList.remove("squish"); void p.offsetWidth; p.classList.add("squish");
   const fx = $("poke-fx");
-  fx.textContent = rand(["콕!", "말랑", "뿅!", "쿡!", "볼따구!"]);
+  // 톡 누르기 = 꿀밤(머리 쾅 Smash 모션) → 「꿀밤 때리기」 대사 (스킨별)
+  fx.textContent = rand(["꿀밤!", "딱!", "콩!", "뿅!"]);
   fx.classList.remove("show"); void fx.offsetWidth; fx.classList.add("show");
-  const v = touchVoice(state.partner, "pull");
-  if (!v || v.silent) sfx("poke");
-  if (v && v.text) say(v.text); else sayKind("poke");
+  sfx("poke");
+  const kn = touchLine(state.partner, "knock"), vk = typeof voiceOf === "function" && voiceOf(state.partner);
+  if (kn) say(kn); else if (vk && vk.knock && vk.knock.length) say(fmt(rand(vk.knock), SADO_MAP[state.partner])); else sayKind("poke");
   state.stats.pokes++; state.daily.poke++;
   emit("poke", state.partner);
   save(); refresh();
