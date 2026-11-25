@@ -435,8 +435,7 @@ function holdEnd() {
 /* 클릭 · 길게 누르기 · 문지르기 */
 let down = null, gesture = "", pokes = [];
 const partner = $("partner");
-partner.addEventListener("pointerenter", (e) => { if (e.pointerType === "mouse") { hovering = true; zoomOut(); } });
-partner.addEventListener("pointerleave", () => { hovering = false; zoomBackLater(); });
+// 평소엔 얼굴만 — 누르는(꿀밤·쓰다듬기·볼 당기기·간지럽히기) 순간에만 몸까지 보이게
 partner.addEventListener("pointerdown", (e) => {
   zoomOut();
   gesture = "";
