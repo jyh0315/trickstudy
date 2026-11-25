@@ -35,7 +35,7 @@ const affLv = (id) => (TS.affLevel ? TS.affLevel(id) : 1);
 /* 호감도 레벨업 → 애장품 하나 (주인 사도 것이 있고 Lv5 이상이면 그걸 먼저) */
 function grant(id, lv) {
   const mine = KEEPSAKES.find((k) => k.id === id && !has(k.n));
-  let k = mine && lv >= 5 ? mine : null;
+  let k = mine && lv >= 30 ? mine : null; // 게임처럼 친밀 30에 그 사도의 애장품
   if (!k) { const pool = KEEPSAKES.filter((x) => !has(x.n) && !x.id); if (!pool.length) return null; k = pool[Math.floor(Math.random() * pool.length)]; }
   owned().push(k.n); TS.save && TS.save();
   return k;

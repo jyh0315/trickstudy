@@ -2721,3 +2721,9 @@ a.icon-btn { text-decoration: none; display: inline-grid; place-items: center; }
 .dt-poses .btn.on { background: var(--yellow); }
 .dt-pic img.dt-photo { left: 0; bottom: 0; width: 100%; height: 100%; object-fit: cover; transform: none; }
 .dt-pola figcaption small { white-space: nowrap; letter-spacing: 0; }
+/* 🗣️ 상호작용 대사 고르기 */
+.tb-book .tb-kind { margin: 8px 0; display: flex; flex-direction: column; gap: 4px; }
+.tb-book .tb-kind > b { font-family: var(--font-title); }
+.tb-book label { display: flex; gap: 6px; align-items: baseline; font-size: 13.5px; cursor: pointer; }
+.tb-book label small { color: var(--ink-soft); font-size: 11px; margin-left: auto; white-space: nowrap; }
+.tb-book label.lock { opacity: .55; cursor: not-allowed; }

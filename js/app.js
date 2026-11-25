@@ -163,14 +163,17 @@ function voice(id, kind = "pull") {
   voiceEl.play().catch(() => {});
   return { text: (typeof VOICE_TEXT !== "undefined" && VOICE_TEXT[`${file}-${kind}`]) || "" };
 }
-/* 상호작용 대사 (sado-touch.js): 지금 입은 스킨 + 호감도(레벨 4↑ = 게임 친밀 10↑, 7↑ = 20↑)에 맞는 줄
+/* 상호작용 대사 (sado-touch.js): 지금 입은 스킨 + 호감도(게임 친밀도와 같은 30레벨: 10↑·20↑)에 맞는 줄
    kind: pull 볼 당기기 · pat 쓰다듬기 · knock 꿀밤 */
 function touchLine(id, kind) {
   const T = typeof SADO_TOUCH !== "undefined" && SADO_TOUCH[id]; if (!T || !T[kind]) return null;
   const sk = window.Live ? window.Live.curSkin(id) : 0;
   const pts = (state.aff && state.aff[id]) || 0, L = typeof AFF_LEVELS !== "undefined" ? AFF_LEVELS : [0];
   let lv = 1; L.forEach((need, i) => { if (pts >= need) lv = i + 1; });
-  const bands = (lv >= 7 ? ["20", "10", "0"] : lv >= 4 ? ["10", "0"] : ["0"]);
+  const bands = (lv >= 20 ? ["20", "10", "0"] : lv >= 10 ? ["10", "0"] : ["0"]);
+  // 사도 상세에서 직접 고른 대사가 있으면 그걸 (아직 열린 단계일 때만)
+  const pick = state.touchPick && state.touchPick[`${id}:${sk}`] && state.touchPick[`${id}:${sk}`][kind];
+  if (pick && bands.some((b) => T[kind][b] && ((T[kind][b][sk] || T[kind][b][0]) || []).includes(pick))) return pick;
   for (const b of bands) { const row = T[kind][b]; if (!row) continue; const lines = row[sk] || row[0]; if (lines && lines.length) return rand(lines); }
   return null;
 }

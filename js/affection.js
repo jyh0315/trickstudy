@@ -5,7 +5,8 @@
    - 엘리프로 선물을 사서 줄 수 있음 (성격별 최애 선물은 2배)
    - 호감도 레벨이 오르면 새 대사 해금 + 보스 데미지 보너스
    ========================================================= */
-const AFF_LEVELS = [0, 30, 80, 160, 280, 450, 680, 980, 1360, 1830]; // Lv1 ~ Lv10 필요 누적치
+// Lv1 ~ Lv30 필요 누적치 (게임 친밀도처럼 30레벨). Lv10까지는 예전과 같고, 그 뒤로는 점점 더 많이 필요
+const AFF_LEVELS = (() => { const L = [0, 30, 80, 160, 280, 450, 680, 980, 1360, 1830]; let inc = 520; while (L.length < 30) { L.push(L[L.length - 1] + inc); inc += 60; } return L; })();
 
 /* 선물 = 트릭컬 아티팩트 (artifacts.js). 등급별 가격·호감도
    그 사도의 전용 아티팩트는 3배, 그 성격의 증표는 2배 */
@@ -49,7 +50,7 @@ function gain(id, n) {
     const c = TS.SADO_MAP[id];
     const reward = 50 * after;
     TS.addElif(reward);
-    const ks = TS.keepsakeGrant ? TS.keepsakeGrant(id, after) : null; // 💝 애장품 하나
+    const ks = after % 5 === 0 && TS.keepsakeGrant ? TS.keepsakeGrant(id, after) : null; // 💝 애장품은 5레벨마다 하나 (그 사도 애장품은 Lv30)
     // 「트릭컬 사도 정리」 친밀도 대사가 있으면 그걸로 (Lv1~7), 없으면 성격별 대사
     const doc = affDoc(id);
     const lines = doc && after <= doc.length && doc[after - 1].length ? doc[after - 1] : AFF_LINES[c.pers][after];
@@ -67,7 +68,7 @@ function gain(id, n) {
     }, 0);
   }
 }
-const bonusPct = (id) => (level(id) - 1) * 3;
+const bonusPct = (id) => level(id) - 1; // Lv30 = +29%
 TS.affLevel = level;
 
 /* ───── 이벤트 연결 ───── */
@@ -98,7 +99,33 @@ function heartBar(id) {
     <div class="aff-foot">보스 데미지 +${bonusPct(id)}% · <button class="link" data-gift="${id}">🎁 선물하기</button></div>
   </div>`;
 }
-TS.detailHooks.push((c) => heartBar(c.id) + affBook(c));
+TS.detailHooks.push((c) => heartBar(c.id) + affBook(c) + touchBook(c));
+/* 🗣️ 상호작용 대사 고르기: 볼 당기기·쓰다듬기·꿀밤마다 여러 대사 중 하나를 골라 고정 (기본은 자동 = 지금 레벨의 가장 높은 단계) */
+const TB_KINDS = [["pull", "😆 볼 당기기"], ["pat", "✋ 쓰다듬기"], ["knock", "🔨 꿀밤"]];
+const TB_BAND = { 0: "친밀 10 미만", 10: "친밀 10 이상", 20: "친밀 20 이상" };
+function touchBook(c) {
+  const T = typeof SADO_TOUCH !== "undefined" && SADO_TOUCH[c.id]; if (!T || !S().owned[c.id]) return "";
+  const sk = window.Live ? window.Live.curSkin(c.id) : 0, lv = level(c.id), key = `${c.id}:${sk}`;
+  const pick = (S().touchPick || {})[key] || {};
+  const rows = TB_KINDS.filter(([k]) => T[k]).map(([k, label]) => {
+    const opts = ["0", "10", "20"].filter((b) => T[k][b]).flatMap((b) => ((T[k][b][sk] || T[k][b][0]) || []).map((t) => ({ b, t })));
+    if (!opts.length) return "";
+    return `<div class="tb-kind"><b>${label}</b>
+      <label><input type="radio" name="tb-${c.id}-${k}" data-tb="${k}" value="" ${!pick[k] ? "checked" : ""}> 자동 (지금 레벨에서 가장 높은 단계)</label>
+      ${opts.map(({ b, t }) => { const open = lv >= +b; return `<label class="${open ? "" : "lock"}"><input type="radio" name="tb-${c.id}-${k}" data-tb="${k}" value="${TS.esc(t)}" ${pick[k] === t ? "checked" : ""} ${open ? "" : "disabled"}> “${TS.esc(t)}” <small>${k === "knock" ? "" : open ? TB_BAND[b] : `🔒 호감도 Lv.${b}`}</small></label>`; }).join("")}</div>`;
+  }).join("");
+  return `<details class="aff-book tb-book" data-tbid="${c.id}" data-tbkey="${key}"><summary>🗣️ 상호작용 대사 고르기 <small>${TS.esc(T.skins[sk] || (sk ? "스킨 " + sk : "기본 사복"))}</small></summary>${rows}
+    <p class="hint">입고 있는 스킨의 대사예요. 친밀 10·20 대사는 호감도 Lv.10·20에 열려요.</p></details>`;
+}
+document.addEventListener("change", (e) => {
+  const r = e.target.closest("[data-tb]"); if (!r) return;
+  const box = r.closest("[data-tbkey]"), key = box.dataset.tbkey, id = box.dataset.tbid, s = S();
+  if (!s.touchPick) s.touchPick = {};
+  const m = s.touchPick[key] || (s.touchPick[key] = {});
+  if (r.value) m[r.dataset.tb] = r.value; else delete m[r.dataset.tb];
+  TS.save(); TS.toast(r.value ? "🗣️ 이 대사로 고정했어요" : "🗣️ 자동으로 바꿨어요");
+  if (r.value && s.partner === id) TS.say(r.value);
+});
 /* 💌 친밀도 대사 도감: 호감도 Lv1~7마다 하나씩 열림 */
 function affBook(c) {
   const doc = affDoc(c.id); if (!doc) return "";

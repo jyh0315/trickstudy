@@ -10,7 +10,7 @@ const SKIN_COST = 50;
 const HOLD_LOOP = {};                     // (예전: 꿀밤 머리 쾅 반복) — 지금은 한 번만    // 이어지는 동작 중 이 시간(초)만큼 반복해서 보여 줄 것
 const MIN_POSE = 1.6;                      // 반응 동작 최소 길이(초)
 const LOAD_TIMEOUT = 15000;               // 서버 하나당 기다리는 시간. 넘으면 다음 서버, 다 안 되면 그림으로 표시                     // 스킨 1개 해금 별사탕
-const skinAffLv = (idx) => idx * 2;       // idx번째 스킨 무료 해금 호감도 레벨
+const skinAffLv = (idx) => Math.min(30, idx * 5); // idx번째 스킨 무료 해금 호감도 레벨 (5·10·15…, 최대 30)
 const LIVE_REACT = {                      // 반응 → 애니메이션 후보 (있는 것 중에서 고름)
   touch:    [["Touch_Idle", "Touch_End"]],
   smash:    [["Smash_End_1", "Smash_End_2"], ["Smash_End_1"], ["Touch_Idle", "Touch_End"]], // 꿀밤: 머리 쾅(End_1, 잠깐 반복) → 반응(End_2)
@@ -88,6 +88,15 @@ const canLive = (id) => !TS.isPlain() && liveOn() && !!SPINE_DATA[id] && !!windo
 function skinState(id) {
   const s = S();
   if (!s.skins) s.skins = {};
+  // 호감도 30레벨로 바뀌기 전 규칙(레벨 × 2)으로 이미 열려 있던 스킨은 그대로 가지고 있게 (한 번)
+  if (!s.skinMig30) {
+    s.skinMig30 = 1;
+    for (const [sid, pts] of Object.entries(s.aff || {})) {
+      let lv = 1; [0, 30, 80, 160, 280, 450, 680, 980, 1360, 1830].forEach((n, i) => { if (pts >= n) lv = i + 1; });
+      const n = typeof SPINE_DATA !== "undefined" && SPINE_DATA[sid] ? SPINE_DATA[sid].skins.length : 0;
+      for (let i = 1; i < n; i++) if (lv >= i * 2) { if (!s.skins[sid]) s.skins[sid] = { own: [0], cur: 0 }; if (!s.skins[sid].own.includes(i)) s.skins[sid].own.push(i); }
+    }
+  }
   if (!s.skins[id]) s.skins[id] = { own: [0], cur: 0 };
   return s.skins[id];
 }
