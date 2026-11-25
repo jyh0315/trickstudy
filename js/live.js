@@ -190,7 +190,7 @@ function mount(container, id, opts = {}) {
     const cfg = {
       skelUrl: base + ".skel.asset", atlasUrl: base + ".atlas.asset",
       showControls: false, showLoading: false, // 로딩 로고 안 보이게 (그동안 기존 그림이 보임)
-      alpha: true, backgroundColor: "#00000000",
+      alpha: true, backgroundColor: "#00000000", preserveDrawingBuffer: !!opts.capture, // capture: 사진 찍기용
       premultipliedAlpha: true, // 아래 patchPMA 로 텍스처를 올릴 때 미리 곱해 둠 → 부위 이음새 선이 안 보임
       viewport: { padLeft: "6%", padRight: "6%", padTop: "8%", padBottom: "3%", transitionTime: 0 },
       success: (p) => {

@@ -2691,10 +2691,12 @@ a.icon-btn { text-decoration: none; display: inline-grid; place-items: center; }
 .dt-place:not(:disabled):hover { transform: translateY(-2px); }
 .dt-giftpick { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; font-size: 14px; }
 .dt-giftpick > span { font-family: var(--font-title); }
-.dt-shop { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
-.dt-gift { display: grid; grid-template-columns: 44px 1fr auto; grid-template-rows: auto auto; align-items: center; gap: 0 8px; border: 2px solid var(--ink); border-radius: 14px; padding: 8px 10px; background: #fff; }
-.dt-gi { grid-row: span 2; font-size: 32px; text-align: center; }
-.dt-gift b { font-family: var(--font-title); } .dt-gift small { grid-column: 2; color: var(--ink-soft); } .dt-gift em { grid-column: 3; font-size: 11px; font-style: normal; color: var(--ink-soft); text-align: center; }
+.dt-shop { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.dt-gift { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 2px; border: 2px solid var(--ink); border-radius: 14px; padding: 10px 8px; background: #fff; }
+.dt-gi { font-size: 34px; line-height: 1.1; }
+.dt-gift b { font-family: var(--font-title); font-size: 16px; white-space: nowrap; }
+.dt-gift small { color: var(--ink-soft); font-size: 12px; white-space: nowrap; letter-spacing: 0; }
+.dt-gift .btn { margin-top: 6px; }
 .dt-album { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; max-height: 55vh; overflow: auto; padding: 4px; }
 .dt-pola { margin: 0 auto; background: #fff; padding: 8px 8px 10px; border-radius: 4px; box-shadow: 0 4px 12px rgba(0,0,0,.25); transform: rotate(-1.5deg); max-width: 240px; color: var(--ink); }
 .dt-album .dt-pola:nth-child(even) { transform: rotate(1.5deg); }
@@ -2705,3 +2707,17 @@ a.icon-btn { text-decoration: none; display: inline-grid; place-items: center; }
 .dt-pola b { font-family: var(--font-title); } .dt-pola small { font-size: 11px; color: var(--ink-soft); }
 .sp-end-card .dt-pola { margin: 8px auto 10px; }
 @media (max-width: 600px) { .dt-places { grid-template-columns: 1fr; } .dt-shop { grid-template-columns: 1fr; } }
+
+/* 📸 데이트 사진관 */
+.dt-booth h2 { margin: 0 0 8px; }
+.dt-stage { position: relative; width: 100%; aspect-ratio: 4/3; background: center/cover; border: 3px solid var(--ink); border-radius: 14px; overflow: hidden; }
+.dt-actor { position: absolute; inset: 0; }
+.dt-actor > img { position: absolute; left: 50%; bottom: 0; height: 92%; transform: translateX(-50%); }
+.dt-load { position: absolute; inset: 0; display: grid; place-items: center; font-family: var(--font-title); color: #fff; text-shadow: 0 2px 4px rgba(0,0,0,.6); }
+.dt-flash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; }
+.dt-flash.on { animation: dtFlash .5s ease-out; }
+@keyframes dtFlash { 0% { opacity: .95; } 100% { opacity: 0; } }
+.dt-poses { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 4px; max-height: 110px; overflow: auto; }
+.dt-poses .btn.on { background: var(--yellow); }
+.dt-pic img.dt-photo { left: 0; bottom: 0; width: 100%; height: 100%; object-fit: cover; transform: none; }
+.dt-pola figcaption small { white-space: nowrap; letter-spacing: 0; }

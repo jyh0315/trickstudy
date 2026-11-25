@@ -173,9 +173,10 @@ function finish(id, place, ev, gift, res) {
   const memo = { t: Date.now(), id, place: place.id, ev: Object.keys(EVENTS).find((k) => EVENTS[k] === ev), touch: res.touch || "", gift: gift ? gift.id : "" };
   d.album.unshift(memo); d.album = d.album.slice(0, 60);
   TS.save();
-  if (place.study) setTimeout(() => offerStudy(id), 400);
+  // 이야기 화면이 닫히면 📸 포즈 잡고 사진 찍기 → (공부 데이트면) 같이 공부
+  const wait = setInterval(() => { if (document.getElementById("story")) return; clearInterval(wait); booth(memo, () => { if (place.study) offerStudy(id); }); }, 300);
   return `<h3>💌 ${esc(place.name)} 데이트 끝!</h3>
-    ${polaroid(memo)}
+    <p class="hint">확인을 누르면 📸 포즈를 잡고 추억 사진을 찍어요.</p>
     <p class="reward-chip">💗 ${esc(c.name)} 호감도 +${add}</p>
     <p class="hint">${ev.icon} ${esc(ev.name)}${res.touch ? " · " + TOUCH_KO[res.touch] : ""} — 다른 이벤트·반응이 보고 싶으면 다시 데이트해요.</p>`;
 }
@@ -198,8 +199,60 @@ function offerStudy(id) {
 function polaroid(m) {
   const p = ALL_PLACES.find((x) => x.id === m.place) || PLACES[0], c = TS.SADO_MAP[m.id], ev = EVENTS[m.ev] || {};
   const g = m.gift && GIFTS.find((x) => x.id === m.gift);
-  return `<figure class="dt-pola"><div class="dt-pic" style="background-image:url('${bgUrl(p)}')">${c ? `<img src="${TS.portrait(c, true)}" alt="">` : ""}<i>${ev.icon || ""}${g ? g.icon : ""}</i></div>
+  return `<figure class="dt-pola"><div class="dt-pic" style="background-image:url('${bgUrl(p)}')">${m.photo ? `<img class="dt-photo" data-photo="${m.t}" alt="">` : c ? `<img src="${TS.portrait(c, true)}" alt="">` : ""}<i>${ev.icon || ""}${g ? g.icon : ""}</i></div>
     <figcaption><b>${esc(p.name)}</b><small>${new Date(m.t).toLocaleDateString("ko-KR")} · ${esc(c ? c.name : "")}${m.touch ? " · " + TOUCH_KO[m.touch] : ""}</small></figcaption></figure>`;
+}
+
+/* ───── 📸 사진관: 데이트 장소에서 움직이는 사도에게 포즈를 잡게 하고 찰칵 ───── */
+let photoDb = null;
+const pdb = () => photoDb || (photoDb = new Promise((ok, no) => { const r = indexedDB.open("trickstudy-date-photos", 1); r.onupgradeneeded = () => r.result.createObjectStore("p"); r.onsuccess = () => ok(r.result); r.onerror = () => no(r.error); }));
+const pTx = async (mode, fn) => { const db = await pdb(); return new Promise((ok, no) => { const t = db.transaction("p", mode), q = fn(t.objectStore("p")); t.oncomplete = () => ok(q && q.result); t.onerror = () => no(t.error); }); };
+const savePhoto = (k, data) => pTx("readwrite", (s) => s.put(data, k));
+const loadPhoto = (k) => pTx("readonly", (s) => s.get(k));
+function fillPhotos(root) { root.querySelectorAll("img[data-photo]").forEach((im) => loadPhoto(+im.dataset.photo).then((d) => { if (d) im.src = d; else im.replaceWith(Object.assign(document.createElement("span"), { textContent: "📷" })); }).catch(() => {})); }
+const POSE_GROUPS = [["Idle", "😊 기본"], ["Happy", "😆 신남"], ["Shy", "☺️ 부끄"], ["Proud", "😎 뿌듯"], ["Dance", "💃 춤"], ["Surprise", "😲 놀람"], ["Talk", "💬 수다"], ["Eat", "🍰 냠냠"], ["Pat_Idle", "✋ 쓰담"], ["Tickle_Idle", "🤭 깔깔"], ["Smash_End", "🔨 꿀밤"], ["Sad", "😢 시무룩"], ["Angry", "💢 화남"]];
+function booth(memo, after) {
+  const id = memo.id, c = TS.SADO_MAP[id], p = ALL_PLACES.find((x) => x.id === memo.place) || PLACES[0];
+  let ctrl = null, cur = "", paused = false;
+  TS.modal(`<div class="dt-booth"><h2>📸 추억 사진 찍기</h2>
+    <div class="dt-stage" style="background-image:url('${bgUrl(p)}')"><div class="dt-actor"></div><div class="dt-flash"></div><span class="dt-load">${esc(c.name)} 부르는 중…</span></div>
+    <div class="dt-poses"></div>
+    <div class="modal-actions"><button class="btn" id="dt-skip">그냥 넘어가기</button><button class="btn white" id="dt-pause">⏸ 멈춤</button><button class="btn yellow" id="dt-shot">📸 찰칵!</button></div>
+    <p class="hint">포즈를 고르고, 원하는 순간에 ⏸ 멈춤으로 멈춘 뒤 찰칵! (안 멈춰도 돼요)</p></div>`, (m, close) => {
+    const actor = m.querySelector(".dt-actor"), poses = m.querySelector(".dt-poses");
+    const done = () => { try { ctrl && ctrl.dispose(); } catch (e) { /* 무시 */ } close(); after && after(); };
+    const fallback = () => { m.querySelector(".dt-load").remove(); actor.innerHTML = `<img src="${TS.portrait(c, true)}" alt="">`; };
+    ctrl = window.Live && window.Live.mount(actor, id, { frame: "story", capture: true, onFail: fallback,
+      onReady: (cx) => {
+        const l = m.querySelector(".dt-load"); if (l) l.remove();
+        const groups = POSE_GROUPS.map(([k, label]) => [label, cx.anims.filter((n) => n.startsWith(k))]).filter(([, L]) => L.length);
+        poses.innerHTML = groups.map(([label, L]) => L.map((n, i) => `<button class="btn small white" data-pose="${n}">${label}${L.length > 1 ? " " + (i + 1) : ""}</button>`).join("")).join("");
+        poses.onclick = (e) => { const b = e.target.closest("[data-pose]"); if (!b) return; setPose(b.dataset.pose); };
+        setPose(groups.length ? groups[0][1][0] : cx.anims[0]);
+      } });
+    if (!ctrl) fallback();
+    function setPose(n) {
+      if (!ctrl || !ctrl.player) return;
+      cur = n; paused = false; ctrl.player.play(); m.querySelector("#dt-pause").textContent = "⏸ 멈춤";
+      ctrl.busyUntil = Infinity; ctrl.player.animationState.setAnimation(0, n, true);
+      poses.querySelectorAll("[data-pose]").forEach((b) => b.classList.toggle("on", b.dataset.pose === n));
+    }
+    m.querySelector("#dt-pause").onclick = () => { if (!ctrl || !ctrl.player) return; paused = !paused; paused ? ctrl.player.pause() : ctrl.player.play(); m.querySelector("#dt-pause").textContent = paused ? "▶ 다시 움직이기" : "⏸ 멈춤"; };
+    m.querySelector("#dt-skip").onclick = done;
+    m.querySelector("#dt-shot").onclick = async () => {
+      const stage = m.querySelector(".dt-stage"), W = 640, H = 480;
+      const cv = document.createElement("canvas"); cv.width = W; cv.height = H; const g = cv.getContext("2d");
+      const bg = new Image(); bg.src = bgUrl(p); await bg.decode().catch(() => {});
+      if (bg.width) { const k = Math.max(W / bg.width, H / bg.height); g.drawImage(bg, (W - bg.width * k) / 2, (H - bg.height * k) / 2, bg.width * k, bg.height * k); }
+      const sr = stage.getBoundingClientRect(), src = actor.querySelector("canvas") || actor.querySelector("img");
+      if (src) { const r = src.getBoundingClientRect(), kx = W / sr.width, ky = H / sr.height; try { g.drawImage(src, (r.left - sr.left) * kx, (r.top - sr.top) * ky, r.width * kx, r.height * ky); } catch (e) { /* 무시 */ } }
+      const fl = m.querySelector(".dt-flash"); fl.classList.remove("on"); void fl.offsetWidth; fl.classList.add("on"); TS.sfx("click");
+      memo.photo = 1; memo.pose = cur;
+      try { await savePhoto(memo.t, cv.toDataURL("image/jpeg", 0.85)); } catch (e) { memo.photo = 0; }
+      TS.save();
+      setTimeout(() => { done(); TS.modal(`<h2>📸 찰칵!</h2>${polaroid(memo)}<p class="hint">📷 데이트 앨범에 저장했어요.</p><div class="modal-actions"><button class="btn yellow" data-close>확인</button></div>`, (m2) => fillPhotos(m2)); }, 450);
+    };
+  }, { cls: "dt-modal" });
 }
 
 /* ───── 데이트 창 ───── */
@@ -213,8 +266,8 @@ function open(tab) {
   const giftRow = GIFTS.filter((g) => (d.inv[g.id] || 0) > 0);
   const tabs = [["date", "💌 데이트"], ["shop", "🎁 선물 가게"], ["album", `📷 앨범 ${d.album.length}`]];
   const body = tab === "shop" ? `<p class="hint">엘리프로 선물을 사 두면 데이트 때 건넬 수 있어요. 호감도가 더 올라요. 종류별 주간 구매 제한은 <b>월요일</b>에 초기화돼요.</p>
-      <div class="dt-shop">${GIFTS.map((g) => { const left = g.week - (d.buys[g.id] || 0); return `<div class="dt-gift"><span class="dt-gi">${g.icon}</span><b>${g.name}</b><small>호감도 +${g.aff} · 가진 것 ${d.inv[g.id] || 0}</small>
-        <button class="btn pink small" data-buy="${g.id}" ${left <= 0 || s.elif < g.cost ? "disabled" : ""}><i class="ic-elif"></i> ${g.cost}</button><em>이번 주 ${left}/${g.week}</em></div>`; }).join("")}</div>`
+      <div class="dt-shop">${GIFTS.map((g) => { const left = g.week - (d.buys[g.id] || 0); return `<div class="dt-gift"><span class="dt-gi">${g.icon}</span><b>${g.name}</b><small>호감도 +${g.aff}</small><small>가진 것 ${d.inv[g.id] || 0}개 · 이번 주 ${left}/${g.week}</small>
+        <button class="btn pink small" data-buy="${g.id}" ${left <= 0 || s.elif < g.cost ? "disabled" : ""}><i class="ic-elif"></i> ${g.cost}</button></div>`; }).join("")}</div>`
     : tab === "album" ? (d.album.length ? `<div class="dt-album">${d.album.map(polaroid).join("")}</div>` : `<p class="hint">아직 추억 사진이 없어요. 데이트하면 한 장씩 남아요!</p>`)
     : `<div class="dt-places">${places.map((p) => `<button class="dt-place" data-place="${p.id}" ${d.tickets <= 0 ? "disabled" : ""}><img src="${bgUrl(p)}" alt="" loading="lazy"><b>${p.study ? "📚 " : ""}${esc(p.name)}</b><small>${p.study ? "끝나고 같이 공부" : p.ev.map((k) => EVENTS[k].icon).join(" ") + " 이벤트"}</small></button>`).join("")}</div>
       <div class="dt-giftpick"><span>선물:</span>${giftRow.length ? `<label><input type="radio" name="dtg" value="" checked> 없음</label>` + giftRow.map((g) => `<label><input type="radio" name="dtg" value="${g.id}"> ${g.icon} ${g.name} ×${d.inv[g.id]}</label>`).join("") : `<small class="hint">없음 — 🎁 선물 가게에서 살 수 있어요</small>`}</div>
@@ -232,6 +285,7 @@ function open(tab) {
       s.elif -= g.cost; d.buys[g.id] = (d.buys[g.id] || 0) + 1; d.inv[g.id] = (d.inv[g.id] || 0) + 1;
       TS.sfx("coin"); TS.save(); TS.refresh(); close(); open("shop");
     }));
+    fillPhotos(m);
   }, { cls: "dt-modal" });
 }
 
