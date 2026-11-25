@@ -276,8 +276,9 @@ function setMusic(file) {
 }
 function stopMusic() { clearInterval(fadeT); fadeT = setInterval(() => { music.volume = Math.max(0, music.volume - 0.04); if (music.volume <= 0.01) { clearInterval(fadeT); music.pause(); } }, 40); }
 
-function play(epId) {
-  const ep = allEps().find((e) => e.id === epId);
+function play(epId, opts) {
+  // epId 대신 화 객체를 바로 줄 수도 있음 (데이트 등). opts.date: 대사록·되감기·건너뛰기 없음, opts.onEnd(결과) → 끝 카드 HTML
+  const ep = typeof epId === "object" ? epId : allEps().find((e) => e.id === epId);
   if (!ep || P) return;
   const root = document.createElement("div");
   root.id = "story";
@@ -311,7 +312,8 @@ function play(epId) {
   </div>`;
   document.body.appendChild(root);
   document.body.classList.add("story-open");
-  P = { ep: { ...ep, lines: ep.lines.slice() }, root, i: -1, actors: {}, seq: 0, typing: null, auto: false, autoT: 0, log: [], wait: false, done: false };
+  P = { ep: { ...ep, lines: ep.lines.slice() }, root, i: -1, actors: {}, seq: 0, typing: null, auto: false, autoT: 0, log: [], wait: false, done: false, opts: opts || {}, picks: [], touchKind: "" };
+  if (P.opts.date) root.classList.add("sp-date");
   if (window.BGM && window.BGM.pauseFor) window.BGM.pauseFor("story");
   if (ep.bgm && S().settings.sound !== false) setMusic(ep.bgm);
   root.addEventListener("click", (e) => {
@@ -323,7 +325,7 @@ function play(epId) {
     advance();
   });
   document.addEventListener("keydown", onKey);
-  root.addEventListener("wheel", (e) => { if (e.target.closest(".sp-log")) return; if (e.deltaY < -20) ctrl("log"); else if (e.deltaY > 20 && root.querySelector(".sp-log").classList.contains("hidden")) advance(); }, { passive: true });
+  root.addEventListener("wheel", (e) => { if (e.target.closest(".sp-log") || P.opts.date) return; if (e.deltaY < -20) ctrl("log"); else if (e.deltaY > 20 && root.querySelector(".sp-log").classList.contains("hidden")) advance(); }, { passive: true });
   bindTouch(root);
   prefetchActors(ep);
   fit(); window.addEventListener("resize", fit);
@@ -339,6 +341,7 @@ function onKey(e) {
   if (!P) return;
   if (e.key === "Escape") return close();
   if (e.key === "Enter" || e.key === " " || e.key === "ArrowRight") { e.preventDefault(); advance(); }
+  if (P.opts.date) return; // 데이트: 되감기·대사록 없음
   if (e.key === "ArrowLeft" || e.key === "Backspace") { e.preventDefault(); back(); }
   if (e.key === "ArrowUp") { e.preventDefault(); ctrl("log"); }
 }
@@ -346,6 +349,7 @@ function ctrl(c) {
   const menu = P.root.querySelector(".sp-menu");
   if (c !== "menu") menu.classList.add("hidden");
   if (c === "menu") return menu.classList.toggle("hidden");
+  if (P.opts.date && /^(back|log|skip|nextep)$/.test(c)) return;
   if (c === "nextep") { st().nextAuto = !st().nextAuto; TS.save(); return syncBtns(); }
   if (c === "close") return close();
   if (c === "back") return back();
@@ -425,7 +429,7 @@ function prefetchActors(ep) {
   if (typeof SPINE_DATA === "undefined" || typeof SPINE_HOSTS === "undefined" || !window.Live) return;
   const all = allEps(), k = all.findIndex((e) => e.id === ep.id);
   const ids = new Set();
-  [ep, all[k + 1]].filter(Boolean).forEach((e) => e.lines.forEach((l) => { if (l.in) ids.add(l.in); }));
+  [ep, k >= 0 ? all[k + 1] : null].filter(Boolean).forEach((e) => e.lines.forEach((l) => { if (l.in) ids.add(l.in); }));
   let delay = 0;
   ids.forEach((id) => {
     const d = SPINE_DATA[id]; if (!d || PREFETCHED.has(id)) return;
@@ -488,6 +492,7 @@ function run(L) {
   if (L.flash) { P.root.classList.remove("flash-w"); void P.root.offsetWidth; P.root.classList.add("flash-w"); }
   if (L.title) return titleCard(L);
   if (L.choice) return choice(L);
+  if (L.touch) return touchWait(L);
   if (L.s || L.n) {
     speak = true;
     const me = L.s === "me", who = L.s ? nameOf(L.s) : "";
@@ -762,6 +767,7 @@ function choice(L) {
     P.wait = false;
     TS.sfx("click");
     const k = +b.dataset.ci;
+    P.picks.push(k);
     P.log.push({ who: nameOf("me"), t: fmtT(L.choice[k]) });
     // 고른 보기에 대한 반응 한 줄을 끼워 넣음
     if (L.r && L.r[k]) P.ep.lines.splice(P.i + 1, 0, typeof L.r[k] === "string" ? { s: L.by || Object.keys(P.actors)[0], t: L.r[k] } : L.r[k]);
@@ -769,9 +775,45 @@ function choice(L) {
   }));
 }
 
+/* 만지기 순간 (데이트): { touch: "사도id", prompt: "…", r: { pat:[줄…], smash:[…], tickle:[…], pull:[…] } }
+   버튼을 누르거나 사도를 직접 만지면(길게=쓰다듬기 · 톡=꿀밤 · 문지르기=간지럽히기 · 볼 끌기=볼 당기기) 그 반응 줄이 이어짐 */
+const TOUCH_KINDS = [["pat", "✋ 쓰다듬기"], ["smash", "🔨 꿀밤"], ["tickle", "🤭 간지럽히기"], ["pull", "😆 볼 당기기"]];
+function touchWait(L) {
+  P.wait = true; P.touchL = L;
+  const box = P.root.querySelector(".sp-box");
+  box.className = "sp-box narr"; P.root.querySelector(".sp-text").textContent = fmtT(L.prompt || "…어떻게 할까?");
+  const el = P.root.querySelector(".sp-choice");
+  el.innerHTML = TOUCH_KINDS.map(([k, t]) => `<button data-tk="${k}">${t}</button>`).join("") + '<small class="sp-tk-hint">사도를 직접 만져도 돼요</small>';
+  el.classList.remove("hidden"); el.classList.add("touch");
+  el.querySelectorAll("[data-tk]").forEach((b) => (b.onclick = (e) => { e.stopPropagation(); touchPick(b.dataset.tk, false); }));
+}
+function touchPick(kind, byHand) {
+  if (!P || !P.touchL) return;
+  const L = P.touchL; P.touchL = null; P.touchKind = kind;
+  const el = P.root.querySelector(".sp-choice"); el.classList.add("hidden"); el.classList.remove("touch");
+  const a = P.actors[L.touch];
+  if (a && a.live && !byHand) {
+    if (kind === "smash") { a.live.play("touch"); TS.sfx("poke"); }
+    else if (kind === "pull") { a.live.play("surprise"); TS.sfx("poke"); }
+    else { holdAnim(a, kind); setTimeout(() => holdOff(a, kind), kind === "tickle" ? 3200 : 1800); if (kind === "pat") hearts(a); }
+  }
+  const lines = (L.r && L.r[kind]) || [];
+  P.ep.lines.splice(P.i + 1, 0, ...lines.map((x) => (typeof x === "string" ? { s: L.touch, t: x } : x)));
+  setTimeout(() => { if (!P) return; P.wait = false; advance(); }, kind === "tickle" ? 2600 : 1300);
+}
+
 /* 화 끝 */
 function end() {
   if (P.done) return;
+  if (P.opts.onEnd) { // 데이트 등: 끝 카드는 부른 쪽이 만듦
+    P.done = true;
+    const html = P.opts.onEnd({ touch: P.touchKind, picks: P.picks });
+    const box = document.createElement("div"); box.className = "sp-end";
+    box.innerHTML = `<div class="sp-end-card">${html}<button class="btn yellow" id="sp-endok">확인</button></div>`;
+    P.root.appendChild(box);
+    box.querySelector("#sp-endok").onclick = (e) => { e.stopPropagation(); close(); };
+    return;
+  }
   P.done = true;
   const ep = P.ep, s = st(), first = !s.seen.includes(ep.id);
   if (first && !PREVIEW) { s.seen.push(ep.id); TS.addElif(50); }
@@ -854,6 +896,7 @@ function bindTouch(root) {
     if (e.target.closest("[data-c], .sp-choice, .sp-log, .sp-box, .sp-end")) return;
     const a = actorAt(e.clientX, e.clientY); if (!a) return;
     d = { a, x: e.clientX, y: e.clientY, moved: 0, kind: "" };
+    d.t0 = Date.now();
     if (!a.pull && window.Live && window.Live.cheekPull) a.pull = window.Live.cheekPull(a.ctrl) || false;
     if (a.pull && a.pull.near(e.clientX, e.clientY) < a.el.getBoundingClientRect().width * 0.09) {
       e.preventDefault();
@@ -879,6 +922,11 @@ function bindTouch(root) {
     clearTimeout(d.timer);
     if (d.kind === "pull") d.a.pull.release();
     else if (d.kind) { const { a, kind } = d; setTimeout(() => holdOff(a, kind), 600); }
+    // 데이트의 만지기 순간: 직접 만진 것으로 고름 (톡 누르기 = 꿀밤)
+    if (P && P.touchL && d.a.id === P.touchL.touch) {
+      if (d.kind) touchPick(d.kind, true);
+      else if (Date.now() - d.t0 < 350 && d.moved < 15) { used = true; d.a.live && d.a.live.play("touch"); TS.sfx("poke"); touchPick("smash", true); }
+    }
     d = null;
   };
   root.addEventListener("pointerup", up);

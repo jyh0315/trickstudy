@@ -2669,3 +2669,39 @@ a.icon-btn { text-decoration: none; display: inline-grid; place-items: center; }
 @keyframes ssAff { 10%, 80% { opacity: 1; } 100% { opacity: 0; } }
 .kg-toast .btn { color: var(--ink) !important; text-shadow: none; }
 .story-tabs { flex-wrap: wrap; } .story-tabs button { min-width: 120px; }
+/* 💌 데이트 모드 (이야기 재생기) — 대사록·되감기·건너뛰기 없음, 만지기 순간 */
+#story.sp-date [data-c="back"], #story.sp-date [data-c="log"], #story.sp-date [data-c="nextep"], #story.sp-date [data-c="skip"] { display: none; }
+.sp-choice.touch { background: none; pointer-events: none; flex-direction: row; flex-wrap: wrap; align-items: flex-end; padding: 0 40px 215px; gap: 12px; }
+.sp-choice.touch button { pointer-events: auto; min-width: 0; padding: 12px 22px; font-size: 18px; }
+.sp-choice.touch .sp-tk-hint { flex-basis: 100%; text-align: center; color: #fff; font-weight: 800; font-size: 17px; text-shadow: 0 2px 4px rgba(0,0,0,.7); order: -1; }
+/* 💌 데이트 창 */
+.dt-wrap { display: flex; flex-direction: column; gap: 12px; }
+.dt-head { display: flex; gap: 12px; align-items: center; }
+.dt-head > img { width: 96px; height: 96px; object-fit: contain; flex: none; }
+.dt-head b { font-family: var(--font-title); font-size: 20px; }
+.dt-bub { margin: 4px 0 6px; background: #fff; border: 2px solid var(--ink); border-radius: 14px; padding: 6px 10px; font-size: 14px; }
+.dt-ticket { display: inline-block; background: var(--pink); border: 2px solid var(--ink); border-radius: 99px; padding: 2px 10px; font-family: var(--font-title); }
+.dt-tabs { display: flex; } .dt-tabs button { flex: 1; }
+.dt-places { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.dt-place { display: flex; flex-direction: column; text-align: left; padding: 0; border: 3px solid var(--ink); border-radius: 16px; overflow: hidden; background: var(--paper); cursor: pointer; box-shadow: 0 4px 0 var(--ink); font: inherit; color: var(--ink); }
+.dt-place img { width: 100%; aspect-ratio: 16/9; object-fit: cover; display: block; }
+.dt-place b { font-family: var(--font-title); padding: 6px 8px 0; font-size: 16px; }
+.dt-place small { padding: 0 8px 8px; color: var(--ink-soft); }
+.dt-place:disabled { filter: grayscale(.7); opacity: .6; cursor: not-allowed; }
+.dt-place:not(:disabled):hover { transform: translateY(-2px); }
+.dt-giftpick { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; font-size: 14px; }
+.dt-giftpick > span { font-family: var(--font-title); }
+.dt-shop { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.dt-gift { display: grid; grid-template-columns: 44px 1fr auto; grid-template-rows: auto auto; align-items: center; gap: 0 8px; border: 2px solid var(--ink); border-radius: 14px; padding: 8px 10px; background: #fff; }
+.dt-gi { grid-row: span 2; font-size: 32px; text-align: center; }
+.dt-gift b { font-family: var(--font-title); } .dt-gift small { grid-column: 2; color: var(--ink-soft); } .dt-gift em { grid-column: 3; font-size: 11px; font-style: normal; color: var(--ink-soft); text-align: center; }
+.dt-album { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; max-height: 55vh; overflow: auto; padding: 4px; }
+.dt-pola { margin: 0 auto; background: #fff; padding: 8px 8px 10px; border-radius: 4px; box-shadow: 0 4px 12px rgba(0,0,0,.25); transform: rotate(-1.5deg); max-width: 240px; color: var(--ink); }
+.dt-album .dt-pola:nth-child(even) { transform: rotate(1.5deg); }
+.dt-pic { position: relative; aspect-ratio: 4/3; background: center/cover; overflow: hidden; }
+.dt-pic img { position: absolute; left: 50%; bottom: -8%; height: 95%; transform: translateX(-50%); }
+.dt-pic i { position: absolute; right: 6px; top: 4px; font-style: normal; font-size: 22px; }
+.dt-pola figcaption { display: flex; flex-direction: column; text-align: center; margin-top: 6px; }
+.dt-pola b { font-family: var(--font-title); } .dt-pola small { font-size: 11px; color: var(--ink-soft); }
+.sp-end-card .dt-pola { margin: 8px auto 10px; }
+@media (max-width: 600px) { .dt-places { grid-template-columns: 1fr; } .dt-shop { grid-template-columns: 1fr; } }
