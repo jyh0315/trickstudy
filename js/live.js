@@ -440,7 +440,7 @@ TS.on("poke", () => {
   const now = Date.now();
   pokes = pokes.filter((t) => now - t < 2000).concat(now);
   if (pokes.length >= 4) { pokes = []; if (react("dizzy")) setTimeout(() => TS.say(rand(LIVE_LINES.dizzy), false), 50); }
-  else react("touch");
+  else react("smash"); // 콕 = 꿀밤 모션 (Smash → End_1 → End_2)
 });
 function hearts() {
   for (let i = 0; i < 6; i++) {

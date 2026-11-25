@@ -60,7 +60,7 @@ function addChar(id, slot, total) {
   if (!item.live) { body.innerHTML = `<img src="${TS.portrait(c, true)}" alt="">`; body.classList.add("static"); }
   let downT = 0, petT = 0;
   el.addEventListener("pointerdown", (e) => { e.stopPropagation(); downT = Date.now(); clearTimeout(petT); petT = setTimeout(() => { downT = 0; pat(item); }, 450); });
-  const up = () => { clearTimeout(petT); if (downT && Date.now() - downT < 450) { if (item.live) item.live.play(rand(["touch", "happy", "shy", "surprise"])); say(item, TS.fmt(rand(TS.linesOf(c, "poke")), c)); TS.sfx("poke"); } downT = 0; };
+  const up = () => { clearTimeout(petT); if (downT && Date.now() - downT < 450) { if (item.live) item.live.play(rand(["smash", "smash", "happy", "shy"])); say(item, TS.fmt(rand(TS.linesOf(c, "poke")), c)); TS.sfx("poke"); } downT = 0; };
   el.addEventListener("pointerup", up); el.addEventListener("pointerleave", () => { clearTimeout(petT); downT = 0; });
   requestAnimationFrame(() => el.classList.add("in"));
   return item;
