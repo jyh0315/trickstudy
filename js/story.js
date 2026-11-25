@@ -264,7 +264,7 @@ let fadeT = 0;
 const mVol = () => (window.BGM && window.BGM.vol != null ? window.BGM.vol : 0.4);
 function setMusic(file) {
   clearInterval(fadeT);
-  const to = file ? "assets/bgm/" + encodeURIComponent(file) : "";
+  const to = file ? "https://jyh0315.github.io/trickstudy-assets/bgm/" + encodeURIComponent(file) : "";
   if (to && music.src.endsWith(encodeURIComponent(file)) && !music.paused) return;
   const swap = () => {
     if (!to) { music.pause(); return; }

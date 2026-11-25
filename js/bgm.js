@@ -10,8 +10,53 @@
    2) assets/bgm/ 폴더에 mp3 올리기 (GitHub Pages면 자동 인식,
       아니면 아래 BGM_TRACKS 에 파일 이름 적기)
    ========================================================= */
+const BGM_BASE = "https://jyh0315.github.io/trickstudy-assets/bgm/"; // 용량 때문에 그림 저장소에 둠
 const BGM_TRACKS = [
-  // { file: "Lobby.mp3", title: "로비 테마" },
+  { file: "01. Trickal Main Title.mp3" },
+  { file: "02. Day Life.mp3" },
+  { file: "03. Lounge.mp3" },
+  { file: "04. Weekday Farm.mp3" },
+  { file: "05. Hail The World Tree.mp3" },
+  { file: "06. Theme Theater.mp3" },
+  { file: "07. No Way Out.mp3" },
+  { file: "08. Let's Go.mp3" },
+  { file: "09. Tig, The Feedstance (Phase 1).mp3" },
+  { file: "10. Tig, The Feedstance (Phase 2).mp3" },
+  { file: "11. Tig, The Feedstance (Phase 3).mp3" },
+  { file: "12. Honranada Honrane.mp3" },
+  { file: "13. Adventure Begins.mp3" },
+  { file: "14. Battle On Sunset.mp3" },
+  { file: "15. Spirit Forest.mp3" },
+  { file: "16. Moistful Spirits.mp3" },
+  { file: "17. Crystal Lake.mp3" },
+  { file: "18. Aurora.mp3" },
+  { file: "19. Dragon Cave (Abyss).mp3" },
+  { file: "20. Dragon Cave (Crystal).mp3" },
+  { file: "21. Dragon Cave (Water).mp3" },
+  { file: "22. Deep Cave.mp3" },
+  { file: "23. Ghost Village.mp3" },
+  { file: "24. Monatium.mp3" },
+  { file: "25. City Night.mp3" },
+  { file: "26. Elf Dominion.mp3" },
+  { file: "27. Fairy Town Street.mp3" },
+  { file: "28. Bakery In Peace.mp3" },
+  { file: "29. Ashur Bakery.mp3" },
+  { file: "30. Elias Candyfloss.mp3" },
+  { file: "31. Furry Forest.mp3" },
+  { file: "32. Lamb And Dumber.mp3" },
+  { file: "33. This Is Awkward.mp3" },
+  { file: "34. Life Is Comedy.mp3" },
+  { file: "35. Trick Or Treat.mp3" },
+  { file: "36. We're In Trouble.mp3" },
+  { file: "37. Gold Thief Attack.mp3" },
+  { file: "38. Get You Crayon.mp3" },
+  { file: "39. Winner's Jwopaemteo.mp3" },
+  { file: "40. Sugar Free.mp3" },
+  { file: "41. Dimension Crash.mp3" },
+  { file: "42. Hyper Fatalism.mp3" },
+  { file: "43. The Time Paradox.mp3" },
+  { file: "44. Brave New World.mp3" },
+  { file: "45. Alpha And Omega.mp3" },
 ];
 
 /* 곡 제목에 이 단어가 들어가면 해당 상황으로 자동 분류 (나머지는 집중) */
@@ -92,9 +137,9 @@ async function idb(mode, fn) {
 
 /* ───── 트랙 목록 불러오기 ───── */
 const toList = (names) => names.filter((n) => /\.(mp3|ogg|m4a|wav|flac|opus)$/i.test(n)).sort()
-  .map((n) => ({ id: "f:" + n, title: prettyName(n), src: "assets/bgm/" + encodeURIComponent(n) }));
+  .map((n) => ({ id: "f:" + n, title: prettyName(n), src: BGM_BASE + encodeURIComponent(n) }));
 async function repoTracks() {
-  const list = BGM_TRACKS.map((t) => ({ id: "f:" + t.file, title: t.title || prettyName(t.file), src: "assets/bgm/" + encodeURIComponent(t.file) }));
+  const list = BGM_TRACKS.map((t) => ({ id: "f:" + t.file, title: t.title || prettyName(t.file), src: BGM_BASE + encodeURIComponent(t.file) }));
   if (list.length || !location.hostname.endsWith(".github.io")) return list;
   // GitHub Pages면 저장소의 assets/bgm 폴더 목록을 API로 읽음 (1시간 캐시)
   const owner = location.hostname.split(".")[0];
@@ -286,7 +331,7 @@ document.addEventListener("keydown", (e) => {
 const ready = reload();
 let titleOn = false;
 // 페이지를 열자마자 메인 테마를 미리 받아 둠 → 시작 화면에서 바로(막히면 첫 터치 순간) 재생
-if (st.onStart) { audio.preload = "auto"; audio.src = "assets/bgm/" + encodeURIComponent("01. Trickal Main Title.mp3"); audio.load(); }
+if (st.onStart) { audio.preload = "auto"; audio.src = BGM_BASE + encodeURIComponent("01. Trickal Main Title.mp3"); audio.load(); }
 window.BGM = {
   // 시작 화면에서 볼을 당긴 직후 (사용자 조작이라 자동재생 허용됨)
   onStart() {
@@ -309,7 +354,7 @@ window.BGM = {
     if (!st.onStart) return;
     // 곡 목록(GitHub API)을 기다리지 않고 메인 테마 파일을 바로 틂
     const MAIN = "01. Trickal Main Title.mp3";
-    const t = tracks.find((x) => /Main Title/i.test(x.title)) || { id: "f:" + MAIN, title: prettyName(MAIN), src: "assets/bgm/" + encodeURIComponent(MAIN) };
+    const t = tracks.find((x) => /Main Title/i.test(x.title)) || { id: "f:" + MAIN, title: prettyName(MAIN), src: BGM_BASE + encodeURIComponent(MAIN) };
     {
       titleOn = true;
       playTrack(t).then((ok) => {

@@ -118,8 +118,8 @@ textarea[readonly] { background: #fbf7ee; }
 <div id="bgm"><span id="bgmName">🎵 BGM 꺼짐</span><button class="btn small" id="bgmPlay">▶</button><button class="btn small" id="bgmNext">⏭</button></div>
 <div id="toast"></div>
 
-<script src="js/sado.js?v=13.68"></script>
-<script src="js/ssbg-list.js?v=13.68"></script>
+<script src="js/sado.js?v=13.69"></script>
+<script src="js/ssbg-list.js?v=13.69"></script>
 <script>
 "use strict";
 const $ = (id) => document.getElementById(id);
@@ -156,7 +156,7 @@ function toast(t) { const el = $("toast"); el.textContent = t; el.style.display 
 
 /* ───── BGM (트릭컬) ───── */
 const audio = new Audio(); audio.volume = .3; let bi = Math.floor(Math.random() * BGM.length), bgmOn = false;
-const bgmSrc = () => "assets/bgm/" + encodeURIComponent(BGM[bi] + ".mp3");
+const bgmSrc = () => "https://jyh0315.github.io/trickstudy-assets/bgm/" + encodeURIComponent(BGM[bi] + ".mp3");
 audio.onended = () => { bi = (bi + 1) % BGM.length; audio.src = bgmSrc(); audio.play().catch(() => {}); showBgm(); };
 const showBgm = () => { $("bgmName").textContent = bgmOn ? "🎵 " + BGM[bi].replace(/^\d+\.\s*/, "") : "🎵 BGM 꺼짐"; $("bgmPlay").textContent = bgmOn ? "⏸" : "▶"; };
 $("bgmPlay").onclick = () => { bgmOn = !bgmOn; if (bgmOn) { if (!audio.src) audio.src = bgmSrc(); audio.play().catch(() => {}); } else audio.pause(); showBgm(); };
