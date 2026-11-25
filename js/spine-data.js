@@ -103,6 +103,7 @@ const SPINE_DATA = {
   "raika": { dir: "Raika", skins: [["Laika", "Skin 1"], ["LaikaSkin1", "Skin 2"], ["LaikaSkin2", "Skin 3"], ["LaikaSkin3", "Skin 4"]] },
   "ran": { dir: "Ran", skins: [["Ran", "Base"], ["RanSkin1", "Skin 1"], ["RanSkin2", "Skin 2"], ["RanSkin3", "Skin 3"], ["RanSkin4", "Skin 4"]] },
   "renewa": { dir: "Renewa", skins: [["RenewaAwaken", "Skin 1"], ["RenewaAwakenSkin1", "Skin 2"], ["RenewaAwakenSkin2", "Skin 3"]] },
+  "iris": { dir: "Iris", skins: [["Iris", "Base"], ["IrisSkin1", "Skin 1"]] },
   "ricotta": { dir: "Ricotta", skins: [["Ricota", "Skin 1"], ["RicotaSkin1", "Skin 2"], ["RicotaSkin2", "Skin 3"]] },
   "rim": { dir: "Rim", skins: [["Rim", "Base"], ["RimSkin1", "Skin 1"], ["RimSkin2", "Skin 2"], ["RimSkin3", "Skin 3"]] },
   "rim-chaos": { dir: "Rim (Chaos)", skins: [["RimChaos", "Skin 1"], ["RimChaosSkin1", "Skin 2"], ["RimChaosSkin2", "Skin 3"], ["RimChaosSkin3", "Skin 4"], ["RimChaosSkin4", "Skin 5"]] },
