@@ -7,6 +7,7 @@
    스킨: 기본 스킨은 무료, 나머지는 호감도 Lv(2·4·6·8…) 달성 또는 별사탕으로 해금
    ========================================================= */
 const SKIN_COST = 50;
+const HOLD_LOOP = { Smash_End_1: 2.6 };    // 이어지는 동작 중 이 시간(초)만큼 반복해서 보여 줄 것
 const MIN_POSE = 1.6;                      // 반응 동작 최소 길이(초)
 const LOAD_TIMEOUT = 15000;               // 서버 하나당 기다리는 시간. 넘으면 다음 서버, 다 안 되면 그림으로 표시                     // 스킨 1개 해금 별사탕
 const skinAffLv = (idx) => idx * 2;       // idx번째 스킨 무료 해금 호감도 레벨
@@ -235,9 +236,13 @@ function mount(container, id, opts = {}) {
     if (seq.length === 1 && D(seq[0]) < MIN_POSE) seq = Array(Math.ceil(MIN_POSE / Math.max(0.1, D(seq[0])))).fill(seq[0]);
     st.data.defaultMix = 0.18; // 동작 사이를 부드럽게 이어 줌
     st.setAnimation(0, seq[0], false);
-    let dur = D(seq[0]);
-    for (const n of seq.slice(1)) { st.addAnimation(0, n, false, 0); dur += D(n); }
-    st.addAnimation(0, rand(ctrl.idles.length ? ctrl.idles : [ctrl.anims[0]]), true, 0);
+    let dur = D(seq[0]), hold = 0;
+    for (const n of seq.slice(1)) {
+      // HOLD_LOOP 에 있는 동작(꿀밤 맞고 우는 Smash_End_1 등)은 정해진 시간만큼 반복해서 보여 줌
+      st.addAnimation(0, n, !!HOLD_LOOP[n], hold || 0);
+      if (HOLD_LOOP[n]) { hold = HOLD_LOOP[n]; dur += hold; } else { hold = 0; dur += D(n); }
+    }
+    st.addAnimation(0, rand(ctrl.idles.length ? ctrl.idles : [ctrl.anims[0]]), true, hold || 0);
     ctrl.busyUntil = Date.now() + dur * 1000;
     return true;
   }
