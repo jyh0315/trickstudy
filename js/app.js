@@ -78,7 +78,7 @@ BACKGROUNDS.forEach((b) => { if (b.lv <= state.level && !state.unlockedBg.includ
 const PREVIEW_ALL = new URLSearchParams(location.search).has("preview");
 if (PREVIEW_ALL) {
   state = JSON.parse(JSON.stringify(state));
-  state.started = true;
+  state.started = true; state.tutorialDone = 1;
   if (!state.partner) state.partner = "erpin";
   const maxAff = 23630;
   SADO.forEach((c) => {

@@ -116,6 +116,7 @@ function show(id, k) {
 // 새로 열린 어사이드 알림 (한 번만)
 function check() {
   if (!S().started) return;
+  if (new URLSearchParams(location.search).has("preview")) return; // 미리보기: 전부 열려 있으니 하나씩 띄우지 않음 (사도 상세에서 보기)
   const g = got();
   for (const id of Object.keys(S().owned)) {
     const v = V(id); if (!v || !v.aside) continue;
