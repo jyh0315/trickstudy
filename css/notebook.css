@@ -1,195 +1,73 @@
 /* =========================================================
-   📓 트릭스터디 「교주의 공부 수첩」 디자인 (사본 테마)
+   📓 트릭스터디 「교주의 공부 수첩」 틀 (사본 디자인)
    - 켜기: 주소 끝에 ?design=notebook  (원래 디자인: 주소에서 빼기)
-   - 콘셉트: 교주가 들고 다니는 모눈 공부 수첩.
-     종이 = 모눈, 글씨 = 남색 잉크, 표시 = 크레용·형광펜.
-     눈에 띄는 한 가지: 오른쪽 가장자리에 붙은 「색인 탭」 (휴대폰에선 위쪽)
-   - 나머지는 조용하게: 얇은 잉크 선, 낮은 그림자, 직각에 가까운 종이 모서리
+   - 틀(배치)만 새로: 오른쪽 가장자리의 「색인 탭」, 테이프로 붙인 대표 사도 사진
+   - 색·글꼴·배경 그림·카드·버튼은 원래 트릭스터디 그대로 (Jua · 크림 · 잉크 선)
    ========================================================= */
-:root.nb {
-  --ink: #232b4a;          /* 남색 잉크 */
-  --ink-soft: #636a87;     /* 연필 */
-  --cream: #ffffff;        /* 수첩 낱장 */
-  --cream-2: #eef2ef;
-  --paper: #ffffff;
-  --grid: #dfe8e3;         /* 모눈 */
-  --page: #f4f7f3;         /* 바탕 종이 */
-  --yellow: #ffd45c;       /* 노랑 크레용 */
-  --yellow-d: #e9b23a;
-  --pink: #f7a3c4;
-  --pink-d: #d9558e;
-  --mint: #93e2c6;         /* 민트 형광펜 */
-  --sky: #a9cdfb;
-  --red: #ff8d7a;
-  --red-d: #d94a3a;
-  --grape: #7b5cd6;        /* 포도 크레용 (대표 색) */
-  --tangerine: #ff8a3d;    /* 귤 크레용 (지금 보는 것) */
-  --line: 2px solid var(--ink);
-  --shadow: 0 2px 0 rgba(35, 43, 74, .14);
-  --radius: 6px;
-  /* 손글씨(Gaegu)는 큰 제목·말풍선에만. 작은 글씨(버튼·칩·탭)는 또렷한 IBM Plex Sans KR */
-  --font-hand: "Gaegu", "IBM Plex Sans KR", system-ui, sans-serif;
-  --font-title: "IBM Plex Sans KR", system-ui, sans-serif;
-  --font-body: "IBM Plex Sans KR", system-ui, sans-serif;
-}
 
-/* ───── 바탕: 모눈 수첩 (잠금 해제한 배경 그림은 아주 옅게 비침) ───── */
-.nb body { background: var(--page); color: var(--ink); font-size: 15px; line-height: 1.55; }
-.nb #bg { opacity: .12; filter: grayscale(.4); }
-.nb #bg::after { background: none; }
-.nb #bg-dots {
-  animation: none;
-  background-image:
-    linear-gradient(var(--grid) 1px, transparent 1px),
-    linear-gradient(90deg, var(--grid) 1px, transparent 1px);
-  background-size: 24px 24px;
-  opacity: .9;
-}
-
-/* ───── 위쪽 띠: 수첩 표지 끈 ───── */
-.nb .topbar { background: var(--ink); border-bottom: 0; box-shadow: none; padding: 8px 18px; }
-.nb .logo { transform: none; text-shadow: none; }
-.nb .logo-main { font-size: 14px; color: var(--yellow); font-weight: 700; }
-.nb .logo-sub { font-family: var(--font-hand); font-size: 26px; font-weight: 700; letter-spacing: 0; }
-.nb .lv-badge { border: 2px solid var(--paper); box-shadow: none; background: var(--grape); color: #fff; }
-.nb .expbar { background: rgba(255, 255, 255, .14); border: 0; height: 10px; }
-.nb .expbar > span { background: var(--mint); }
-.nb .expbar em { display: none; }
-.nb .coin, .nb .bgm-btn { border: 0; background: rgba(255, 255, 255, .12); color: #fff; font-weight: 700; }
-.nb .coin { font-family: var(--font-body); font-size: 15px; }
-
-/* ───── 레이아웃: 왼쪽 = 사도, 오른쪽 = 수첩 낱장 + 색인 탭 ───── */
-.nb .layout { grid-template-columns: 300px minmax(0, 1fr); gap: 28px; max-width: 1280px; }
-.nb .panel { display: grid; grid-template-columns: minmax(0, 1fr) 118px; align-items: start; }
+/* ───── 배치: 왼쪽 = 사도, 오른쪽 = 낱장 + 색인 탭 ───── */
+.nb .layout { grid-template-columns: 300px minmax(0, 1fr); gap: 26px; max-width: 1280px; }
+.nb .panel { display: grid; grid-template-columns: minmax(0, 1fr) 122px; align-items: start; }
 .nb .panel > :not(.tabs) { grid-column: 1; min-width: 0; }
 
-/* 📑 색인 탭: 낱장 오른쪽 가장자리에 붙어 있음. 지금 보는 탭은 낱장 쪽으로 쑥 들어와 이어짐 */
+/* 📑 색인 탭: 낱장 오른쪽 가장자리에 붙어 있고, 지금 보는 탭은 낱장 쪽으로 쑥 들어와 이어짐 */
 .nb .tabs {
   grid-column: 2; grid-row: 1 / span 40;
-  position: sticky; top: 78px;
-  flex-direction: column; flex-wrap: nowrap; gap: 3px; margin: 14px 0 0;
+  position: sticky; top: 92px;
+  flex-direction: column; flex-wrap: nowrap; gap: 4px; margin: 12px 0 0;
 }
 .nb .tabs button {
-  justify-content: flex-start; gap: 7px; width: 100%;
-  padding: 7px 10px 6px 12px;
-  border: var(--line); border-left: 0; border-radius: 0 10px 10px 0;
-  background: var(--tab, #eef2ef); box-shadow: none;
-  font-family: var(--font-body); font-weight: 600; font-size: 14.5px; color: var(--ink);
-  transform: none; transition: margin .15s, background .15s;
+  justify-content: flex-start; width: 100%;
+  padding: 8px 10px 7px 12px;
+  border-left: 0; border-radius: 0 14px 14px 0;
+  background: var(--tab, var(--cream)); box-shadow: 3px 3px 0 var(--ink);
+  transition: margin .15s, background .15s, width .15s;
 }
-.nb .tabs button:hover { transform: none; margin-left: -4px; }
-.nb .tabs button.on { background: var(--paper); margin-left: -10px; width: calc(100% + 10px); padding-left: 20px; box-shadow: none; transform: none; }
-.nb .tabs button i { font-size: 16px; }
-.nb .tabs button:nth-child(6n+1) { --tab: #fde8b9; }
-.nb .tabs button:nth-child(6n+2) { --tab: #d6ecff; }
-.nb .tabs button:nth-child(6n+3) { --tab: #dff6ea; }
-.nb .tabs button:nth-child(6n+4) { --tab: #fbdcea; }
-.nb .tabs button:nth-child(6n+5) { --tab: #e7e0fb; }
-.nb .tabs button:nth-child(6n+6) { --tab: #ffe1cc; }
-.nb .tabs .tab-event, .nb .tabs .tab-event.on { background: var(--tab, #fbdcea); }
-.nb .tabs .tab-event.on { background: var(--paper); }
-.nb .dot { width: 10px; height: 10px; top: 6px; right: 6px; border-width: 2px; background: var(--tangerine); animation: none; }
+.nb .tabs button:hover { transform: none; margin-left: -5px; width: calc(100% + 5px); }
+.nb .tabs button.on {
+  background: var(--yellow); margin-left: -12px; width: calc(100% + 12px); padding-left: 22px;
+  transform: none; box-shadow: 3px 3px 0 var(--ink);
+}
+.nb .tabs button:nth-child(6n+1) { --tab: #fff1c9; }
+.nb .tabs button:nth-child(6n+2) { --tab: #dff1ff; }
+.nb .tabs button:nth-child(6n+3) { --tab: #e2f8ef; }
+.nb .tabs button:nth-child(6n+4) { --tab: #ffe3ee; }
+.nb .tabs button:nth-child(6n+5) { --tab: #efe5ff; }
+.nb .tabs button:nth-child(6n+6) { --tab: #ffe8d6; }
+.nb .tabs .tab-event { background: linear-gradient(180deg, #ffd1e0, #ff8fb1); }
+.nb .tabs .tab-event.on { background: linear-gradient(180deg, #fff1a8, var(--yellow)); }
+.nb .tabs button:focus-visible { outline: 3px solid var(--pink-d); outline-offset: 2px; }
 
-/* ───── 수첩 낱장 (카드) ───── */
-.nb .card {
-  background: var(--paper); border: 1.5px solid var(--ink); border-radius: var(--radius);
-  box-shadow: var(--shadow); padding: 22px 24px; margin-bottom: 18px;
-}
-/* 낱장 제목: 리본 대신 형광펜으로 그은 손글씨 */
-.nb .ribbon {
-  display: inline-block; margin: 0 0 12px; padding: 0 4px;
-  background: linear-gradient(transparent 58%, var(--mint) 58%, var(--mint) 92%, transparent 92%);
-  border: 0; border-radius: 0; box-shadow: none; transform: none;
-  font-family: var(--font-hand); font-weight: 700; font-size: 32px; line-height: 1.1;
-}
-.nb .card-title { font-family: var(--font-hand); font-weight: 700; font-size: 24px; }
-.nb .count { background: var(--grape); font-family: var(--font-body); font-size: 12px; font-weight: 700; }
-.nb .hint { color: var(--ink-soft); font-size: 13px; }
-.nb .link { font-family: var(--font-body); font-weight: 600; color: var(--grape); }
-
-/* ───── 버튼: 크레용 칠한 종이 스티커 ───── */
-.nb .btn {
-  border: 1.5px solid var(--ink); border-radius: 8px; box-shadow: 0 2px 0 var(--ink);
-  font-family: var(--font-body); font-weight: 700; font-size: 15px; padding: 9px 16px;
-  background: var(--paper);
-}
-.nb .btn:hover { transform: translateY(-1px); filter: none; }
-.nb .btn:active { transform: translateY(2px); box-shadow: 0 0 0 var(--ink); }
-.nb .btn.yellow { background: var(--yellow); box-shadow: 0 2px 0 var(--ink); }
-.nb .btn.pink { background: var(--pink); box-shadow: 0 2px 0 var(--ink); }
-.nb .btn.mint { background: var(--mint); box-shadow: 0 2px 0 var(--ink); }
-.nb .btn.red { background: var(--red-d); color: #fff; text-shadow: none; box-shadow: 0 2px 0 var(--ink); }
-.nb .btn.white { background: var(--paper); }
-.nb .btn.small { font-size: 13px; padding: 5px 10px; box-shadow: 0 1.5px 0 var(--ink); }
-.nb .btn.big { font-size: 18px; padding: 13px 26px; border-radius: 10px; }
-.nb .btn:focus-visible, .nb .tabs button:focus-visible, .nb .seg button:focus-visible { outline: 3px solid var(--grape); outline-offset: 2px; }
-.nb .seg { background: var(--cream-2); border: 1.5px solid var(--ink); border-radius: 8px; }
-.nb .seg button { font-family: var(--font-body); font-weight: 600; font-size: 14px; border-radius: 6px; }
-.nb .seg button.on { background: var(--paper); box-shadow: 0 0 0 1.5px var(--ink); color: var(--ink); }
-
-/* ───── 대표 사도 칸: 수첩 앞 장에 붙인 사진 ───── */
-.nb .stage { top: 78px; }
-.nb .bubble {
-  border: 1.5px solid var(--ink); border-radius: 4px 16px 16px 16px; box-shadow: var(--shadow);
-  font-family: var(--font-hand); font-weight: 700; font-size: 22px; line-height: 1.25;
-}
-.nb .bubble::after { border-width: 1.5px; bottom: -11px; width: 18px; height: 18px; }
+/* ───── 대표 사도: 테이프로 붙인 사진 ───── */
+.nb .stage { top: 92px; }
 .nb .partner {
-  border: 8px solid #fff; outline: 1.5px solid var(--ink); border-radius: 2px;
-  box-shadow: 0 6px 14px rgba(35, 43, 74, .18); transform: rotate(-1.5deg);
-  animation: none;
+  border: 4px solid var(--ink); border-radius: 6px;
+  outline: 8px solid var(--paper); outline-offset: -12px;
+  transform: rotate(-1.5deg); animation: none;
+  box-shadow: 0 7px 0 var(--ink), 0 14px 26px rgba(59, 42, 32, .25);
+  overflow: visible;
 }
-.nb .partner::before { /* 사진을 붙인 테이프 */
-  content: ""; position: absolute; z-index: 3; top: -14px; left: 50%; width: 86px; height: 22px;
-  transform: translateX(-50%) rotate(3deg); background: rgba(147, 226, 198, .75); pointer-events: none;
+.nb .partner::before { /* 사진을 붙인 마스킹테이프 */
+  content: ""; position: absolute; z-index: 5; top: -16px; left: 50%; width: 92px; height: 26px;
+  transform: translateX(-50%) rotate(3deg); pointer-events: none;
+  background: repeating-linear-gradient(90deg, rgba(255, 211, 78, .85) 0 8px, rgba(255, 227, 140, .85) 8px 16px);
+  border-left: 2px dashed rgba(59, 42, 32, .25); border-right: 2px dashed rgba(59, 42, 32, .25);
 }
-.nb .nameplate { background: none; color: var(--ink); box-shadow: none; padding: 0; font-family: var(--font-hand); font-weight: 700; font-size: 24px; }
-.nb .np-pers { border: 0; }
-.nb .mini-timer, .nb .today-ring, .nb .streak { border: 1.5px solid var(--ink); box-shadow: var(--shadow); }
-.nb .mini-timer { background: var(--yellow); border-radius: 8px; }
-.nb .streak { border-radius: 8px; font-weight: 700; }
-.nb .streak b { color: var(--tangerine); }
-.nb .ring-bg { stroke: var(--cream-2); }
-.nb .ring-fg { stroke: var(--grape); }
-
-/* ───── 창(모달) ───── */
-.nb .modal { border: 1.5px solid var(--ink); border-radius: 10px; box-shadow: 0 18px 40px rgba(35, 43, 74, .28); background: var(--paper); }
-.nb .modal h2 { font-family: var(--font-hand); font-weight: 700; font-size: 28px; }
-.nb .modal-back { background: rgba(35, 43, 74, .45); }
+.nb .partner .live-host, .nb .partner > img { border-radius: 2px; overflow: hidden; }
 
 /* ───── 휴대폰·태블릿: 색인 탭은 낱장 위쪽 가장자리로 ───── */
 @media (max-width: 900px) {
   .nb .layout { grid-template-columns: minmax(0, 1fr); gap: 10px; }
   .nb .panel { display: block; }
   .nb .tabs {
-    position: sticky; top: 56px; z-index: 15; flex-direction: row; overflow-x: auto; gap: 2px;
-    margin: 0 -14px 14px; padding: 6px 14px 0; background: var(--page);
-    border-bottom: 1.5px solid var(--ink); scrollbar-width: none;
+    position: sticky; top: 60px; z-index: 15; flex-direction: row; overflow-x: auto; gap: 3px;
+    margin: 0 -14px 16px; padding: 8px 14px 0;
+    border-bottom: 3px solid var(--ink); scrollbar-width: none;
   }
   .nb .tabs::-webkit-scrollbar { display: none; }
-  .nb .tabs button { flex: none; width: auto; border: 1.5px solid var(--ink); border-bottom: 0; border-radius: 10px 10px 0 0; padding: 6px 11px 5px; font-size: 15px; }
-  .nb .tabs button:hover { margin-left: 0; }
-  .nb .tabs button.on { margin: 0 0 -1.5px; width: auto; padding: 8px 12px 6px; background: var(--paper); }
-  .nb .partner { transform: none; }
-  .nb .card { padding: 18px 16px; }
-  .nb .ribbon { font-size: 25px; }
+  .nb .tabs button { flex: none; width: auto; border: var(--line); border-bottom: 0; border-radius: 14px 14px 0 0; box-shadow: none; padding: 7px 12px 5px; }
+  .nb .tabs button:hover { margin-left: 0; width: auto; }
+  .nb .tabs button.on { margin: 0 0 -3px; width: auto; padding: 9px 13px 8px; box-shadow: none; }
+  .nb .partner { transform: none; outline-width: 5px; outline-offset: -8px; }
 }
 @media (prefers-reduced-motion: reduce) { .nb .tabs button { transition: none; } }
-
-/* 작은 제목들도 굵게 (원래 Jua 가 굵은 글꼴이라 font-weight: normal 로 돼 있음) */
-.nb h2, .nb h3, .nb .card-title, .nb .tabs button, .nb .coin, .nb .mini-timer, .nb .streak b, .nb .today-ring b { font-weight: 700; }
-
-/* ───── 로비 띠들: 수첩에 끼운 메모지 ───── */
-.nb .ev-banner { border: 1.5px solid var(--ink); border-radius: var(--radius); box-shadow: var(--shadow); background: #fbdcea; color: var(--ink); }
-.nb .ev-banner::after { opacity: .18; }
-.nb .evb-text { text-shadow: none; }
-.nb .evb-text b { font-family: var(--font-hand); font-weight: 700; font-size: 26px; }
-.nb .ev-banner .btn.pink { background: var(--paper); }
-.nb .sn-lobby { border: 1.5px solid var(--ink); border-radius: var(--radius); box-shadow: var(--shadow); background: var(--paper); }
-.nb .brief-say { font-family: var(--font-body); font-weight: 600; font-size: 19px; }
-.nb .brief-list li { border: 1px solid var(--ink-soft); border-radius: 4px; background: transparent; }
-.nb .brief-list b { font-family: var(--font-body); font-weight: 700; }
-.nb .bar { border-width: 1.5px; }
-/* 집중 시계: 포도 크레용으로 칠하는 원 */
-.nb .clk-bg { stroke-width: 3; }
-.nb .clk-fg { stroke: var(--grape); stroke-width: 12; }
