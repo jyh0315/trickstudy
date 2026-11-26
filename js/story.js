@@ -222,7 +222,7 @@ function showScript(id) {
   TS.modal(`<h2>📜 ${esc(ep.title)}</h2><ol class="story-sc">${rows}</ol>
     <div class="modal-actions"><button class="btn yellow" data-close>닫기</button></div>`);
 }
-if (PREVIEW && window.TitleScreen) window.TitleScreen.show = (done) => { done(); setTimeout(() => TS.go("story"), 0); };
+if (PREVIEW && window.TitleScreen) window.TitleScreen.show = (done) => { done(); }; // 미리보기: 시작 화면 건너뜀
 /* ───── 🎞️ 특별 영상 (움직이는 CG): 공부 시간으로 하나씩 열림 ───── */
 function videoCard() {
   if (typeof CG_VIDEOS === "undefined" || !CG_VIDEOS.length) return "";

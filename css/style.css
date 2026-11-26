@@ -2727,3 +2727,4 @@ a.icon-btn { text-decoration: none; display: inline-grid; place-items: center; }
 .tb-book label { display: flex; gap: 6px; align-items: baseline; font-size: 13.5px; cursor: pointer; }
 .tb-book label small { color: var(--ink-soft); font-size: 11px; margin-left: auto; white-space: nowrap; }
 .tb-book label.lock { opacity: .55; cursor: not-allowed; }
+.preview-badge { position: fixed; left: 50%; top: 4px; transform: translateX(-50%); z-index: 3000; background: #2b6cb0; color: #fff; font: 12px var(--font-title); padding: 3px 12px; border-radius: 99px; pointer-events: none; opacity: .9; }

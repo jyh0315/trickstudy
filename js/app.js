@@ -73,7 +73,30 @@ function load() {
 let state = load();
 // 이미 넘은 레벨의 배경은 바로 해금 (레벨 배경이 나중에 추가돼도 소급)
 BACKGROUNDS.forEach((b) => { if (b.lv <= state.level && !state.unlockedBg.includes(b.id)) state.unlockedBg.push(b.id); });
-const save = () => { try { localStorage.setItem(SAVE_KEY, JSON.stringify(state)); } catch (e) { /* 저장 불가 환경 */ } };
+/* 🔍 ?preview 로 열면: 사도·표정·스킨 전부 열림 + 호감도 Lv30 (구경용)
+   진짜 저장 기록은 건드리지 않음 — 이 창에서 한 건 저장 안 되고, 서버(랭킹·동기화·공부방)에도 안 올림 */
+const PREVIEW_ALL = new URLSearchParams(location.search).has("preview");
+if (PREVIEW_ALL) {
+  state = JSON.parse(JSON.stringify(state));
+  state.started = true;
+  if (!state.partner) state.partner = "erpin";
+  const maxAff = 23630;
+  SADO.forEach((c) => {
+    state.owned[c.id] = { ...(state.owned[c.id] || {}), n: Math.max(1, (state.owned[c.id] || {}).n || 1), emo: c.emote ? 4 : 0 };
+    if (!state.aff) state.aff = {};
+    state.aff[c.id] = Math.max(state.aff[c.id] || 0, maxAff);
+    const sk = typeof SPINE_DATA !== "undefined" && SPINE_DATA[c.id] ? SPINE_DATA[c.id].skins.length : 1;
+    if (!state.skins) state.skins = {};
+    state.skins[c.id] = { cur: (state.skins[c.id] || {}).cur || 0, own: Array.from({ length: sk }, (_, i) => i) };
+  });
+  const realFetch = window.fetch.bind(window);
+  window.fetch = (u, o) => (o && o.method && o.method !== "GET" ? Promise.reject(new Error("미리보기 모드에선 서버에 저장하지 않아요")) : realFetch(u, o));
+  document.addEventListener("DOMContentLoaded", () => {
+    const b = document.createElement("div"); b.className = "preview-badge"; b.textContent = "🔍 미리보기 — 전부 열림 · 저장 안 됨";
+    b.title = "주소 끝의 ?preview 를 지우면 원래대로"; document.body.appendChild(b);
+  });
+}
+const save = () => { if (PREVIEW_ALL) return; try { localStorage.setItem(SAVE_KEY, JSON.stringify(state)); } catch (e) { /* 저장 불가 환경 */ } };
 
 /* ───── 텍스트 ───── */
 function hasBatchim(word) {
