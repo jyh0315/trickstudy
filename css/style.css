@@ -2728,3 +2728,9 @@ a.icon-btn { text-decoration: none; display: inline-grid; place-items: center; }
 .tb-book label small { color: var(--ink-soft); font-size: 11px; margin-left: auto; white-space: nowrap; }
 .tb-book label.lock { opacity: .55; cursor: not-allowed; }
 .preview-badge { position: fixed; left: 50%; top: 4px; transform: translateX(-50%); z-index: 3000; background: #2b6cb0; color: #fff; font: 12px var(--font-title); padding: 3px 12px; border-radius: 99px; pointer-events: none; opacity: .9; }
+/* 🎬 CG 위에서 사도가 말할 때: CG는 위쪽 액자로, 사도들은 그 앞에서 연기 */
+#story .sp-stage { z-index: 2; }
+#story.cg-talk .sp-stage { z-index: 3; }
+#story.cg-talk .sp-cg { z-index: 2; background: rgba(20,14,10,.25); }
+#story .sp-cg img, #story .sp-cg video { transition: transform .5s cubic-bezier(.3,1.2,.5,1), max-width .5s, max-height .5s, margin .5s, opacity .25s; }
+#story.cg-talk .sp-cg img, #story.cg-talk .sp-cg video { max-width: 52%; max-height: 46%; margin-bottom: 300px; transform: rotate(-1.5deg); }

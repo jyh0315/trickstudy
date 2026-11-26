@@ -328,7 +328,7 @@ function play(epId, opts) {
   </div>`;
   document.body.appendChild(root);
   document.body.classList.add("story-open");
-  P = { ep: { ...ep, lines: ep.lines.slice() }, root, i: -1, actors: {}, seq: 0, typing: null, auto: false, autoT: 0, log: [], wait: false, done: false, opts: opts || {}, picks: [], touchKind: "" };
+  P = { ep: { ...ep, lines: ep.noAuto ? ep.lines.slice() : enrich(ep.lines) }, root, i: -1, actors: {}, seq: 0, typing: null, auto: false, autoT: 0, log: [], wait: false, done: false, opts: opts || {}, picks: [], touchKind: "" };
   if (P.opts.date) root.classList.add("sp-date");
   if (window.BGM && window.BGM.pauseFor) window.BGM.pauseFor("story");
   if (ep.bgm && S().settings.sound !== false) setMusic(ep.bgm);
@@ -343,7 +343,7 @@ function play(epId, opts) {
   document.addEventListener("keydown", onKey);
   root.addEventListener("wheel", (e) => { if (e.target.closest(".sp-log") || P.opts.date) return; if (e.deltaY < -20) ctrl("log"); else if (e.deltaY > 20 && root.querySelector(".sp-log").classList.contains("hidden")) advance(); }, { passive: true });
   bindTouch(root);
-  prefetchActors(ep);
+  prefetchActors(P.ep);
   fit(); window.addEventListener("resize", fit);
   syncBtns();
   advance();
@@ -509,6 +509,7 @@ function run(L) {
   if (L.title) return titleCard(L);
   if (L.choice) return choice(L);
   if (L.touch) return touchWait(L);
+  if (L.n && !L.s) P.root.classList.remove("cg-talk");
   if (L.s || L.n) {
     speak = true;
     const me = L.s === "me", who = L.s ? nameOf(L.s) : "";
@@ -520,6 +521,9 @@ function run(L) {
       const pic = picOf(L.s);
       P.root.querySelector(".sp-pf-in").innerHTML = pic ? `<img src="${pic}" alt="">` : `<b>${me ? "📖" : esc(who.slice(0, 1))}</b>`;
     }
+    if (L.s && L.s !== "me" && !P.actors[L.s] && TS.SADO_MAP[L.s] && !P.skipping) enter(L.s, Object.keys(P.actors).length % 2 ? "R" : "L", L.f);
+    // CG 가 떠 있는데 무대의 사도가 말하면: CG는 위쪽 액자로 작아지고 사도들이 앞에 나와 연기 (나레이션이면 다시 크게)
+    { const cgOn = !!P.root.querySelector(".sp-cg.on"); P.root.classList.toggle("cg-talk", cgOn && !!L.s && L.s !== "me" && !!P.actors[L.s]); }
     // 말하는 사도는 밝게, 나머지는 살짝 어둡게
     for (const [id, a] of Object.entries(P.actors)) a.el.classList.toggle("dim", !!L.s && !me && id !== L.s);
     const a = P.actors[L.s];
@@ -816,6 +820,47 @@ function touchPick(kind, byHand) {
   const lines = (L.r && L.r[kind]) || [];
   P.ep.lines.splice(P.i + 1, 0, ...lines.map((x) => (typeof x === "string" ? { s: L.touch, t: x } : x)));
   setTimeout(() => { if (!P) return; P.wait = false; advance(); }, kind === "tickle" ? 2600 : 1300);
+}
+
+/* ───── 🎬 연출 보강: CG+대사만 이어지는 화도 사도가 무대에 나와 움직이게 (재생할 때 자동으로)
+   - 말하는 사도가 무대에 없으면 등장시킴 (무대가 꽉 차면 가장 오래 말 안 한 사도가 퇴장)
+   - CG 위로 대사가 3줄 넘게 이어지면 CG를 닫고 사도들이 연기 (바로 다음 CG가 이어지면 그대로)
+   - 표정(f)이 없는 대사는 말투로 표정을 골라 줌 */
+function moodOf(t) {
+  t = String(t || "");
+  if (/!\?|\?!|[!?]{3}|헉|엥\?|뭐라고|설마/.test(t)) return "surprise";
+  if (/흑|훌쩍|ㅠ|미안|죄송|슬퍼|흐윽/.test(t)) return "sad";
+  if (/용서 못|이익|바보|이놈|화났|짜증|으으+!|가만 안/.test(t)) return "angry";
+  if (/부끄|쑥스|그, 그|에헤|으, 응/.test(t)) return "shy";
+  if (/하하|헤헤|후후|히히|깔깔|키득|좋아|최고|♪|♥|~!|야호|신난/.test(t)) return "happy";
+  if (/당연|역시 나|훗|에헴|대단하지/.test(t)) return "proud";
+  return "";
+}
+function enrich(lines) {
+  const out = [], stage = new Map(), SL = ["C", "R", "L", "R", "L"];
+  let cgOn = false, cgN = 0, k = 0;
+  const canAct = (id) => id && id !== "me" && TS.SADO_MAP[id];
+  for (let i = 0; i < lines.length; i++) {
+    const L = { ...lines[i] };
+    if (L.clear) { stage.clear(); cgOn = false; }
+    if (L.cg != null) { cgOn = !!L.cg; cgN = 0; }
+    if (L.in) stage.set(L.in, i);
+    if (L.out) stage.delete(L.out);
+    if (canAct(L.s) && !stage.has(L.s) && !L.in) {
+      if (stage.size >= 4) { const old = [...stage.entries()].sort((a, b) => a[1] - b[1])[0][0]; out.push({ out: old }); stage.delete(old); }
+      out.push({ in: L.s, at: SL[stage.size] || "C" });
+      stage.set(L.s, i);
+    }
+    if (L.s && stage.has(L.s)) stage.set(L.s, i);
+    if (canAct(L.s) && !L.f && k++ % 1 === 0) { const m = moodOf(L.t); if (m) L.f = m; else if (k % 3 === 0) L.f = "talk"; }
+    out.push(L);
+    if (cgOn && (L.s || L.n)) {
+      cgN++;
+      const soon = lines.slice(i + 1, i + 3).some((x) => x.cg != null);
+      if (cgN >= 3 && !soon) { out.push({ cg: "" }); cgOn = false; }
+    }
+  }
+  return out;
 }
 
 /* 화 끝 */
