@@ -84,7 +84,8 @@ function pipLive(w, stage) {
     sc.onload = () => start(0);
     doc.head.appendChild(sc);
     let player = null, anims = [], idles = [];
-    function patch() { // 이음새 선 방지 (live.js 와 같은 방식: 텍스처 알파 미리 곱하기)
+    function patch() { // 이음새 선·홍조 테두리 방지 (spine-fix.js 와 같은 손보기)
+      if (window.SpineFix) { window.SpineFix(w); return; }
       const T = w.spine && w.spine.GLTexture;
       if (!T || T.__pma) return;
       T.__pma = true; T.DISABLE_UNPACK_PREMULTIPLIED_ALPHA_WEBGL = false;

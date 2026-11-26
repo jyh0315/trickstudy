@@ -112,10 +112,9 @@ https://jyh0315.github.io/trickstudy/anim.html?id=<사도id> 에서 GIF/WebM 으
 ```html
 <div id="sado" style="width:360px;height:460px"></div>
 <script src="https://jyh0315.github.io/trickstudy/js/vendor/spine-player.min.js"></script>
+<!-- 이음새(앞머리 등의 얇은 선)·홍조 테두리 방지 — 플레이어 바로 다음에 꼭 넣기 -->
+<script src="https://jyh0315.github.io/trickstudy/js/spine-fix.js"></script>
 <script>
-// 이음새(얇은 선) 방지
-(function(){const T=spine.GLTexture;if(!T||T.__pma)return;T.__pma=true;T.DISABLE_UNPACK_PREMULTIPLIED_ALPHA_WEBGL=false;
-const up=T.prototype.update;T.prototype.update=function(m){const gl=this.context.gl;gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL,true);try{up.call(this,m)}finally{gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL,false)}}})();
 const base="https://jyh0315.github.io/trickstudy-assets/l2d/Butter/Butter"; // JSON 의 sado[].spine[].skel 에서 .skel.asset 뺀 것
 new spine.SpinePlayer("sado",{skelUrl:base+".skel.asset",atlasUrl:base+".atlas.asset",showControls:false,
   alpha:true,backgroundColor:"#00000000",premultipliedAlpha:true,

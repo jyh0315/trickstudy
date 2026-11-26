@@ -2955,7 +2955,7 @@ function spinePick(id, opts) {
       ov.querySelector("#cvp-moods").innerHTML = '<p class="meta">이 기기에선 움직이는 사도를 못 불러서 그림으로 넣어요.</p>';
     };
     if (typeof SPINE_DATA === "undefined" || !SPINE_DATA[id]) return useStatic();
-    try { await loadScript("js/vendor/spine-player.min.js"); patchPMA(); } catch (e) { return useStatic(); }
+    try { await loadScript("js/vendor/spine-player.min.js"); await loadScript("js/spine-fix.js").catch(() => {}); patchPMA(); } catch (e) { return useStatic(); }
     const d = SPINE_DATA[id], idx = Math.min(((st.skins || {})[id] || {}).cur || 0, d.skins.length - 1);
     let bases = [];
     const stage = ov.querySelector("#cvp-stage");
@@ -3088,7 +3088,7 @@ async function coverSado() {
   const id = st.partner || "erpin", c = (typeof SADO !== "undefined" && SADO.find((x) => x.id === id)) || {};
   const res = { name: c.name || "", src: `assets/chibi/${id}.webp` };
   if (typeof SPINE_DATA === "undefined" || !SPINE_DATA[id]) return res;
-  try { await loadScript("js/vendor/spine-player.min.js"); patchPMA(); } catch (e) { return res; }
+  try { await loadScript("js/vendor/spine-player.min.js"); await loadScript("js/spine-fix.js").catch(() => {}); patchPMA(); } catch (e) { return res; }
   const d = SPINE_DATA[id], idx = Math.min(((st.skins || {})[id] || {}).cur || 0, d.skins.length - 1);
   for (const h of SPINE_HOSTS) { const src = await snapSpine(encodeURI(h.url + h.dir(d.dir) + "/" + d.skins[idx][0])); if (src) { res.src = src; break; } }
   return res;
