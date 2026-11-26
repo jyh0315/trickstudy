@@ -67,6 +67,13 @@ const canLive = (id) => !TS.isPlain() && liveOn() && !!SPINE_DATA[id] && !!windo
       const cv = document.createElement("canvas"); cv.width = w; cv.height = h;
       const g = cv.getContext("2d"); g.drawImage(img, 0, 0);
       const d = g.getImageData(0, 0, w, h), px = d.data;
+      // 이미 알파가 곱해진(PMA) 그림이면 먼저 되돌림 — 안 그러면 올릴 때 한 번 더 곱해져
+      // 홍조처럼 반투명한 부위 테두리가 검게 남음 (색 ≤ 알파 인 픽셀이 거의 전부면 PMA 로 봄)
+      let semi = 0, over = 0;
+      for (let i = 3; i < px.length; i += 4 * 7) { const a = px[i]; if (a > 8 && a < 247) { semi++; if (Math.max(px[i - 3], px[i - 2], px[i - 1]) > a + 3) over++; } }
+      if (semi > 50 && over / semi < 0.01) {
+        for (let i = 3; i < px.length; i += 4) { const a = px[i]; if (a > 0 && a < 255) { const k = 255 / a; px[i - 3] = Math.min(255, px[i - 3] * k); px[i - 2] = Math.min(255, px[i - 2] * k); px[i - 1] = Math.min(255, px[i - 1] * k); } }
+      }
       for (let i = 3; i < px.length; i += 4) {
         const a = px[i];
         if (a < HI) px[i] = a <= LO ? 0 : Math.round(((a - LO) / (HI - LO)) * 255 * (a / HI));
