@@ -791,6 +791,9 @@ function choice(L) {
     P.log.push({ who: nameOf("me"), t: fmtT(L.choice[k]) });
     // 고른 보기에 대한 반응 한 줄을 끼워 넣음
     if (L.r && L.r[k]) P.ep.lines.splice(P.i + 1, 0, typeof L.r[k] === "string" ? { s: L.by || Object.keys(P.actors)[0], t: L.r[k] } : L.r[k]);
+    // 고른 행동이 쓰다듬기·꿀밤·볼 당기기면 그 사도가 바로 그 동작을
+    const act = L.r && L.r[k] && L.r[k].touchAct, a = act && P.actors[L.r[k].s];
+    if (a && a.live) { if (act === "pat") { holdAnim(a, "pat"); hearts(a); setTimeout(() => holdOff(a, "pat"), 1600); } else a.live.play(act === "knock" ? "smash" : "surprise"); TS.sfx("poke"); }
     advance();
   }));
 }
@@ -836,9 +839,35 @@ function moodOf(t) {
   if (/당연|역시 나|훗|에헴|대단하지/.test(t)) return "proud";
   return "";
 }
+// 교주에게 묻는 질문 뒤에 끼우는 선택지 (사도 말투에 맞춘 반응)
+const ASK_YOU = /교주|너(?!무)|당신|주인님|\{me\}/;
+const ASK_OPTS = ["응, 그렇지!", "음… 글쎄?", "(말없이 고개를 끄덕인다)"];
+const ASK_R = [
+  ["그치? 역시 {c}야!", "그쵸? 역시 {c}이에요!", "happy"],
+  ["에이, 뭐야~ 확실하게 말해 줘.", "에이, 뭐예요~ 확실하게 말해 주세요.", "angry"],
+  ["…응. 고마워.", "…네. 고마워요.", "shy"],
+];
+function askChoice(id, t) {
+  const v = typeof voiceOf === "function" ? voiceOf(id) : null, ban = !v || v.s === "ban" || v.s === "old", call = (v && v.c) || "교주";
+  return { choice: ASK_OPTS.slice(), auto: 1, r: ASK_R.map(([a, b, f]) => ({ s: id, t: (ban ? a : b).replace(/\{c\}/g, call), f })) };
+}
+// 교주의 다른 행동 (교주 대사를 선택지로 바꿀 때·가만히 듣는 장면에 끼우는 선택지)
+const ACTS = [
+  ["(머리를 쓰다듬어 준다)", "pat", ["에, 에헤헤… 갑자기 왜 그래?", "에, 에헤헤… 갑자기 왜 그러세요?", "shy"]],
+  ["(볼을 콕 찌른다)", "knock", ["앗! 갑자기 왜 찔러!", "앗! 갑자기 왜 찌르세요!", "angry"]],
+  ["(볼을 쭉 당겨 본다)", "pull", ["으에에… 볼 늘어나잖아!", "으에에… 볼 늘어나잖아요!", "surprise"]],
+  ["(못 들은 척한다)", null, ["…지금 듣고 있는 거야?!", "…지금 듣고 계신 거예요?!", "angry"]],
+];
+function actReact(id, n) {
+  const [txt, kind, [ban, jon, f]] = ACTS[n % ACTS.length];
+  const v = typeof voiceOf === "function" ? voiceOf(id) : null, casual = !v || v.s === "ban" || v.s === "old";
+  const real = kind && TS.touchLine ? TS.touchLine(id, kind) : null; // 그 사도의 실제 상호작용 대사가 있으면 그걸로
+  return { txt, line: { s: id, t: real || (casual ? ban : jon), f, touchAct: kind || "" } };
+}
 function enrich(lines) {
   const out = [], stage = new Map(), SL = ["C", "R", "L", "R", "L"];
-  let cgOn = false, cgN = 0, k = 0;
+  let cgOn = false, cgN = 0, k = 0, lastChoice = -99, asks = 0, myCh = 0;
+  lines.forEach((x, i) => { if (x.choice) lastChoice = Math.max(lastChoice, i - 99); });
   const canAct = (id) => id && id !== "me" && TS.SADO_MAP[id];
   for (let i = 0; i < lines.length; i++) {
     const L = { ...lines[i] };
@@ -854,10 +883,37 @@ function enrich(lines) {
     if (L.s && stage.has(L.s)) stage.set(L.s, i);
     if (canAct(L.s) && !L.f && k++ % 1 === 0) { const m = moodOf(L.t); if (m) L.f = m; else if (k % 3 === 0) L.f = "talk"; }
     out.push(L);
+    // 교주 대사 → 「원래 대사 / 다른 행동」 선택지 (한 화에 2번까지, 바로 앞에 말한 사도가 반응)
+    if (L.s === "me" && L.st !== "think" && L.t && myCh < 2 && i - lastChoice > 5 && Object.keys(L).every((k2) => ["s", "t", "st"].includes(k2))) {
+      const who = [...stage.entries()].sort((a, b) => b[1] - a[1]).map((e) => e[0]).find(canAct);
+      if (who) {
+        out.pop();
+        const a = actReact(who, i + myCh);
+        out.push({ choice: [L.t, a.txt], auto: 1, r: [null, a.line] });
+        myCh++; lastChoice = i;
+      }
+    }
+    // 교주에게 하는 질문이면 가끔 선택지 (원래 선택지 근처·교주가 바로 대답하는 곳은 빼고, 한 화에 3번까지)
+    const nx = lines[i + 1] || {};
+    if (canAct(L.s) && /\?[」'"…)]*\s*$/.test(L.t || "") && ASK_YOU.test(L.t || "") && nx.s !== "me" && !nx.choice
+      && asks < 3 && i - lastChoice > 6 && !lines.slice(Math.max(0, i - 5), i + 6).some((x) => x.choice)) {
+      out.push(askChoice(L.s, L.t)); asks++; lastChoice = i;
+    }
     if (cgOn && (L.s || L.n)) {
       cgN++;
       const soon = lines.slice(i + 1, i + 3).some((x) => x.cg != null);
       if (cgN >= 3 && !soon) { out.push({ cg: "" }); cgOn = false; }
+    }
+  }
+  // 그래도 선택지가 하나도 없는 화: 가운데쯤 사도가 말한 뒤에 「가만히 듣기 / 다른 행동」 하나
+  if (!out.some((x) => x.choice) && out.length > 10) {
+    for (let j = Math.floor(out.length / 2); j < out.length - 2; j++) {
+      const x = out[j];
+      if (canAct(x.s) && !x.st && !out.slice(j - 3, j + 1).some((y) => y.cg)) {
+        const a = actReact(x.s, j), b = actReact(x.s, j + 1);
+        out.splice(j + 1, 0, { choice: ["(가만히 이야기를 듣는다)", a.txt, b.txt], auto: 1, r: [null, a.line, b.line] });
+        break;
+      }
     }
   }
   return out;
@@ -961,7 +1017,7 @@ function bindTouch(root) {
     d = { a, x: e.clientX, y: e.clientY, moved: 0, kind: "" };
     d.t0 = Date.now();
     if (!a.pull && window.Live && window.Live.cheekPull) a.pull = window.Live.cheekPull(a.ctrl) || false;
-    if (a.pull && a.pull.near(e.clientX, e.clientY) < a.el.getBoundingClientRect().width * 0.09) {
+    if (a.pull && a.pull.near(e.clientX, e.clientY) < a.el.getBoundingClientRect().width * 0.17) { // 볼 근처(넉넉하게)를 누르고 끌면 볼 당기기
       e.preventDefault();
       try { root.setPointerCapture(e.pointerId); } catch (_) { /* 무시 */ }
       d.kind = "pull"; used = true;
@@ -1005,5 +1061,5 @@ function hearts(a) {
     a.el.appendChild(h); setTimeout(() => h.remove(), 1800);
   }
 }
-window.Story = { play, render };
+window.Story = { play, render, _P: () => (PREVIEW ? P : null), _enrich: (l) => enrich(l) };
 })();
