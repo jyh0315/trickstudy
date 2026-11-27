@@ -20,6 +20,8 @@ const FOOD = {
   "송편": "🌙", "새콤비타F": "🍊", "얌얌비타C": "💊", "킹짱비타K": "👑", "부쉬 드 노엘": "🎄", "아몬드 로쉐": "🌰", "떡국": "🍲", "에심당 뽈사탕": "🍭",
 };
 const SPECIAL = Object.keys(FOOD).slice(0, 30);
+/* 음식 그림 (게임 연회장 그림, assets/food/<SPECIAL 순서 두 자리>.webp). 공통 간식 8가지는 그림이 없어서 이모지 */
+const ic = (f, cls = "") => { const i = SPECIAL.indexOf(f); return i >= 0 ? `<img class="bq-img ${cls}" src="assets/food/${String(i).padStart(2, "0")}.webp" alt="">` : `<span class="bq-emo ${cls}">${FOOD[f] || "🍽️"}</span>`; };
 const PTS = { like: 40, etc: 15, ok: 8, hate: 2 };
 const MARK = { like: "💗", hate: "💢", etc: "🙂", ok: "😐" };
 
@@ -60,7 +62,7 @@ function open() {
       <img class="modal-emote" src="${TS.portrait(c, true)}" alt="" style="width:96px;height:96px">
       <p class="hint">오늘의 메뉴 중 하나를 대접해요. 좋아하는 음식을 맞히면 💗+${PTS.like}! · 남은 대접권 <b>🎟️ ${b.n}</b> <small>(매일 ${DAILY}장 · 집중 25분마다 +1)</small></p>
       <div class="bq-grid">${M.map((x, i) => `<button class="bq-dish" data-bq="${i}" ${b.n ? "" : "disabled"}>
-        <span class="bq-ic">${FOOD[x.f] || "🍽️"}</span><b>${esc(x.f)}</b>${note[x.f] ? `<em>${MARK[note[x.f]]}</em>` : ""}</button>`).join("")}</div>
+        <span class="bq-ic">${ic(x.f)}</span><b>${esc(x.f)}</b>${note[x.f] ? `<em>${MARK[note[x.f]]}</em>` : ""}</button>`).join("")}</div>
       <div class="modal-actions"><button class="btn white" data-close>다음에</button></div>`,
     (el, close) => el.querySelectorAll("[data-bq]").forEach((btn) => (btn.onclick = () => { close(); serve(id, c, M[+btn.dataset.bq]); })), { cls: "bq-modal" });
   });
@@ -75,7 +77,7 @@ function serve(id, c, x) {
   if (x.k === "like") TS.confetti && TS.confetti(40);
   const text = x.t || "조용히 접시를 비웠다. 특별히 좋아하지도, 싫어하지도 않는 눈치다.";
   const head = { like: "💗 좋아하는 음식이에요!", hate: "💢 싫어하는 음식이었어요…", etc: "🙂 맛있게 먹었어요", ok: "😐 무난했어요" }[x.k];
-  setTimeout(() => TS.modal(`<h2>${FOOD[x.f] || "🍽️"} ${esc(x.f)}</h2>
+  setTimeout(() => TS.modal(`<div class="bq-plate">${ic(x.f, "big")}</div><h2>${esc(x.f)}</h2>
       <img class="modal-emote" src="${TS.portrait(c, true)}" alt="">
       <p class="bq-head">${head}</p>
       <div class="kn-new"><b>📒 교주의 기록</b><span>${esc(text)}</span></div>
@@ -95,7 +97,7 @@ TS.banquetNoteHTML = (id, d) => {
   const all = [...F.like.map((x) => [x[0], "like"]), ...F.hate.map((x) => [x[0], "hate"]), ...F.etc.map((x) => [x[0], "etc"])];
   const found = all.filter(([f]) => note[f]).length;
   return `<details class="aff-book"><summary>🍽️ 연회장 취향 노트 <b>${found} / ${all.length}</b></summary>
-    <div class="bq-note">${all.map(([f, k]) => (note[f] ? `<span class="bq-tag ${k}">${MARK[k]} ${FOOD[f] || ""} ${esc(f)}</span>` : `<span class="bq-tag lock">❔ ???</span>`)).join("")}</div>
+    <div class="bq-note">${all.map(([f, k]) => (note[f] ? `<span class="bq-tag ${k}">${ic(f, "sm")} ${esc(f)} ${MARK[k]}</span>` : `<span class="bq-tag lock">❔ ???</span>`)).join("")}</div>
     <p class="hint">로비의 🍽️ 연회장에서 대접하면 기록돼요.</p></details>`;
 };
 
