@@ -1,8 +1,8 @@
 /* =========================================================
-   💝 애장품 (게임 파일에서 뽑은 그림 70장 — assets/keepsakes/<n>.webp)
-   - 사도 호감도 레벨이 오를 때마다 아직 없는 애장품 하나를 받음
-     (주인 사도(id)가 정해진 애장품은 그 사도가 호감도 Lv5 가 되면 그걸 먼저)
-   - 이름은 그림을 보고 붙인 것. id(주인 사도)는 알게 되면 채우기
+   💝 애장품 — 게임처럼 사도 호감도 Lv.30이 되면 그 사도의 애장품과 💌 편지가 도착
+   - 이름·설명·편지: 「사도정리」 문서 (assets/data/sado-notes.json, js/kyoju-note.js 가 불러옴)
+   - 그림: assets/keepsakes/<n>.webp (게임 파일에서 뽑은 70장 중 주인을 알아낸 것), 없으면 사도 얼굴
+   - KEEPSAKES 는 예전(5레벨마다 무작위로 주던 시절)에 받은 소품을 보여 줄 때만 씀
    ========================================================= */
 const KEEPSAKES = [
   ["000", "보석 박힌 마법서"], ["001", "편지 묶음"], ["002", "빵 그림 티켓"], ["003", "오두막 스노우볼"], ["004", "수저 틀"],
@@ -25,49 +25,46 @@ const KEEPSAKES = [
 "use strict";
 const TS = window.TS;
 if (!TS) return;
-const S = () => TS.state;
-const src = (k) => `assets/keepsakes/${k.n}.webp`;
-const owned = () => { if (!Array.isArray(S().keeps)) S().keeps = []; return S().keeps; };
-const has = (n) => owned().includes(n);
+const S = () => TS.state, esc = TS.esc;
+const PREVIEW = new URLSearchParams(location.search).has("preview");
+const old = () => (Array.isArray(S().keeps) ? S().keeps : []);
 const KMAP = new Map(KEEPSAKES.map((k) => [k.n, k]));
 const affLv = (id) => (TS.affLevel ? TS.affLevel(id) : 1);
+const has = (id) => PREVIEW || (S().owned[id] && affLv(id) >= 30);
 
-/* 호감도 레벨업 → 애장품 하나 (주인 사도 것이 있고 Lv5 이상이면 그걸 먼저) */
-function grant(id, lv) {
-  const mine = KEEPSAKES.find((k) => k.id === id && !has(k.n));
-  let k = mine && lv >= 30 ? mine : null; // 게임처럼 친밀 30에 그 사도의 애장품
-  if (!k) { const pool = KEEPSAKES.filter((x) => !has(x.n) && !x.id); if (!pool.length) return null; k = pool[Math.floor(Math.random() * pool.length)]; }
-  owned().push(k.n); TS.save && TS.save();
-  return k;
-}
-TS.keepsakeGrant = grant;
-TS.keepsakeHTML = (k) => `<div class="ks-got"><img src="${src(k)}" alt=""><div><b>💝 애장품을 받았어요!</b><span>${TS.esc(k.name)}</span></div></div>`;
+TS.keepsakeGrant = () => null; // 이제 애장품은 Lv.30에만 (kyoju-note.js 의 noteLevelHTML)
 
-/* 사도 상세 창: 그 사도의 애장품 (주인이 정해진 것만) */
-TS.detailHooks.push((c) => {
-  const k = KEEPSAKES.find((x) => x.id === c.id); if (!k) return "";
-  const open = has(k.n);
-  return `<div class="ks-slot ${open ? "" : "lock"}"><img src="${src(k)}" alt=""><div><b>💝 애장품</b><span>${open ? TS.esc(k.name) : "호감도 Lv5에 열려요"}</span></div></div>`;
-});
-
-/* 모음 창 */
 function openBook() {
-  const n = owned().length;
-  TS.modal(`<h2>💝 애장품 모음 <small>${n} / ${KEEPSAKES.length}</small></h2>
-    <p class="hint">사도의 <b>호감도 레벨이 오를 때마다</b> 애장품을 하나씩 받아요. 집중·선물·볼 찌르기로 호감도를 올려 보세요!</p>
-    <div class="ks-grid">${KEEPSAKES.map((k) => {
-      const o = has(k.n), who = k.id && TS.SADO_MAP[k.id];
-      return `<div class="ks-it ${o ? "" : "lock"}" title="${o ? TS.esc(k.name) : "아직 못 받은 애장품"}"><img src="${src(k)}" alt="" loading="lazy"><span>${o ? TS.esc(k.name) : "?"}${o && who ? `<em>${TS.esc(who.name)}</em>` : ""}</span></div>`;
-    }).join("")}</div>
-    <div class="modal-actions"><button class="btn yellow" data-close>닫기</button></div>`);
+  TS.sadoNotes().then((D) => {
+    if (!D) { TS.toast("애장품 목록을 불러오지 못했어요. 잠시 뒤 다시 눌러 주세요."); return; }
+    const ids = Object.keys(D).filter((id) => D[id].ks && TS.SADO_MAP[id]);
+    ids.sort((a, b) => (has(b) - has(a)) || (affLv(b) - affLv(a)) || TS.SADO_MAP[a].name.localeCompare(TS.SADO_MAP[b].name));
+    const n = ids.filter(has).length, mine = old();
+    TS.modal(`<h2>💝 애장품 모음 <small>${n} / ${ids.length}</small></h2>
+      <p class="hint">게임처럼 사도의 <b>호감도가 Lv.30</b>이 되면 그 사도의 애장품과 💌 편지가 도착해요. 받은 애장품을 누르면 편지를 다시 읽을 수 있어요.</p>
+      <div class="ks-grid">${ids.map((id) => {
+        const d = D[id], c = TS.SADO_MAP[id], o = has(id);
+        return `<button class="ks-it ${o ? "" : "lock"} ${d.ks.img ? "" : "face"}" ${o ? `data-letter="${id}"` : ""} title="${o ? esc(d.ks.name) : `${esc(c.name)} · 호감도 Lv.30에 도착`}">
+          <img src="${TS.keepsakeSrc(id, d)}" alt="" loading="lazy"><span>${o ? esc(d.ks.name) : "?"}<em>${esc(c.name)}${o ? "" : ` · Lv.${affLv(id)}`}</em></span></button>`;
+      }).join("")}</div>
+      ${mine.length ? `<details class="aff-book"><summary>🎁 예전에 받은 소품 <b>${mine.length}</b></summary><div class="ks-grid small">${mine.map((k) => KMAP.get(k)).filter(Boolean).map((k) =>
+        `<div class="ks-it"><img src="assets/keepsakes/${k.n}.webp" alt="" loading="lazy"><span>${esc(k.name)}</span></div>`).join("")}</div></details>` : ""}
+      <div class="modal-actions"><button class="btn yellow" data-close>닫기</button></div>`, null, { cls: "ks-modal" });
+  });
 }
 TS.openKeepsakes = openBook;
 function addButton() {
   const seg = document.getElementById("sado-seg"); if (!seg || document.getElementById("ks-btn")) return;
   const b = document.createElement("button"); b.id = "ks-btn"; b.type = "button"; b.className = "ks-btn";
   seg.appendChild(b); b.onclick = (e) => { e.stopPropagation(); openBook(); };
-  const upd = () => { b.textContent = `💝 애장품 ${owned().length}/${KEEPSAKES.length}`; };
+  const upd = () => {
+    const D = TS.sadoNotesData && TS.sadoNotesData();
+    if (!D) { b.textContent = "💝 애장품"; return; }
+    const ids = Object.keys(D).filter((id) => D[id].ks && TS.SADO_MAP[id]);
+    b.textContent = `💝 애장품 ${ids.filter(has).length}/${ids.length}`;
+  };
   upd(); TS.on && TS.on("refresh", upd);
+  TS.sadoNotes && TS.sadoNotes().then(upd);
 }
 if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", addButton); else addButton();
 })();
