@@ -105,7 +105,7 @@ function addBtn() {
   const b = document.createElement("button");
   b.id = "bq-btn"; b.type = "button"; b.className = "btn white small"; b.textContent = "🍽️ 연회장";
   g.insertAdjacentElement("afterend", b); b.onclick = open;
-  const upd = () => { b.textContent = `🍽️ 연회장 ${tk().n}`; };
+  const upd = () => { const n = tk().n; b.textContent = n ? `🍽️ 연회장 ${n}` : "🍽️ 연회장"; };
   upd(); TS.on("refresh", upd);
 }
 if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", addBtn); else addBtn();

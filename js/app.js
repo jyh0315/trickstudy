@@ -943,6 +943,33 @@ function renderSado() {
       <span class="nm">${esc(c.name)}</span></button>`;
   }).join("");
 }
+/* 사도 상세 창: 붙는 칸이 많아서 탭으로 나눔 (💗 성장 · 📒 교주노트 · 🗣️ 대사), 마지막에 본 탭 기억 */
+let dtTab = "grow";
+const DT_TABS = [["grow", "💗 성장"], ["note", "📒 교주노트"], ["line", "🗣️ 대사"]];
+function dtTabOf(n) {
+  if (n.matches(".kn-wrap")) return "note";
+  if (n.matches(".tb-book, .tk-book, .as-book, .aff-book")) return "line";
+  return "grow";
+}
+function tabifyDetail(el) {
+  const box = el.querySelector(".dt-hooks"); if (!box) return;
+  const panes = {};
+  DT_TABS.forEach(([k]) => { const d = document.createElement("div"); d.className = "dt-pane"; d.dataset.pane = k; panes[k] = d; });
+  [...box.children].forEach((n) => panes[dtTabOf(n)].appendChild(n));
+  const used = DT_TABS.filter(([k]) => panes[k].children.length);
+  if (!used.some(([k]) => k === dtTab)) dtTab = used.length ? used[0][0] : "grow";
+  const bar = document.createElement("div");
+  bar.className = "seg small dt-tabs";
+  bar.innerHTML = used.map(([k, l]) => `<button type="button" data-dt="${k}">${l}</button>`).join("");
+  box.append(...(used.length > 1 ? [bar] : []), ...used.map(([k]) => panes[k]));
+  const show = () => {
+    bar.querySelectorAll("[data-dt]").forEach((b) => b.classList.toggle("on", b.dataset.dt === dtTab));
+    used.forEach(([k]) => panes[k].classList.toggle("hidden", used.length > 1 && k !== dtTab));
+  };
+  bar.onclick = (e) => { const b = e.target.closest("[data-dt]"); if (b) { dtTab = b.dataset.dt; show(); } };
+  show();
+}
+
 function sadoDetail(id) {
   const c = SADO_MAP[id], o = state.owned[id];
   const cost = CONFIG.exchangeCost[c.rarity];
@@ -962,7 +989,7 @@ function sadoDetail(id) {
     <p style="margin:4px 0;color:var(--ink-soft)">${esc(c.en)} · ${o ? esc(titleOf(c)) : "아직 만나지 못한 사도예요."}</p>
     ${o ? `<p>“${esc(fmt(rand(linesOf(c, "idle")), c))}”</p>` : ""}
     ${emotes}
-    ${o ? detailHooks.map((fn) => fn(c)).join("") : ""}
+    ${o ? `<div class="dt-hooks">${detailHooks.map((fn) => fn(c)).join("")}</div>` : ""}
     <div class="modal-actions">
       ${o && state.partner !== id ? '<button class="btn yellow" id="m-partner">💛 대표 사도로 설정</button>' : ""}
       ${o && state.partner === id ? '<span class="tag" style="background:var(--yellow);font-size:15px;padding:6px 14px">💛 지금 대표 사도</span>' : ""}
@@ -971,6 +998,7 @@ function sadoDetail(id) {
     </div>
     ${!o ? `<p class="hint">별사탕 ${state.candy} / ${cost}</p>` : ""}`,
     (el, close) => {
+      tabifyDetail(el);
       const p = el.querySelector("#m-partner");
       if (p) p.onclick = () => { state.partner = id; save(); renderPartner(); emit("partner", id); sayKind("partner"); close(); refresh(); };
       el.querySelectorAll("[data-emo]").forEach((b) => (b.onclick = () => {

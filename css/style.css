@@ -2818,3 +2818,16 @@ button.ks-it[data-letter]:hover { transform: translateY(-2px); background: #fff5
 .ph-opts { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
 .ph-chip { display: inline-flex; align-items: center; font-size: 12.5px; padding: 4px 10px; border-radius: 99px; background: #fff; border: 2px solid var(--ink); }
 .ph-chip.ok { background: #e6f7df; }
+
+/* ───── 정리: 사도 상세 탭 · 로비 버튼 격자 ───── */
+.dt-tabs { display: flex; justify-content: center; margin: 12px 0 4px; }
+.dt-tabs button { flex: 1; }
+.dt-pane > :first-child { margin-top: 8px; }
+.stage-btns { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; width: 100%; max-width: 320px; margin: 0 auto; }
+.stage-btns > .btn { grid-column: span 2; width: 100%; min-width: 0; padding-left: 4px; padding-right: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 13px; }
+.stage-btns > #pip-btn, .stage-btns > #ss-btn2 { grid-column: span 3; }
+#gift-btn { order: 1; } #bq-btn { order: 2; } #date-btn { order: 3; } #talk-btn { order: 4; } #pet-btn { order: 5; } #emo-btn { order: 6; } #pip-btn { order: 7; } #ss-btn2 { order: 8; }
+.stage-btns > .ph-chip { order: 0; grid-column: 1 / -1; justify-self: center; font-size: 12px; padding: 2px 12px; }
+.stage-btns > :not(.btn):not(.ph-chip) { grid-column: 1 / -1; }
+.dt-tabs button { white-space: nowrap; min-width: 0; padding-left: 6px; padding-right: 6px; }
+@media (max-width: 480px) { .dt-tabs button { font-size: 13px; } }

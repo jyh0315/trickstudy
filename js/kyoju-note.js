@@ -34,7 +34,7 @@ const PROF = [["race", "종족"], ["pers", "성격"], ["like", "좋아하는 것
 function profHTML(d) {
   const p = d.prof || {}, rows = PROF.filter(([k]) => p[k] && p[k].length);
   if (!rows.length && !d.ep) return "";
-  return `<details class="aff-book kn-prof"><summary>📇 프로필 ${d.ep ? `<small>${esc(d.ep)}</small>` : ""}</summary>
+  return `<details class="aff-book kn-prof" open><summary>📇 프로필 ${d.ep ? `<small>${esc(d.ep)}</small>` : ""}</summary>
     <dl>${rows.map(([k, t]) => `<dt>${t}</dt><dd>${p[k].map(esc).join(" · ")}</dd>`).join("")}</dl></details>`;
 }
 function recHTML(d, L) {
