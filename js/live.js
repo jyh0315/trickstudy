@@ -308,8 +308,8 @@ function mount(container, id, opts = {}) {
 function cheekPull(ctrl) {
   const sk = ctrl.player.skeleton;
   const ball = sk.findBone("Character_Ball_Move");
-  const left = sk.bones.find((b) => /^(S\d+_)?(F_)?Ball_L$/.test(b.data.name));
-  const bones = [ball, left].filter(Boolean);
+  const sides = sk.bones.filter((b) => /^(S\d+_)?(F_)?Ball_[LR]$/.test(b.data.name)); // 왼볼·오른볼
+  const bones = [ball, ...sides].filter(Boolean);
   if (!bones.length || !ctrl.anims.includes("Touch_Idle")) return null;
   const pull = { bone: null, wx: 0, wy: 0, start: null, on: false };
   const orig = sk.updateWorldTransform.bind(sk);
@@ -327,9 +327,19 @@ function cheekPull(ctrl) {
     orig(...a);
     pull.bone.x -= dx; pull.bone.y -= dy;
   };
+  // 이야기 무대 왼쪽 사도처럼 CSS 로 좌우를 뒤집어(거울) 그린 경우: 누른 위치도 거울로 바꿔서 계산
+  //  (안 그러면 볼 반대쪽을 눌러야 잡히고, 끄는 방향도 반대로 늘어남)
+  const mirrored = () => {
+    for (let el = ctrl.player.canvas; el && el !== document.body; el = el.parentElement) {
+      const t = getComputedStyle(el).transform;
+      if (t && t !== "none") { const m = t.match(/matrix\(([^,]+)/); if (m && parseFloat(m[1]) < 0) return true; }
+    }
+    return false;
+  };
   const toWorld = (cx, cy) => {
     const p = ctrl.player, r = p.canvas.getBoundingClientRect();
-    const v = p.sceneRenderer.camera.screenToWorld(new spine.Vector3(cx - r.left, cy - r.top, 0), r.width, r.height);
+    const x = mirrored() ? r.right - cx : cx - r.left;
+    const v = p.sceneRenderer.camera.screenToWorld(new spine.Vector3(x, cy - r.top, 0), r.width, r.height);
     return { x: v.x, y: v.y };
   };
   const st = () => ctrl.player.animationState;

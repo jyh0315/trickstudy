@@ -2734,3 +2734,32 @@ a.icon-btn { text-decoration: none; display: inline-grid; place-items: center; }
 #story.cg-talk .sp-cg { z-index: 2; background: rgba(20,14,10,.25); }
 #story .sp-cg img, #story .sp-cg video { transition: transform .5s cubic-bezier(.3,1.2,.5,1), max-width .5s, max-height .5s, margin .5s, opacity .25s; }
 #story.cg-talk .sp-cg img, #story.cg-talk .sp-cg video { max-width: 52%; max-height: 46%; margin-bottom: 300px; transform: rotate(-1.5deg); }
+
+/* ───── 🎬 이야기 무대 연출 ───── */
+/* 등장·퇴장: 서는 자리 쪽 화면 끝에서 걸어 들어오고, 가까운 쪽으로 걸어 나감 */
+.sp-actor { transform: translate(var(--fx, 0px), 40px); }
+.sp-actor.out { transform: translate(var(--fx, 0px), 40px); }
+.sp-actor.in { transform: none; }
+/* 말하는 사도: 맨 앞 + 살짝 앞으로 나옴 */
+.sp-actor.speak { z-index: 1; }
+.sp-actor.in.speak { transform: translateY(-8px) scale(1.025); }
+/* 외침: 카메라가 말하는 쪽으로 '쿵' */
+#story.punch .sp-stage, #story.punch .sp-bg { animation: spPunch .42s cubic-bezier(.2,1.4,.4,1); transform-origin: var(--px, 50%) 42%; }
+@keyframes spPunch { 35% { transform: scale(1.045); } 100% { transform: none; } }
+/* CG: 천천히 다가가는 카메라 (켄 번스) */
+#story .sp-cg.on img { animation: spKen 14s ease-in-out infinite alternate; }
+@keyframes spKen { from { scale: 1; } to { scale: 1.06; } }
+/* 사도 머리 위 글자: 콩! · 💗+1 */
+.sp-pop { position: absolute; left: 50%; top: 14%; translate: -50% 0; z-index: 4; pointer-events: none; font: 900 34px/1 var(--font-title); color: #fff; -webkit-text-stroke: 2px #4a3424; paint-order: stroke fill; animation: spPop 1.2s cubic-bezier(.3,1.5,.5,1) forwards; }
+.sp-pop.love { color: #ff6fa0; font-size: 30px; top: 22%; }
+@keyframes spPop { 0% { opacity: 0; transform: scale(.4) rotate(-12deg); } 25% { opacity: 1; transform: scale(1.15) rotate(4deg); } 40% { transform: scale(1); } 80% { opacity: 1; } 100% { opacity: 0; transform: translateY(-40px); } }
+/* 선택지 아이콘 */
+.sp-choice button .sp-ci { font-style: normal; margin-right: 10px; }
+/* 만지는 법 안내 */
+.sp-tip { position: absolute; left: 22px; top: 86px; z-index: 6; display: flex; flex-direction: column; gap: 4px; padding: 14px 18px; max-width: 420px; background: rgba(255,253,246,.96); color: #4a3424; border: 3px solid #4a3424; border-radius: 18px; box-shadow: 0 5px 0 #4a3424; font: 700 15px/1.4 var(--font-body); pointer-events: none; animation: modalin .4s cubic-bezier(.3,1.5,.6,1); transition: opacity .6s, transform .6s; }
+.sp-tip b { font-family: var(--font-title); font-weight: normal; font-size: 19px; color: #e0577f; }
+.sp-tip.bye { opacity: 0; transform: translateY(-10px); }
+@media (prefers-reduced-motion: reduce) { #story.punch .sp-stage, #story.punch .sp-bg, #story .sp-cg.on img { animation: none; } }
+.sp-actor { transition: left .45s ease, filter .25s, opacity .4s, transform .55s cubic-bezier(.2,1.15,.4,1); }
+.sp-actor.talk { animation: spTalkB .35s ease-out; }
+@keyframes spTalkB { 40% { translate: -50% -10px; } }
