@@ -329,7 +329,10 @@ function play(epId, opts) {
   </div>`;
   document.body.appendChild(root);
   document.body.classList.add("story-open");
-  P = { ep: { ...ep, lines: ep.noAuto ? ep.lines.slice() : enrich(ep.lines) }, root, i: -1, actors: {}, seq: 0, typing: null, auto: false, autoT: 0, log: [], wait: false, done: false, opts: opts || {}, picks: [], touchKind: "" };
+  // 테마극장은 교주가 나오지 않는 이야기라 선택지(직접 넣은 것·자동으로 붙는 것 모두) 없이 진행
+  const isTT = ep.tt != null || /^tt/.test(String(ep.id));
+  const lines0 = ep.noAuto ? ep.lines.slice() : enrich(ep.lines);
+  P = { ep: { ...ep, lines: isTT ? lines0.filter((l) => !l.choice) : lines0 }, root, i: -1, actors: {}, seq: 0, typing: null, auto: false, autoT: 0, log: [], wait: false, done: false, opts: opts || {}, picks: [], touchKind: "" };
   if (P.opts.date) root.classList.add("sp-date");
   if (window.BGM && window.BGM.pauseFor) window.BGM.pauseFor("story");
   if (ep.bgm && S().settings.sound !== false) setMusic(ep.bgm);
