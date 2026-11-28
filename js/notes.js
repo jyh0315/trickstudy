@@ -109,7 +109,7 @@
     if (await saveBlob(await NS.bundleFile(), `트릭스터디 노트 전체 ${stamp}.tnotes`, ".tnotes", "트릭스터디 노트 묶음")) { NS.markFull(); TS.toast("⬇️ 노트 전체를 한 파일로 저장했어요"); renderBackup(); }
   }
   async function importOne(n, imgs) {
-    for (const [k, url] of Object.entries(imgs || {})) { if (!n.data || !JSON.stringify(n.data.strokes || []).includes(k)) continue; const b = await (await fetch(url)).blob(); await putImg(k, b); }
+    for (const [k, url] of Object.entries(imgs || {})) { if (!imgIds(n).includes(k)) continue; const b = await (await fetch(url)).blob(); await putImg(k, b); }
     const old = await getNote(n.id);
     if (old && old.updated >= (n.updated || 0)) { if (JSON.stringify(old.data) === JSON.stringify(n.data)) return 0; n.id = newId(); n.title = (n.title || "노트") + " (불러옴)"; } // 같은 노트면 건너뜀, 다르면 사본
     await putNote(n); return 1;
@@ -124,6 +124,23 @@
       TS.toast(n ? `📂 노트 ${n}개를 불러왔어요` : "📂 이미 같은 노트가 있어요");
       listSig = ""; loadList();
     } catch (e) { TS.toast("불러오기 실패: " + (e.message || e)); }
+  }
+
+  /* ───── PDF 로 새 노트 (쪽마다 배경 그림, 한 장씩 넘기기) ───── */
+  async function pdfNote(file) {
+    const b = $("nt-pdf"); if (b.disabled) return;
+    const label = b.textContent; b.disabled = true; b.textContent = "📄 여는 중…";
+    try {
+      const pgs = await NS.pdfPages(file, (i, t) => { b.textContent = `📄 ${i}/${t}쪽 바꾸는 중…`; });
+      if (!pgs.length) return TS.toast("PDF 에 쪽이 없어요");
+      const name = file.name.replace(/\.pdf$/i, "");
+      const n = { id: newId(), title: name.slice(0, 40) || "PDF 노트", paper: "blank", mode: "page", created: Date.now(), updated: Date.now(),
+        pages: pgs.map((g) => ({ bg: g.id, pdf: name })), data: { strokes: [], meta: {}, nextId: 1, heads: [] } };
+      await putNote(n);
+      if (pgs.length >= NS.PDF_MAX) TS.toast(`앞 ${NS.PDF_MAX}쪽까지만 넣었어요`);
+      location.href = "note.html?id=" + encodeURIComponent(n.id);
+    } catch (e) { TS.toast("PDF 를 못 열었어요: " + (e.message || e)); }
+    finally { b.disabled = false; b.textContent = label; }
   }
 
   /* ───── 새 노트 ───── */
@@ -245,7 +262,9 @@
           <p class="hint" style="margin-top:0">스타일러스로 A4 노트에 필기하면 AI가 글씨를 읽어 <b>정리본</b>으로 바꾸고, 글과 그림을 덩어리로 나눠 <b>자동 배치·정리</b>해 줘요.</p>
           <div class="nt-actions">
             <button class="btn pink big" id="nt-new">＋ 새 노트</button>
+            <button class="btn" id="nt-pdf" title="PDF 쪽마다 노트 배경이 되고, 그 위에 필기해요">📄 PDF로 노트 만들기</button>
             <button class="btn" id="nt-import">📂 노트 파일 불러오기</button>
+            <input type="file" id="nt-pdf-in" accept="application/pdf,.pdf" hidden>
             <a class="btn yellow" href="record.html" style="text-decoration:none" title="활동을 7가지 형식으로 정리하고 AI 로 생기부 문장 만들기">📋 생기부 마스터</a>
             <input type="file" id="nt-file" accept=".tnote,.tnotes,application/json" multiple hidden>
           </div>
@@ -255,6 +274,8 @@
         <div class="card" id="nt-ai-card"></div>`;
       $("nt-new").onclick = newNoteModal;
       $("nt-import").onclick = () => $("nt-file").click();
+      $("nt-pdf").onclick = () => $("nt-pdf-in").click();
+      $("nt-pdf-in").onchange = async (e) => { const f = e.target.files[0]; e.target.value = ""; if (f) await pdfNote(f); };
       $("nt-file").onchange = async (e) => { for (const f of e.target.files) await importFile(f); e.target.value = ""; };
       const card = $("nt-ai-card"); card.innerHTML = aiHTML(); bindAI(card);
       renderBackup(true); render.t = Date.now();

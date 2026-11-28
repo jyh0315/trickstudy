@@ -31,7 +31,7 @@
     getImg: (id) => tx("img", "readonly", (s) => s.get(id)),
     putImg: (id, blob) => tx("img", "readwrite", (s) => s.put(blob, id)),
     delImg: (id) => tx("img", "readwrite", (s) => s.delete(id)),
-    imgIds: (n) => [...new Set([...((n.data && n.data.strokes) || []).filter((s) => s.img).map((s) => s.img), ...(n.coverImg && n.coverImg.startsWith("img:") ? [n.coverImg.slice(4)] : [])])],
+    imgIds: (n) => [...new Set([...((n.data && n.data.strokes) || []).filter((s) => s.img).map((s) => s.img), ...(n.coverImg && n.coverImg.startsWith("img:") ? [n.coverImg.slice(4)] : []), ...(n.pages || []).filter((p) => p && p.bg).map((p) => p.bg)])],
   };
 
   /* ───── 노트 파일 ───── */
@@ -128,6 +128,38 @@
       for (let i = 0; i < 20; i++) { if (await NS.lock.open(id, onLost)) return true; await new Promise((r) => setTimeout(r, 250)); }
       return false;
     },
+  };
+  /* ───── PDF → 노트 쪽 배경 (pdf.js 를 쓸 때만 불러옴) ─────
+     pdfPages(file, onProg) → [{ id, w, h }] : 쪽마다 그림으로 바꿔 img 저장소에 넣음 */
+  const PDFJS = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/";
+  let pdfP = null;
+  const pdfLib = () => pdfP || (pdfP = new Promise((ok, no) => {
+    if (window.pdfjsLib) return ok(window.pdfjsLib);
+    const s = document.createElement("script"); s.src = PDFJS + "pdf.min.js";
+    s.onload = () => { window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS + "pdf.worker.min.js"; ok(window.pdfjsLib); };
+    s.onerror = () => { pdfP = null; no(new Error("PDF 읽기 도구를 불러오지 못했어요 (인터넷 연결 확인)")); };
+    document.head.appendChild(s);
+  }));
+  NS.PDF_MAX = 150;
+  NS.pdfPages = async (file, onProg) => {
+    const lib = await pdfLib();
+    const doc = await lib.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
+    const total = Math.min(doc.numPages, NS.PDF_MAX), out = [];
+    for (let i = 1; i <= total; i++) {
+      const pg = await doc.getPage(i), v0 = pg.getViewport({ scale: 1 });
+      const k = Math.min(3, 1600 / Math.max(v0.width, v0.height)); // 긴 변 1600px — 글씨가 또렷하면서 저장 공간은 아끼게
+      const vp = pg.getViewport({ scale: k }), c = document.createElement("canvas");
+      c.width = Math.round(vp.width); c.height = Math.round(vp.height);
+      const ctx = c.getContext("2d"); ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, c.width, c.height);
+      await pg.render({ canvasContext: ctx, viewport: vp }).promise;
+      const blob = await new Promise((r) => c.toBlob(r, "image/jpeg", 0.86));
+      const id = "pdf" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+      await NS.putImg(id, blob); out.push({ id, w: c.width, h: c.height });
+      pg.cleanup(); c.width = c.height = 0;
+      if (onProg) onProg(i, total, doc.numPages);
+    }
+    doc.destroy();
+    return out;
   };
   window.NoteStore = NS;
 })();

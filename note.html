@@ -10,7 +10,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Jua&family=Gowun+Dodum&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
-<script src="js/note-store.js"></script>
+<script src="js/note-store.js?v=14.03"></script>
 <script src="js/sado.js"></script>
 <script src="js/spine-data.js"></script>
 <style>
@@ -290,6 +290,7 @@ mark.uns { background: #ffe08a; border-bottom: 2px dotted #d8483b; color: inheri
   <button class="btn" id="shapeBtn" title="필기 도우미: 말풍선·화살표·흰 사각형·메모지·표시 (형광은 🖍 형광펜 도구로)">📐 도형</button>
   <button class="btn" id="stickerBtn" title="사도 스티커 붙이기 (꼬마 그림·표정·움직이는 모습 찰칵)">🧸 사도</button>
   <button class="btn" id="photoBtn" title="사진 올리기 (붙여넣기 Ctrl+V, 끌어다 놓기도 돼요)">🖼 사진</button><input type="file" id="photoIn" accept="image/*" multiple hidden>
+  <button class="btn" id="pdfInBtn" title="PDF 올리기 — 쪽마다 노트 배경이 되고 그 위에 필기해요 (끌어다 놓기도 돼요)">📄 PDF 넣기</button><input type="file" id="pdfIn" accept="application/pdf,.pdf" hidden>
   <button class="btn" id="aiBtn" title="Claude·ChatGPT 가 빠진 내용·예시·문제를 노트 중간중간에 끼워 넣게 하기">🤖 AI 보충</button>
   <button class="btn mint" id="layoutBtn" title="덩어리들을 읽는 순서대로 가지런히 (AI 안 씀)">✨ 배치</button>
   <button class="btn sky" id="tidyBtn" title="Gemini 가 내용 흐름을 보고 순서·소제목을 정해서 배치">🤖 AI 정리</button>
@@ -2074,6 +2075,8 @@ function renderSide() {
 const paper = $("paper");
 function contentBottom() { let m = 0; for (const s of strokes) for (const q of s.pts) if (q.y > m) m = q.y; for (const h of heads) m = Math.max(m, h.y + 10); return m; }
 // 장 수: 내용이 있는 마지막 장 + (무한 모드면 늘 빈 장 하나 더)
+const pageBgId = (i) => (note && note.pages[i] && note.pages[i].bg) || "";
+const lastBgPage = () => { let m = -1; if (note) note.pages.forEach((p2, i) => { if (p2 && p2.bg) m = i; }); return m; };
 function pageCount() { return Math.max(1, Math.ceil((contentBottom() + 1) / PAGE_H), page + 1, (note && note.pages.length) || 0); }
 function fitPaper() { // 종이 칸이 화면 아래 끝까지 차게
   const top = paper.getBoundingClientRect().top;
@@ -2098,7 +2101,13 @@ function fitBoard(force) {
 }
 // 종이 무늬 (줄·격자·무지) + 장 경계 — PDF 에도 그대로 씀
 function paperMarkup(i, kind) {
-  const y = i * PAGE_H; let h = `<rect class="pageBg" x="0" y="${y}" width="${PAGE_W}" height="${PAGE_H}" style="fill:${$("bgSel").value}"/>`;
+  const y = i * PAGE_H, bg = pageBgId(i);
+  if (bg) { // PDF 쪽: 흰 종이 + 그 쪽 그림 (줄·격자 없음)
+    const o = imgCache.get(bg);
+    if (!o) loadImg(bg).then((r) => { if (r) fitBoard(true); });
+    return `<rect class="pageBg" x="0" y="${y}" width="${PAGE_W}" height="${PAGE_H}" style="fill:#fff"/>${o ? `<image href="${o.url}" x="0" y="${y}" width="${PAGE_W}" height="${PAGE_H}" preserveAspectRatio="xMidYMid meet"/>` : ""}`;
+  }
+  let h = `<rect class="pageBg" x="0" y="${y}" width="${PAGE_W}" height="${PAGE_H}" style="fill:${$("bgSel").value}"/>`;
   if (kind === "lined") { for (let ly = 80; ly < PAGE_H - 30; ly += LINE) h += `<line class="ruled" x1="0" x2="${PAGE_W}" y1="${y + ly}" y2="${y + ly}"/>`; }
   if (kind === "grid") { for (let gx = 20; gx < PAGE_W; gx += 20) h += `<line class="gridL" x1="${gx}" x2="${gx}" y1="${y}" y2="${y + PAGE_H}"/>`; for (let gy = 20; gy < PAGE_H; gy += 20) h += `<line class="gridL" x1="0" x2="${PAGE_W}" y1="${y + gy}" y2="${y + gy}"/>`; }
   return h;
@@ -2626,6 +2635,33 @@ async function addPhoto(file, at, opt) {
     sel = st.lock; setTool("move"); toast(opt.sticker === "shape" ? "📐 붙였어요 — 노란 손잡이로 크기, 끌어서 위치를 바꿔요" : opt.sticker ? "🧸 사도 스티커를 붙였어요 — 노란 손잡이로 크기, 끌어서 위치를 바꿔요" : "🖼 사진을 넣었어요 — 노란 손잡이로 크기, 끌어서 위치를 바꿔요");
   } catch (e) { toast("사진을 못 넣었어요: " + (e.message || e)); }
 }
+/* PDF 올리기: 쪽마다 그림으로 바꿔 노트 쪽 배경으로. 빈 노트면 1쪽부터, 아니면 지금 마지막 쪽 뒤에 이어 붙임 */
+async function addPdf(file) {
+  if (!file || !(/pdf/.test(file.type) || /\.pdf$/i.test(file.name))) return toast("PDF 파일만 올릴 수 있어요");
+  const btn = $("pdfInBtn"); if (btn.disabled) return;
+  btn.disabled = true; const label = btn.textContent;
+  try {
+    btn.textContent = "📄 여는 중…";
+    const empty = !strokes.length && !heads.length && lastBgPage() < 0;
+    const start = empty ? 0 : pageCount();
+    const pgs = await NoteStore.pdfPages(file, (i, t) => { btn.textContent = `📄 ${i}/${t}`; });
+    if (!pgs.length) return toast("PDF 에 쪽이 없어요");
+    snapshot();
+    while (note.pages.length < start) note.pages.push({});
+    pgs.forEach((g, k) => { note.pages[start + k] = Object.assign(note.pages[start + k] || {}, { bg: g.id, pdf: file.name.replace(/\.pdf$/i, "") }); });
+    for (let k = 0; k < note.pages.length; k++) if (!note.pages[k]) note.pages[k] = {};
+    if (empty && (!$("title").value.trim() || /^(새 노트|제목 없는 노트)$/.test($("title").value.trim()))) $("title").value = file.name.replace(/\.pdf$/i, "").slice(0, 40);
+    await Promise.all(pgs.map((g) => loadImg(g.id)));
+    fitBoard(true); render(); save();
+    if (mode === "page") goPage(start); else paper.scrollTop = start * PAGE_H * Z;
+    const more = pgs.length < NoteStore.PDF_MAX ? "" : ` (앞 ${NoteStore.PDF_MAX}쪽까지만)`;
+    $("say").textContent = "📄 PDF 쪽 위에 바로 필기하면 돼요. ✨ 배치·🤖 AI 정리는 글씨를 옮기니 PDF 와 위치가 어긋날 수 있어요.";
+    toast(`📄 PDF ${pgs.length}쪽을 ${start + 1}쪽부터 넣었어요${more}`);
+  } catch (e) { toast("PDF 를 못 열었어요: " + (e.message || e)); }
+  finally { btn.disabled = false; btn.textContent = label; }
+}
+$("pdfInBtn").onclick = () => $("pdfIn").click();
+$("pdfIn").onchange = async (e) => { const f = e.target.files[0]; e.target.value = ""; if (f) await addPdf(f); };
 $("photoBtn").onclick = () => $("photoIn").click();
 $("photoIn").onchange = async (e) => { for (const f of e.target.files) await addPhoto(f); e.target.value = ""; };
 document.addEventListener("paste", async (e) => {
@@ -2637,7 +2673,7 @@ paper.addEventListener("dragover", (e) => { e.preventDefault(); });
 paper.addEventListener("drop", async (e) => {
   e.preventDefault();
   const r = svg.getBoundingClientRect(), at = { x: (e.clientX - r.left) / Z, y: (e.clientY - r.top) / Z + offY() };
-  for (const f of e.dataTransfer.files) { await addPhoto(f, at); at.x += 30; at.y += 30; }
+  for (const f of e.dataTransfer.files) { if (/pdf/.test(f.type) || /\.pdf$/i.test(f.name)) { await addPdf(f); continue; } await addPhoto(f, at); at.x += 30; at.y += 30; }
 });
 
 /* ───────── 도구 ───────── */
@@ -3106,7 +3142,7 @@ $("pdfBtn").onclick = async () => {
     const cov = await coverPick(bgSrc);
     if (!cov) return; // 취소
     view = "final"; render(true, true); // 완성본 모습으로 (PDF 는 모든 쪽)
-    const n = Math.max(1, Math.ceil((contentBottom() + 1) / PAGE_H)), kind = $("paperSel").value;
+    const n = Math.max(1, Math.ceil((contentBottom() + 1) / PAGE_H), lastBgPage() + 1), kind = $("paperSel").value;
     const world = $("world").cloneNode(true);
     world.querySelector("#gLive").remove(); world.querySelector("#gPages").innerHTML = ""; world.querySelectorAll("[id]").forEach((x) => x.removeAttribute("id"));
     const inner = world.innerHTML;
