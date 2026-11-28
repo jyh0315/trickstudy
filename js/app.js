@@ -155,7 +155,7 @@ const titleOf = (c) => (SPECIAL_LINES[c.id] && SPECIAL_LINES[c.id].title) || `${
 const stars = (r) => "★".repeat(r);
 
 /* ───── 이미지 ───── */
-const chibiSrc = (c) => (isPlain() ? plainAvatar(c) : `assets/chibi/${c.id}.webp?v=2`);
+const chibiSrc = (c) => (isPlain() ? plainAvatar(c) : `assets/chibi/${c.id}.webp?v=3`);
 const emoteSrc = (c, i = 1) => (isPlain() ? plainAvatar(c) : c.emote ? `assets/emotes/${c.id}/${i}.webp` : chibiSrc(c)); // ?v= : 이미지를 바꾸면 숫자를 올려서 브라우저 캐시 무시
 const emoteCount = (c) => (c.emote && state.owned[c.id] ? state.owned[c.id].emo || 1 : 0);
 function portrait(c, randomEmote = false) {
