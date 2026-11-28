@@ -20,8 +20,9 @@ const FOOD = {
   "송편": "🌙", "새콤비타F": "🍊", "얌얌비타C": "💊", "킹짱비타K": "👑", "부쉬 드 노엘": "🎄", "아몬드 로쉐": "🌰", "떡국": "🍲", "에심당 뽈사탕": "🍭",
 };
 const SPECIAL = Object.keys(FOOD).slice(0, 30);
-/* 음식 그림 (게임 연회장 그림, assets/food/<SPECIAL 순서 두 자리>.webp). 공통 간식 8가지는 그림이 없어서 이모지 */
-const ic = (f, cls = "") => { const i = SPECIAL.indexOf(f); return i >= 0 ? `<img class="bq-img ${cls}" src="assets/food/${String(i).padStart(2, "0")}.webp" alt="">` : `<span class="bq-emo ${cls}">${FOOD[f] || "🍽️"}</span>`; };
+/* 음식 그림 (게임 연회장 그림, assets/food/<FOOD 순서 두 자리>.webp: 0~29 특별 음식, 30~37 공통 간식) */
+const FOOD_ALL = Object.keys(FOOD);
+const ic = (f, cls = "") => { const i = FOOD_ALL.indexOf(f); return i >= 0 ? `<img class="bq-img ${cls}" src="assets/food/${String(i).padStart(2, "0")}.webp" alt="">` : `<span class="bq-emo ${cls}">${FOOD[f] || "🍽️"}</span>`; };
 const PTS = { like: 40, etc: 15, ok: 8, hate: 2 };
 const MARK = { like: "💗", hate: "💢", etc: "🙂", ok: "😐" };
 

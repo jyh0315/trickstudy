@@ -17,7 +17,7 @@ const storyLv = (k) => 1 + 4 * k; // 에피소드 1 = Lv.1, 2 = Lv.5, 3 = Lv.9 �
 let DATA = null, loading = null;
 function load() {
   if (DATA) return Promise.resolve(DATA);
-  return loading || (loading = fetch("assets/data/sado-notes.json?v=1").then((r) => r.json()).then((j) => (DATA = j))
+  return loading || (loading = fetch("assets/data/sado-notes.json?v=2").then((r) => r.json()).then((j) => (DATA = j))
     .catch(() => { loading = null; return null; }));
 }
 TS.sadoNotes = load;

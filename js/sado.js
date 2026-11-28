@@ -99,7 +99,7 @@ const SADO = [
   { id: "pira", name: "피라", en: "Pira", rarity: 3, pers: "mad" },
   { id: "polan", name: "폴랑", en: "Polan", rarity: 3, pers: "mad" },
   { id: "renewa", name: "리뉴아", en: "Renewa", rarity: 3, lim: true, pers: "mad" },
-  { id: "iris", name: "아이리스", en: "Iris", rarity: 3, pers: "pure" }, // 2026.11 신규 (엘프 · 후열 딜러)
+  { id: "iris", name: "아이리스", en: "Iris", rarity: 3, pers: "pure", emote: true }, // 2026.11 신규 (엘프 · 후열 딜러)
   { id: "rim-chaos", name: "림(혼돈)", en: "Rim (Chaos)", rarity: 3, pers: "mad" },
   { id: "rollett", name: "룰렛", en: "Rollett", rarity: 3, pers: "mad" },
   { id: "ronnie", name: "로니", en: "Ronnie", rarity: 3, pers: "mad" },
