@@ -526,7 +526,9 @@ function run(L) {
     }
     if (L.s && L.s !== "me" && !P.actors[L.s] && TS.SADO_MAP[L.s] && !P.skipping) enter(L.s, Object.keys(P.actors).length % 2 ? "R" : "L", L.f);
     // CG 가 떠 있는데 무대의 사도가 말하면: CG는 위쪽 액자로 작아지고 사도들이 앞에 나와 연기 (나레이션이면 다시 크게)
-    { const cgOn = !!P.root.querySelector(".sp-cg.on"); P.root.classList.toggle("cg-talk", cgOn && !!L.s && L.s !== "me" && !!P.actors[L.s]); }
+    { const cgOn = !!P.root.querySelector(".sp-cg.on"), actorTalk = cgOn && !!L.s && L.s !== "me" && !!P.actors[L.s];
+      if (actorTalk) P.cgSpeaks = (P.cgSpeaks || 0) + 1;
+      P.root.classList.toggle("cg-talk", actorTalk && P.cgSpeaks > 1); }
     // 말하는 사도는 밝게·살짝 앞으로, 나머지는 살짝 어둡게
     for (const [id, a] of Object.entries(P.actors)) { a.el.classList.toggle("dim", !!L.s && !me && id !== L.s); a.el.classList.toggle("speak", id === L.s); }
     if (L.s && L.s !== "me" && P.actors[L.s] && !P.skipping) { listeners(L); if (L.st === "shout") punch(P.actors[L.s]); }
@@ -667,6 +669,7 @@ function fromOf(id) {
   return { kind, ep: +ep, label: `${KIND_KO[kind]} Ep.${+ep}${e ? " · " + e.t : ""}` };
 }
 function showCg(src) {
+  P.cgSpeaks = 0; // 새 CG: 처음 한 줄은 크게 보여 주고, 그다음 대사부터 위쪽 액자로
   if (src && VID_OF[src]) src = VID_OF[src];
   let el = P.root.querySelector(".sp-cg");
   if (!el) { el = document.createElement("div"); el.className = "sp-cg"; P.root.querySelector(".sp-stage").after(el); }
